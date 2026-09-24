@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
@@ -70,6 +70,10 @@ export function FindingsTab({
   const handleGoToReview = useCallback((runId: string) => {
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
   }, []);
+
+  // Review → its run's usage (cost/tokens) for the verdict banner. Reuses the
+  // run list already fetched for the timeline — no extra request.
+  const runById = useMemo(() => new Map((prRuns ?? []).map((r) => [r.run_id, r])), [prRuns]);
 
   return (
     <section>
@@ -164,6 +168,7 @@ export function FindingsTab({
             headSha={headSha}
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
+            run={review.run_id ? runById.get(review.run_id) : undefined}
           />
         ))
       )}
