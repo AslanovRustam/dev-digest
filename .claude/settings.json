@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/skills/engineering-insights/scripts/stop-check.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}
