@@ -7,9 +7,9 @@ import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
-import { deriveReviewStatus, rollupSeverities } from './status.js';
-import { latestReviewCost } from './cost.js';
-import { latestReviewIdsByPr } from './findings.js';
+import { deriveReviewStatus } from './status.js';
+import { totalReviewCost } from './cost.js';
+import { openFindingsByPr } from './findings.js';
 
 /**
  * F1 — pulls module. PR import via Octokit (list + per-PR detail).
@@ -118,10 +118,10 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     // grouping is cheap.
     const prIds = rows.map((r) => r.id);
     const latestReviewByPr = new Map<string, { score: number | null }>();
-    let reviewRows: { id: string; prId: string; runId: string | null; score: number | null }[] = [];
+    let reviewRows: { id: string; prId: string; score: number | null }[] = [];
     if (prIds.length > 0) {
       reviewRows = await container.db
-        .select({ id: t.reviews.id, prId: t.reviews.prId, runId: t.reviews.runId, score: t.reviews.score })
+        .select({ id: t.reviews.id, prId: t.reviews.prId, score: t.reviews.score })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
@@ -131,44 +131,33 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // COST of the latest review batch per PR (L01). Same shape as the score
-    // block: one IN-query newest-first, folded by a pure helper.
+    // COST per PR (L01): the total of ALL its finished runs, folded by a pure helper.
     let costByPr = new Map<string, number | null>();
-    let reviewIdsByPr = new Map<string, string[]>();
     if (prIds.length > 0) {
       const runRows = await container.db
-        .select({
-          id: t.agentRuns.id,
-          prId: t.agentRuns.prId,
-          batchId: t.agentRuns.batchId,
-          status: t.agentRuns.status,
-          costUsd: t.agentRuns.costUsd,
-        })
+        .select({ prId: t.agentRuns.prId, status: t.agentRuns.status, costUsd: t.agentRuns.costUsd })
         .from(t.agentRuns)
-        .where(and(eq(t.agentRuns.workspaceId, workspaceId), inArray(t.agentRuns.prId, prIds)))
-        .orderBy(desc(t.agentRuns.ranAt));
-      costByPr = latestReviewCost(runRows);
-      reviewIdsByPr = latestReviewIdsByPr(reviewRows, runRows);
+        .where(and(eq(t.agentRuns.workspaceId, workspaceId), inArray(t.agentRuns.prId, prIds)));
+      costByPr = totalReviewCost(runRows);
     }
 
-    // FINDINGS per severity of that same latest batch (L01). Dismissed findings
-    // are left out — the column counts what is still open.
-    const findingsByPr = new Map<string, SeverityCounts>();
-    const scopedReviewIds = [...reviewIdsByPr.values()].flat();
-    if (scopedReviewIds.length > 0) {
+    // FINDINGS per severity (L01): open findings across ALL the PR's reviews —
+    // a clean re-run must not hide what an earlier run found. Dismissed are left out.
+    let findingsByPr = new Map<string, SeverityCounts>();
+    if (reviewRows.length > 0) {
       const findingRows = await container.db
         .select({ reviewId: t.findings.reviewId, severity: t.findings.severity })
         .from(t.findings)
-        .where(and(inArray(t.findings.reviewId, scopedReviewIds), isNull(t.findings.dismissedAt)));
-      const byReview = new Map<string, { severity: string }[]>();
-      for (const f of findingRows) {
-        const list = byReview.get(f.reviewId) ?? [];
-        list.push(f);
-        byReview.set(f.reviewId, list);
-      }
-      for (const [prId, ids] of reviewIdsByPr) {
-        findingsByPr.set(prId, rollupSeverities(ids.flatMap((id) => byReview.get(id) ?? [])));
-      }
+        .where(
+          and(
+            inArray(
+              t.findings.reviewId,
+              reviewRows.map((rv) => rv.id),
+            ),
+            isNull(t.findings.dismissedAt),
+          ),
+        );
+      findingsByPr = openFindingsByPr(reviewRows, findingRows);
     }
 
     const now = Date.now();
@@ -197,7 +186,6 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         score: review ? review.score : null,
         cost_usd: costByPr.get(r.id) ?? null,
         findings: findingsByPr.get(r.id) ?? null,
-        latest_review_ids: reviewIdsByPr.get(r.id) ?? null,
       };
     });
   });

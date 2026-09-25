@@ -117,7 +117,7 @@ export class ReviewService {
     // stream. The actual (slow) review runs in the background below.
     const runs: { run_id: string; agent_id: string; agent_name: string }[] = [];
     const jobs: { agent: AgentRow; runId: string }[] = [];
-    // One id for every run of this click — the PR list sums the latest batch.
+    // One id for every run of this click — groups a multi-agent review.
     const batchId = randomUUID();
     for (const agent of targets) {
       const runId = await this.repo.createAgentRun({

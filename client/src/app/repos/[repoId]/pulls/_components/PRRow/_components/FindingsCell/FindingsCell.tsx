@@ -1,7 +1,7 @@
-/* FindingsCell — the PR list's FINDINGS column: open findings of the latest
-   review batch per severity. Hovering previews them; the findings themselves are
-   fetched only when the card opens (GET /pulls/:id/reviews, narrowed to the
-   batch's `latest_review_ids`), so the list stays one request. */
+/* FindingsCell — the PR list's FINDINGS column: open findings across all the
+   PR's reviews, per severity (same scope as the PR page's counters). Hovering
+   previews them; the findings themselves are fetched only when the card opens
+   (GET /pulls/:id/reviews), so the list stays one request. */
 "use client";
 
 import React from "react";
@@ -21,9 +21,10 @@ export function FindingsCell({ pr, repoFullName }: { pr: PrMeta; repoFullName?: 
 
   const findings = React.useMemo(() => {
     if (!reviews) return [];
-    const scope = new Set(pr.latest_review_ids ?? []);
-    return sortForPreview(liveFindings(reviews.filter((r) => scope.has(r.id)).flatMap((r) => r.findings)));
-  }, [reviews, pr.latest_review_ids]);
+    // Same rows the server counted: `review`-kind reviews, dismissed left out.
+    const all = reviews.filter((r) => r.kind === "review").flatMap((r) => r.findings);
+    return sortForPreview(liveFindings(all));
+  }, [reviews]);
 
   // Never reviewed.
   if (!pr.findings) return <span style={s.muted}>—</span>;

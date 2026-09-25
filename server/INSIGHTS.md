@@ -30,6 +30,11 @@ _None yet._
   PR's newest review — why: seeded PR #482's review has `run_id = null` and there are no runs, so a strict batch
   join returns nothing and the FINDINGS column would read "—". The cost column has no such fallback (legacy → `null`).
   · ref: `src/modules/pulls/findings.ts`, `src/modules/pulls/routes.ts`
+- **2026-09-25** · Supersedes 2026-09-25: the PR list's COST and FINDINGS are PR totals over ALL runs and
+  reviews (`totalReviewCost`, `openFindingsByPr`); `latestReviewIdsByPr` and `PrMeta.latest_review_ids` are
+  gone. Don't reintroduce a "latest batch" scope for list columns — why: the user reads the list as "what this
+  PR has cost / what is still open", and a clean LLM re-run (same agent, same diff, `findings: []`, grounding
+  `0/0`) made earlier findings look deleted. Only SCORE stays latest-review. · ref: `src/modules/pulls/cost.ts`
 
 ## Tool & Library Notes
 

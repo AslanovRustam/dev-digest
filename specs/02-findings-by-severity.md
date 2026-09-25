@@ -22,7 +22,7 @@ preview of findings outside that section:
 |---|---|---|
 | PR detail, above the Review runs accordions | `3 CRITICAL · 5 WARNING · 2 SUGGESTION` + "Hide low confidence"; a click on a level filters every accordion to it | `SeverityFilterBar` |
 | Run timeline ("Agent runs" tab) | per-run severity counts (icon + number); hover → preview card; click → opens that run's accordion | `RunHistory` |
-| PR list: `FINDINGS` column, between SCORE and STATUS | severity counts of the latest review batch; hover → preview card | `PRRow` |
+| PR list: `FINDINGS` column, between SCORE and STATUS | open findings across all the PR's reviews, per severity; hover → preview card | `PRRow` |
 | Run trace drawer (`?trace=`): Findings section | per-severity counts in the header; the same counters as a filter local to the drawer; full `FindingCard`s with Accept/Dismiss | `FindingsSection` |
 
 **Preview card** (hover or keyboard focus): "N FINDINGS" header, then each finding with severity
@@ -41,12 +41,13 @@ by severity, then by confidence.
   counter bar, because the counters depend on it.
 - **Timeline and PR-list counts are open findings**: dismissed findings are excluded, the same rule
   as the accordion's blocker count.
-- **PR-list scope is the latest review batch**, the same scope as the COST column. It covers
-  every review whose `run_id` belongs to the batch of the PR's newest agent run. **Fallback:** if no
-  review in that batch has a `run_id` (legacy or seeded rows), the PR's newest review is used.
-  `findings: null` means the PR has never been reviewed.
+- **PR-list scope is all the PR's reviews**, the same scope as the COST column (the total of all
+  runs) and as the PR page's counters. A re-run that finds nothing must not hide what an earlier run
+  found. (Changed 2026-09-25: the first version counted only the latest batch, so a clean re-run showed
+  "No findings" although earlier findings were still open.) `findings: null` means the PR has never
+  been reviewed.
 - **The preview's findings load lazily.** The PR list fetches `GET /pulls/:id/reviews` only
-  when the card opens, and keeps the reviews listed in `latest_review_ids`.
+  when the card opens, and shows the open findings of its `review`-kind reviews.
 
 **Not in scope:** the Learn and Reply finding actions, which need their own server logic; per-agent
 or historical severity aggregation; multi-select filtering; severity-based sorting of the PR list.
@@ -59,18 +60,15 @@ Counts are computed on read from `findings.severity`. No per-severity columns ar
 
 ### Contract (both `shared` copies)
 
-`PrMeta` gains two fields, both nullish and returned by the list endpoint only:
-
-- `findings: { critical, warning, suggestion }`: open findings of the latest review batch.
-- `latest_review_ids: string[]`: which reviews those counts came from, so the preview can match them.
+`PrMeta` gains `findings: { critical, warning, suggestion }`: open findings across all the PR's
+reviews. It is nullish and returned by the list endpoint only.
 
 ### Server
 
-- `modules/pulls/findings.ts`: the pure `latestReviewIdsByPr(reviews, runs)`, newest-first input,
-  applying the batch rule and its fallback. It sits beside `cost.ts`.
-- `modules/pulls/routes.ts`: selects review `id` and `run_id` alongside the score. It adds one
-  IN-query for `findings {reviewId, severity}` with `dismissed_at IS NULL`, then folds the result
-  with the existing `rollupSeverities`.
+- `modules/pulls/findings.ts`: the pure `openFindingsByPr(reviews, findings)`, which groups findings
+  per PR with the existing `rollupSeverities`. It sits beside `cost.ts`.
+- `modules/pulls/routes.ts`: selects review `id` alongside the score, and adds one IN-query for
+  `findings {reviewId, severity}` with `dismissed_at IS NULL`.
 
 ### Client
 
@@ -90,10 +88,10 @@ Counts are computed on read from `findings.severity`. No per-severity columns ar
 
 ## Tests
 
-- **Server unit** (`test/pulls-findings.test.ts`): batch pick, legacy fallback, never-reviewed
-  PR, several PRs.
-- **Server integration** (`test/reviews.it.test.ts`): the list returns `findings` and
-  `latest_review_ids`, and a dismiss lowers the count.
+- **Server unit** (`test/pulls-findings.test.ts`): a clean re-run hides nothing, all-zero counts,
+  never-reviewed PR, several PRs.
+- **Server integration** (`test/reviews.it.test.ts`): the list returns `findings`, a second review
+  adds to them, and a dismiss lowers the count.
 - **Client**:
   - `lib/findings`, `HoverCard`, `FindingsPreviewList` + `SeverityTally`, `SeverityFilterBar`;
   - updated `FindingsPanel`, `RunHistory` and `PRRow` tests.

@@ -90,19 +90,19 @@ describe("PRRow — findings cell", () => {
 
   it("says 'No findings' when the latest review found nothing open", () => {
     usePrReviews.mockReturnValue({ data: undefined, isError: false });
-    renderRow({ ...PR, findings: { critical: 0, warning: 0, suggestion: 0 }, latest_review_ids: ["rv1"] });
+    renderRow({ ...PR, findings: { critical: 0, warning: 0, suggestion: 0 } });
     expect(screen.getByText("No findings")).toBeInTheDocument();
   });
 
   it("shows per-severity counts and fetches nothing until hovered", () => {
     usePrReviews.mockReturnValue({ data: undefined, isError: false });
-    renderRow({ ...PR, findings: { critical: 2, warning: 2, suggestion: 2 }, latest_review_ids: ["rv1"] });
+    renderRow({ ...PR, findings: { critical: 2, warning: 2, suggestion: 2 } });
     expect(screen.getByTestId("severity-tally")).toHaveAccessibleName("2 critical, 2 warning, 2 suggestion");
     expect(usePrReviews).toHaveBeenCalled();
     expect(usePrReviews.mock.calls.every(([, enabled]) => enabled === false)).toBe(true);
   });
 
-  it("on hover previews only the open findings of the latest batch, without navigating", () => {
+  it("on hover previews the open findings of every review, without navigating", () => {
     vi.useFakeTimers();
     usePrReviews.mockImplementation((_id: string, enabled: boolean) => ({
       data: enabled
@@ -111,22 +111,24 @@ describe("PRRow — findings cell", () => {
               finding({ title: "Hardcoded Stripe secret key in commit" }),
               finding({ title: "Dismissed one", dismissed_at: "2026-09-25T11:00:00Z" }),
             ]),
-            review("rv-old", [finding({ title: "From an older review" })]),
+            review("rv-old", [finding({ title: "From an older review", severity: "WARNING" })]),
+            { ...review("rv-sum", [finding({ title: "From a summary" })]), kind: "summary" as const },
           ]
         : undefined,
       isError: false,
     }));
-    renderRow({ ...PR, findings: { critical: 1, warning: 0, suggestion: 0 }, latest_review_ids: ["rv1"] });
+    renderRow({ ...PR, findings: { critical: 1, warning: 1, suggestion: 0 } });
 
     const tally = screen.getByTestId("severity-tally");
     fireEvent.mouseEnter(tally);
     act(() => void vi.advanceTimersByTime(200));
 
     const card = screen.getByRole("tooltip");
-    expect(card).toHaveTextContent("1 finding");
+    expect(card).toHaveTextContent("2 findings");
     expect(card).toHaveTextContent("Hardcoded Stripe secret key in commit");
+    expect(card).toHaveTextContent("From an older review");
     expect(card).not.toHaveTextContent("Dismissed one");
-    expect(card).not.toHaveTextContent("From an older review");
+    expect(card).not.toHaveTextContent("From a summary");
 
     fireEvent.click(tally);
     fireEvent.click(card);

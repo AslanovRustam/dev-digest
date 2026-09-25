@@ -1,47 +1,32 @@
 /**
  * PR-list COST rollup (pure — no DB, so it unit-tests cleanly).
  *
- * The list's COST column shows what the LATEST review cost: the sum over every
- * agent run started by one "Run Review" click (runs sharing a `batch_id`).
+ * The list's COST column shows what reviewing the PR has cost SO FAR: the sum
+ * over every finished agent run of the PR, across all "Run Review" clicks.
  * Unknown is not $0 — the result is `null` whenever no honest number exists.
  */
 
 export interface RunCostRow {
-  id: string;
   prId: string | null;
-  batchId: string | null;
   status: string | null;
   costUsd: number | null;
 }
 
 /**
- * Per-PR cost of the latest review batch. `runs` MUST be ordered newest-first.
+ * Per-PR total cost of all its runs.
  *
- * - The newest run picks the batch; a legacy run without `batch_id` is its own batch.
- * - Any run of that batch still `running` → `null` (no half-finished sum).
- * - Otherwise the sum of `done` runs with a known cost; none → `null`.
- *   Failed/cancelled runs carry no cost and never enter the sum.
+ * - Sums `done` runs with a known cost. A run still `running` is not counted
+ *   yet; it joins the total once it finishes.
+ * - Failed/cancelled runs carry no cost and never enter the sum.
+ * - No priced run at all → `null` (shown as "—", never "$0.00").
  */
-export function latestReviewCost(runs: RunCostRow[]): Map<string, number | null> {
-  // Batch key of each PR's newest run (legacy: the run's own id).
-  const latestBatch = new Map<string, string>();
-  for (const r of runs) {
-    if (r.prId && !latestBatch.has(r.prId)) latestBatch.set(r.prId, r.batchId ?? r.id);
-  }
-
-  const acc = new Map<string, { sum: number; priced: boolean; running: boolean }>();
-  for (const r of runs) {
-    if (!r.prId || latestBatch.get(r.prId) !== (r.batchId ?? r.id)) continue;
-    const a = acc.get(r.prId) ?? { sum: 0, priced: false, running: false };
-    if (r.status === 'running') a.running = true;
-    else if (r.status === 'done' && r.costUsd != null) {
-      a.sum += r.costUsd;
-      a.priced = true;
-    }
-    acc.set(r.prId, a);
-  }
-
+export function totalReviewCost(runs: RunCostRow[]): Map<string, number | null> {
   const out = new Map<string, number | null>();
-  for (const [prId, a] of acc) out.set(prId, a.running || !a.priced ? null : a.sum);
+  for (const r of runs) {
+    if (!r.prId) continue;
+    const prev = out.get(r.prId) ?? null;
+    if (r.status === 'done' && r.costUsd != null) out.set(r.prId, (prev ?? 0) + r.costUsd);
+    else out.set(r.prId, prev);
+  }
   return out;
 }

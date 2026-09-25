@@ -214,7 +214,7 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
-  it('run cost (L01): persisted per run, exposed on runs/trace, PR list shows the latest batch only', async () => {
+  it('run cost (L01): persisted per run, exposed on runs/trace, PR list shows the total of all runs', async () => {
     const app = await appWith(REVIEW_FIXTURE);
     const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
     const mkAgent = async (name: string) =>
@@ -247,17 +247,17 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     };
     expect(await listCost()).toBeCloseTo(runA!.costUsd!);
 
-    // Batch 2 — a newer review replaces batch 1 in the list (latest, not lifetime).
+    // Batch 2 — a newer review ADDS to the list total (lifetime, not latest).
     const second = await review((await mkAgent('Cost B')).id);
     await waitForPrRuns(pg.handle.db, pr.id, { expected: 2 });
     const [runB] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.id, second.runs[0].run_id));
     expect(runB!.batchId).not.toBe(runA!.batchId);
-    expect(await listCost()).toBeCloseTo(runB!.costUsd!);
+    expect(await listCost()).toBeCloseTo(runA!.costUsd! + runB!.costUsd!);
 
     await app.close();
   });
 
-  it('findings by severity (L01): PR list counts open findings of the latest batch', async () => {
+  it('findings by severity (L01): PR list counts open findings across all reviews', async () => {
     const app = await appWith(REVIEW_FIXTURE);
     const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
     const listRow = async () => {
@@ -265,10 +265,8 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       return pulls.find((p: { id: string }) => p.id === pr.id);
     };
 
-    // Never reviewed → no counts, no scope.
-    const before = await listRow();
-    expect(before.findings).toBeNull();
-    expect(before.latest_review_ids).toBeNull();
+    // Never reviewed → no counts.
+    expect((await listRow()).findings).toBeNull();
 
     const agent = (
       await app.inject({
@@ -282,13 +280,16 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     const reviews = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/reviews` })).json();
 
     // Grounding keeps the one CRITICAL finding (see the map-reduce test).
-    const after = await listRow();
-    expect(after.findings).toEqual({ critical: 1, warning: 0, suggestion: 0 });
-    expect(after.latest_review_ids).toEqual([reviews[0].id]);
+    expect((await listRow()).findings).toEqual({ critical: 1, warning: 0, suggestion: 0 });
 
-    // Dismissing it drops it from the open count.
+    // A second review adds its findings — earlier ones stay counted.
+    await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    await waitForPrRuns(pg.handle.db, pr.id, { expected: 2 });
+    expect((await listRow()).findings).toEqual({ critical: 2, warning: 0, suggestion: 0 });
+
+    // Dismissing one drops it from the open count.
     await app.inject({ method: 'POST', url: `/findings/${reviews[0].findings[0].id}/dismiss` });
-    expect((await listRow()).findings).toEqual({ critical: 0, warning: 0, suggestion: 0 });
+    expect((await listRow()).findings).toEqual({ critical: 1, warning: 0, suggestion: 0 });
 
     await app.close();
   });
