@@ -25,6 +25,11 @@ _None yet._
   agent with nothing linking them, so "the latest review" can't be queried; add a column (plan: `batch_id`)
   instead of guessing with a `ran_at` time window. `multi_agent_runs` has no FK from `agent_runs` and belongs
   to a later lesson. · ref: `src/modules/reviews/service.ts:117-129`, `src/db/schema/runs.ts`
+- **2026-09-25** · To scope anything to "the latest review" on the PR list, use `latestReviewIdsByPr`
+  (`pulls/findings.ts`): the newest run's `batch_id` → the reviews whose `run_id` is in it, falling back to the
+  PR's newest review — why: seeded PR #482's review has `run_id = null` and there are no runs, so a strict batch
+  join returns nothing and the FINDINGS column would read "—". The cost column has no such fallback (legacy → `null`).
+  · ref: `src/modules/pulls/findings.ts`, `src/modules/pulls/routes.ts`
 
 ## Tool & Library Notes
 
