@@ -54,6 +54,13 @@ _None yet._
   skipped. Passes on Linux CI. **Fix:** treat as pre-existing when judging your diff (or split with
   `path.dirname`). · ref: `test/indexer-pipeline.test.ts:142`
 
+- **2026-09-25** · **Symptom:** "findings disappeared". A re-run of the same agent on the same diff shows
+  `approved` / 0 findings while the previous run found some. **Cause:** usually the model, not the code:
+  OpenRouter `deepseek-v4-flash` answers differently even at `temperature: 0` (`reviewer-core/src/llm/openrouter.ts:72`).
+  **Fix:** check first — `GET /runs/:id/trace` → `raw_output.findings` and `stats.grounding`. `0/0` means the
+  model returned none; `k/N` with k < N means grounding dropped N−k. Only the second case is a code question.
+  · ref: `src/modules/reviews/routes.ts` (`GET /runs/:id/trace`)
+
 ## Session Notes
 
 _None yet._
