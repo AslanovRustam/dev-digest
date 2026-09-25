@@ -23,6 +23,7 @@ preview of findings outside that section:
 | PR detail, above the Review runs accordions | `3 CRITICAL · 5 WARNING · 2 SUGGESTION` + "Hide low confidence"; a click on a level filters every accordion to it | `SeverityFilterBar` |
 | Run timeline ("Agent runs" tab) | per-run severity counts (icon + number); hover → preview card; click → opens that run's accordion | `RunHistory` |
 | PR list: `FINDINGS` column, between SCORE and STATUS | severity counts of the latest review batch; hover → preview card | `PRRow` |
+| Run trace drawer (`?trace=`): Findings section | per-severity counts in the header; the same counters as a filter local to the drawer; full `FindingCard`s with Accept/Dismiss | `FindingsSection` |
 
 **Preview card** (hover or keyboard focus): "N FINDINGS" header, then each finding with severity
 icon, title, category, `file:line` link, confidence and a two-line excerpt of the rationale, ordered

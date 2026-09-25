@@ -1,7 +1,7 @@
 /* SeverityFilterBar — "3 CRITICAL · 5 WARNING · 2 SUGGESTION" above the Review
-   runs accordions. Clicking a level shows only its findings in every run;
-   clicking the active level clears the filter. Also hosts the page-wide
-   "Hide low confidence" toggle, since the counts depend on it. */
+   runs accordions (and in the run trace drawer). Clicking a level shows only
+   its findings; clicking the active level clears the filter. On the page it
+   also hosts the "Hide low confidence" toggle, since the counts depend on it. */
 "use client";
 
 import React from "react";
@@ -21,8 +21,9 @@ export function SeverityFilterBar({
   counts: SeverityTallyCounts;
   value: Severity | null;
   onChange: (severity: Severity | null) => void;
-  hideLow: boolean;
-  onHideLowChange: (hideLow: boolean) => void;
+  /** Omit both to render the counters without the confidence toggle. */
+  hideLow?: boolean;
+  onHideLowChange?: (hideLow: boolean) => void;
 }) {
   const t = useTranslations("prReview");
   return (
@@ -59,10 +60,12 @@ export function SeverityFilterBar({
           );
         })}
       </div>
-      <div style={s.toggleGroup}>
-        {t("panel.hideLowConfidence")}
-        <Toggle on={hideLow} onChange={onHideLowChange} size={16} />
-      </div>
+      {onHideLowChange && (
+        <div style={s.toggleGroup}>
+          {t("panel.hideLowConfidence")}
+          <Toggle on={!!hideLow} onChange={onHideLowChange} size={16} />
+        </div>
+      )}
     </div>
   );
 }
