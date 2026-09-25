@@ -4,7 +4,7 @@ import { waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
-import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mocks.js';
+import { MockLLMProvider, MockEmbedder, MockGitClient, MockGitHubClient } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
@@ -117,6 +117,8 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       overrides: {
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF }),
+        // PR-list reads must never reach real GitHub from a test.
+        github: new MockGitHubClient(),
         llm: {
           [provider]: new MockLLMProvider(provider, { structured }),
         },
@@ -208,6 +210,49 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.status).toBe('done');
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
+
+    await app.close();
+  });
+
+  it('run cost (L01): persisted per run, exposed on runs/trace, PR list shows the latest batch only', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const mkAgent = async (name: string) =>
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/agents',
+          payload: { name, provider: 'openai', model: 'gpt-4.1', system_prompt: 'sec' },
+        })
+      ).json();
+    const review = async (agentId: string) =>
+      (await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId } })).json();
+
+    // Batch 1 — one agent. MockLLMProvider bills $0.001 per structured call.
+    const first = await review((await mkAgent('Cost A')).id);
+    await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+    const [runA] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.id, first.runs[0].run_id));
+    expect(runA!.status).toBe('done');
+    expect(runA!.costUsd).toBeGreaterThan(0);
+    expect(runA!.batchId).not.toBeNull();
+
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(runs[0].cost_usd).toBeCloseTo(runA!.costUsd!);
+    const trace = (await app.inject({ method: 'GET', url: `/runs/${runA!.id}/trace` })).json();
+    expect(trace.stats.cost_usd).toBeCloseTo(runA!.costUsd!);
+
+    const listCost = async () => {
+      const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+      return pulls.find((p: { id: string }) => p.id === pr.id).cost_usd;
+    };
+    expect(await listCost()).toBeCloseTo(runA!.costUsd!);
+
+    // Batch 2 — a newer review replaces batch 1 in the list (latest, not lifetime).
+    const second = await review((await mkAgent('Cost B')).id);
+    await waitForPrRuns(pg.handle.db, pr.id, { expected: 2 });
+    const [runB] = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.id, second.runs[0].run_id));
+    expect(runB!.batchId).not.toBe(runA!.batchId);
+    expect(await listCost()).toBeCloseTo(runB!.costUsd!);
 
     await app.close();
   });

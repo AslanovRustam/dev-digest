@@ -35,6 +35,7 @@ export const s = {
     color: "var(--text-secondary)",
     marginTop: 8,
   } satisfies CSSProperties,
+  usage: { marginTop: 8 } satisfies CSSProperties,
   scoreCol: {
     display: "flex",
     flexDirection: "column",
