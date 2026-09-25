@@ -33,6 +33,11 @@ _None yet._
   Hand over `https://github.com/AslanovRustam/dev-digest/compare/main...<branch>?expand=1` so the base stays
   in the fork. The studio lists PRs only for repos added in it — a PR on the parent never shows under the
   fork. · ref: `GET https://api.github.com/repos/AslanovRustam/dev-digest` → `parent`
+- **2026-09-25** · Many source files are CRLF (e.g. both `vendor/shared/contracts/platform.ts`). A scripted
+  `node`/`sed` replace with `\n`-joined anchors reports "anchor missing": normalise `\r\n` first and restore it
+  on write, or use the Edit tool. When a quoted bash heredoc feeds a JS template literal, regex escapes like
+  `\(` are lost, which silently made a `queryByText(/3 finding\(s\)/)` assertion vacuous — grep the written
+  file afterwards. · ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/RunHistory/RunHistory.test.tsx`
 
 ## Recurring Errors & Fixes
 

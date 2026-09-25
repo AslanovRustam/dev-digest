@@ -3,8 +3,12 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import type { RunSummary, PrCommit, FindingRecord } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/run-cost-badge";
+import { HoverCard } from "@/components/hover-card";
+import { SeverityTally } from "@/components/severity-tally";
+import { FindingsPreviewList } from "@/components/findings-preview";
+import { countBySeverity, sortForPreview } from "@/lib/findings";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -78,6 +82,47 @@ type TimelineItem =
   | { kind: "run"; ts: number; run: RunSummary }
   | { kind: "commit"; ts: number; commit: PrCommit };
 
+/**
+ * A settled run's findings line: per-severity counts that preview the findings
+ * on hover and jump to the run's accordion on click. Falls back to the plain
+ * "N finding(s)" text when the run's review isn't loaded (or all are dismissed).
+ */
+function RunFindings({
+  run,
+  findings,
+  repoFullName,
+  headSha,
+  onGoToReview,
+}: {
+  run: RunSummary;
+  findings?: FindingRecord[];
+  repoFullName?: string | null;
+  headSha?: string | null;
+  onGoToReview?: (runId: string) => void;
+}) {
+  const t = useTranslations("prReview");
+  const blockers = (run.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: run.blockers ?? 0 }) : "";
+  if (!findings || findings.length === 0) {
+    return (
+      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+        {t("runStatus.findings", { count: run.findings_count ?? 0 })}
+        {blockers}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-muted)" }}>
+      <HoverCard
+        trigger={<SeverityTally counts={countBySeverity(findings)} />}
+        onTriggerClick={onGoToReview ? () => onGoToReview(run.run_id) : undefined}
+      >
+        <FindingsPreviewList findings={sortForPreview(findings)} repoFullName={repoFullName} headSha={headSha} />
+      </HoverCard>
+      {blockers}
+    </div>
+  );
+}
+
 /** Epoch ms for sorting; unparseable / missing timestamps sort last. */
 function tsOf(s: string | null | undefined): number {
   if (!s) return 0;
@@ -91,9 +136,17 @@ export function RunHistory({
   onOpenTrace,
   onGoToReview,
   onDelete,
+  findingsByRun,
+  repoFullName,
+  headSha,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
+  /** run_id → that run's open findings, for the hover preview. */
+  findingsByRun?: Map<string, FindingRecord[]>;
+  /** owner/repo + head sha — deep-links the preview's file:line to GitHub. */
+  repoFullName?: string | null;
+  headSha?: string | null;
   /** Open the trace + log drawer for a run (the logs icon). */
   onOpenTrace: (runId: string) => void;
   /** Jump to this run's inline review accordion below (clicking the agent name). */
@@ -190,10 +243,13 @@ export function RunHistory({
                 </div>
               )}
               {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
-                  {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
-                </div>
+                <RunFindings
+                  run={r}
+                  findings={findingsByRun?.get(r.run_id)}
+                  repoFullName={repoFullName}
+                  headSha={headSha}
+                  onGoToReview={onGoToReview}
+                />
               )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>

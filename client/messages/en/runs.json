@@ -25,7 +25,6 @@
     "noToolCalls": "No tool calls recorded.",
     "findings": "Findings",
     "noFindings": "No findings for this run.",
-    "suggestedFix": "Suggested fix:",
     "collapse": "collapse",
     "expand": "expand",
     "config": {

@@ -25,6 +25,16 @@ _None yet._
   agent with nothing linking them, so "the latest review" can't be queried; add a column (plan: `batch_id`)
   instead of guessing with a `ran_at` time window. `multi_agent_runs` has no FK from `agent_runs` and belongs
   to a later lesson. · ref: `src/modules/reviews/service.ts:117-129`, `src/db/schema/runs.ts`
+- **2026-09-25** · To scope anything to "the latest review" on the PR list, use `latestReviewIdsByPr`
+  (`pulls/findings.ts`): the newest run's `batch_id` → the reviews whose `run_id` is in it, falling back to the
+  PR's newest review — why: seeded PR #482's review has `run_id = null` and there are no runs, so a strict batch
+  join returns nothing and the FINDINGS column would read "—". The cost column has no such fallback (legacy → `null`).
+  · ref: `src/modules/pulls/findings.ts`, `src/modules/pulls/routes.ts`
+- **2026-09-25** · Supersedes 2026-09-25: the PR list's COST and FINDINGS are PR totals over ALL runs and
+  reviews (`totalReviewCost`, `openFindingsByPr`); `latestReviewIdsByPr` and `PrMeta.latest_review_ids` are
+  gone. Don't reintroduce a "latest batch" scope for list columns — why: the user reads the list as "what this
+  PR has cost / what is still open", and a clean LLM re-run (same agent, same diff, `findings: []`, grounding
+  `0/0`) made earlier findings look deleted. Only SCORE stays latest-review. · ref: `src/modules/pulls/cost.ts`
 
 ## Tool & Library Notes
 
@@ -43,6 +53,13 @@ _None yet._
   finds the parent dir with `full.lastIndexOf('/')`, but `full` is a backslash path on Windows, so `mkdir` is
   skipped. Passes on Linux CI. **Fix:** treat as pre-existing when judging your diff (or split with
   `path.dirname`). · ref: `test/indexer-pipeline.test.ts:142`
+
+- **2026-09-25** · **Symptom:** "findings disappeared". A re-run of the same agent on the same diff shows
+  `approved` / 0 findings while the previous run found some. **Cause:** usually the model, not the code:
+  OpenRouter `deepseek-v4-flash` answers differently even at `temperature: 0` (`reviewer-core/src/llm/openrouter.ts:72`).
+  **Fix:** check first — `GET /runs/:id/trace` → `raw_output.findings` and `stats.grounding`. `0/0` means the
+  model returned none; `k/N` with k < N means grounding dropped N−k. Only the second case is a code question.
+  · ref: `src/modules/reviews/routes.ts` (`GET /runs/:id/trace`)
 
 ## Session Notes
 

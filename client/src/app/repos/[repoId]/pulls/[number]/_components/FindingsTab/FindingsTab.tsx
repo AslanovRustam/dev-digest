@@ -5,8 +5,11 @@ import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { SeverityFilterBar } from "../SeverityFilterBar";
+import { visibleFindings } from "../FindingsPanel/helpers";
+import { countBySeverity, liveFindings } from "../../../../../../../lib/findings";
 import { s } from "./styles";
-import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
+import type { FindingRecord, ReviewRecord, RunSummary, PrCommit, Severity } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
 
 interface FindingsTabProps {
@@ -21,6 +24,9 @@ interface FindingsTabProps {
   /** owner/repo + head sha — used to deep-link a finding's file:line to GitHub. */
   repoFullName?: string | null;
   headSha?: string | null;
+  /** Severity filter for the Review runs section (kept in the URL by the page). */
+  severity: Severity | null;
+  onSeverityChange: (severity: Severity | null) => void;
   onOpenTrace: (id: string) => void;
   onDelete: (id: string) => void;
   onRunDone: () => void;
@@ -37,10 +43,28 @@ export function FindingsTab({
   cancelMutation,
   repoFullName,
   headSha,
+  severity,
+  onSeverityChange,
   onOpenTrace,
   onDelete,
   onRunDone,
 }: FindingsTabProps) {
+  const [hideLow, setHideLow] = React.useState(false);
+
+  // Counted after the confidence filter, so a level's number always equals what
+  // selecting it shows across the accordions below.
+  const severityCounts = useMemo(
+    () => countBySeverity(runs.flatMap((r) => visibleFindings(r.findings, { hideLow }))),
+    [runs, hideLow],
+  );
+
+  // Timeline preview: each run's open findings, matched on run_id.
+  const findingsByRun = useMemo(() => {
+    const m = new Map<string, FindingRecord[]>();
+    for (const r of runs) if (r.run_id) m.set(r.run_id, liveFindings(r.findings));
+    return m;
+  }, [runs]);
+
   const handleCancelAll = useCallback(() => {
     liveRunIds.forEach((id) => cancelMutation.mutate(id));
   }, [liveRunIds, cancelMutation]);
@@ -138,6 +162,9 @@ export function FindingsTab({
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
+            findingsByRun={findingsByRun}
+            repoFullName={repoFullName}
+            headSha={headSha}
           />
         </div>
       )}
@@ -148,6 +175,15 @@ export function FindingsTab({
       >
         Review runs
       </SectionLabel>
+      {runs.length > 0 && (
+        <SeverityFilterBar
+          counts={severityCounts}
+          value={severity}
+          onChange={onSeverityChange}
+          hideLow={hideLow}
+          onHideLowChange={setHideLow}
+        />
+      )}
       {runs.length === 0 ? (
         reviewRunning || liveRunIds.length > 0 ? null : (
           <EmptyState
@@ -169,6 +205,8 @@ export function FindingsTab({
             targetRunId={target?.runId ?? null}
             targetNonce={target?.n ?? 0}
             run={review.run_id ? runById.get(review.run_id) : undefined}
+            hideLow={hideLow}
+            severity={severity}
           />
         ))
       )}

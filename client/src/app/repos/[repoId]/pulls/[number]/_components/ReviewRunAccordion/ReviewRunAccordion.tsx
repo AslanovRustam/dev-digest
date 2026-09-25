@@ -7,7 +7,7 @@
 
 import React from "react";
 import { Icon, Badge } from "@devdigest/ui";
-import type { ReviewRecord, RunSummary, Verdict } from "@devdigest/shared";
+import type { ReviewRecord, RunSummary, Severity, Verdict } from "@devdigest/shared";
 import { FindingsPanel } from "../FindingsPanel";
 import { VerdictBanner } from "../VerdictBanner";
 import { useDeleteReview } from "../../../../../../../lib/hooks/reviews";
@@ -32,6 +32,8 @@ export function ReviewRunAccordion({
   targetRunId = null,
   targetNonce = 0,
   run,
+  hideLow = false,
+  severity = null,
 }: {
   review: ReviewRecord;
   /** The agent run that produced this review (matched on run_id) — its usage
@@ -45,6 +47,9 @@ export function ReviewRunAccordion({
    *  (driven from the Timeline: clicking an agent name navigates here). */
   targetRunId?: string | null;
   targetNonce?: number;
+  /** Page-wide findings filters (SeverityFilterBar), applied to this run's list. */
+  hideLow?: boolean;
+  severity?: Severity | null;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -159,6 +164,8 @@ export function ReviewRunAccordion({
             prId={prId}
             repoFullName={repoFullName}
             headSha={headSha}
+            hideLow={hideLow}
+            severity={severity}
           />
         </div>
       )}
