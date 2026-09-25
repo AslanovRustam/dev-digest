@@ -10,6 +10,11 @@ _None yet._
 ## What Doesn't Work
 
 _None yet._
+- **2026-09-25** · Don't mount another `FindingsPanel` to reuse its list (e.g. in the trace drawer). Compose
+  `FindingCard` + `visibleFindings` + `useFindingAction` instead, as `RunTraceDrawer/_components/FindingsSection`
+  does. why: every panel adds its own `window` keydown listener for j/k and a/d, so each open panel reacts to
+  one keypress and `a`/`d` would accept or dismiss a finding in each of them.
+  · ref: `src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/FindingsPanel.tsx`
 
 ## Codebase Patterns
 
