@@ -1,0 +1,20 @@
+{
+  "name": "PR findings: severity counters filter the Review runs section",
+  "description": "The PR list shows the FINDINGS column. On PR #482's Agent runs tab the SeverityFilterBar counts the seeded review's findings (1 CRITICAL, 1 WARNING). Clicking a level stores it in the URL (?severity=) and shows that level's finding; clicking another level switches the filter. The DSL has no negative text check, so hiding the other level is covered by FindingsPanel.test.tsx. The hover preview is covered by the HoverCard / PRRow / RunHistory component tests. Read-only seeded data (no model call). Assumes a freshly-seeded DB where acme/payments-api (PR #482) is the first repo. Run it on the hermetic stack (see e2e/README.md).",
+  "steps": [
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list" },
+    { "cmd": ["wait", "--text", "Findings"], "label": "PR list has the FINDINGS column" },
+    { "cmd": ["find", "text", "Add rate limiting to public API endpoints", "click"], "label": "open the PR row" },
+    { "cmd": ["wait", "--url", "/pulls/482"], "label": "navigate to the PR detail route" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "PR detail data settles" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Agent runs"], "label": "switch to the Agent runs tab" },
+    { "cmd": ["wait", "--url", "tab=findings"], "label": "findings tab is active in the URL" },
+    { "cmd": ["find", "role", "button", "click", "--name", "1 CRITICAL"], "label": "filter to CRITICAL findings" },
+    { "cmd": ["wait", "--url", "severity=CRITICAL"], "label": "severity filter is kept in the URL" },
+    { "cmd": ["wait", "--text", "Hardcoded Stripe secret key in commit"], "label": "the CRITICAL finding is shown" },
+    { "cmd": ["find", "role", "button", "click", "--name", "1 WARNING"], "label": "switch the filter to WARNING" },
+    { "cmd": ["wait", "--url", "severity=WARNING"], "label": "URL follows the new level" },
+    { "cmd": ["wait", "--text", "N+1 query in user list endpoint"], "label": "the WARNING finding is shown" }
+  ]
+}

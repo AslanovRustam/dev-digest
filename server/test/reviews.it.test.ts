@@ -257,6 +257,42 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
+  it('findings by severity (L01): PR list counts open findings of the latest batch', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const listRow = async () => {
+      const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+      return pulls.find((p: { id: string }) => p.id === pr.id);
+    };
+
+    // Never reviewed → no counts, no scope.
+    const before = await listRow();
+    expect(before.findings).toBeNull();
+    expect(before.latest_review_ids).toBeNull();
+
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'SevAgent', provider: 'openai', model: 'gpt-4.1', system_prompt: 's' },
+      })
+    ).json();
+    await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+    const reviews = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/reviews` })).json();
+
+    // Grounding keeps the one CRITICAL finding (see the map-reduce test).
+    const after = await listRow();
+    expect(after.findings).toEqual({ critical: 1, warning: 0, suggestion: 0 });
+    expect(after.latest_review_ids).toEqual([reviews[0].id]);
+
+    // Dismissing it drops it from the open count.
+    await app.inject({ method: 'POST', url: `/findings/${reviews[0].findings[0].id}/dismiss` });
+    expect((await listRow()).findings).toEqual({ critical: 0, warning: 0, suggestion: 0 });
+
+    await app.close();
+  });
+
   it('dual-provider structured output: anthropic provider returns the same Review shape', async () => {
     const app = await appWith(REVIEW_FIXTURE, 'anthropic');
     const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
