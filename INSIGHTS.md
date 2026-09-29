@@ -20,7 +20,13 @@ _None yet._
 
 ## Codebase Patterns
 
-_None yet._
+- **2026-09-29** · Agent instructions live in `AGENTS.md`; the `CLAUDE.md` beside it is a one-line
+  `@AGENTS.md` import stub — edit `AGENTS.md`, never the stub. Both are committed in all five places
+  (root, `server/`, `client/`, `reviewer-core/`, `e2e/`). A real symlink was rejected: this repo has
+  `core.symlinks=false`, so on any Windows clone without Developer Mode a committed symlink checks out
+  as a text file whose only content is `AGENTS.md`, and Claude Code reads THAT as the instructions
+  while the real `AGENTS.md` never loads (`CLAUDE.md` wins precedence over `AGENTS.md`).
+  · ref: `AGENTS.md:10`
 
 ## Tool & Library Notes
 
@@ -39,6 +45,13 @@ _None yet._
   `\(` are lost, which silently made a `queryByText(/3 finding\(s\)/)` assertion vacuous — grep the written
   file afterwards. · ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/RunHistory/RunHistory.test.tsx`
 
+- **2026-09-29** · Renaming a tracked file while re-creating the old name in the SAME commit destroys
+  git's rename detection — it pairs additions only with deletions, so `git mv CLAUDE.md AGENTS.md`
+  plus a new `CLAUDE.md` stub is recorded as modify+add and `git log --follow AGENTS.md` returns
+  nothing. Commit the pure rename first, the file at the old path second. Check with
+  `git diff --cached --stat -M` before committing: it must print `CLAUDE.md => AGENTS.md`.
+  · ref: commits `c595b2b` then `6cdea4b`
+
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `GET /repos` → 500; logs show `read ECONNRESET`, then `28P01 auth_failed`
@@ -50,7 +63,12 @@ _None yet._
 
 ## Session Notes
 
-_None yet._
+### 2026-09-29 — CLAUDE.md → AGENTS.md across all packages
+Renamed the five memory files and added `@AGENTS.md` stubs, in two commits so `git log --follow`
+still traces the history. Cross-references updated in the root memory, `client/AGENTS.md`,
+`.claude/skills/engineering-insights/SKILL.md` and `e2e/INSIGHTS.md`; the untracked, dangling
+`.claude/CLAUDE.md` (`@Agents.md` → no such file) was deleted. `.claude/skills/zod/AGENTS.md` is an
+unrelated vendored skill asset and was left alone.
 
 ## Open Questions
 
