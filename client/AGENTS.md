@@ -51,4 +51,4 @@ recharts · mermaid · vitest 2 + React Testing Library + jsdom.
 | `docs/` | need deeper UI design notes / ADRs |
 | `specs/` | implementing a UI feature that has a spec |
 | `INSIGHTS.md` | a component/test behaves unexpectedly; entries are added via the `engineering-insights` skill |
-| `../e2e/CLAUDE.md` | a change alters a flow covered by browser e2e |
+| `../e2e/AGENTS.md` | a change alters a flow covered by browser e2e |

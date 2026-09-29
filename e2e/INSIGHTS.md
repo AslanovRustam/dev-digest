@@ -29,7 +29,7 @@ _None yet._
   UI check use the global `playwright-cli` (Chromium is already in `%LOCALAPPDATA%\ms-playwright`) against the
   dev stack, e.g. `playwright-cli open http://localhost:3000/` then `hover "getByTestId('severity-tally')"`.
   Run it from the scratchpad: it writes `.playwright-cli/` snapshots into the cwd. The web app on :3000 is
-  usually already running (`pnpm dev` → EADDRINUSE). · ref: `CLAUDE.md` (Commands)
+  usually already running (`pnpm dev` → EADDRINUSE). · ref: `AGENTS.md` (Commands)
 
 ## Recurring Errors & Fixes
 

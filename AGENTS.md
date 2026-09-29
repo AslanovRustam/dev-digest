@@ -5,8 +5,10 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 4 independent packages — NO workspace, NO shared node_modules, mixed package managers.
 
 ## Before answering
-- Identify which package(s) the task touches, then read that package's `CLAUDE.md` first
+- Identify which package(s) the task touches, then read that package's `AGENTS.md` first
   (subdirectory auto-load is unreliable in the VS Code extension — do not rely on it).
+- Agent instructions live in `AGENTS.md`; the `CLAUDE.md` next to it is a one-line `@AGENTS.md`
+  import stub for Claude Code — always edit `AGENTS.md`, never the stub.
 - Skim root `INSIGHTS.md` + the package `INSIGHTS.md` for known traps before a non-trivial change.
 - If the task changes a Zod contract, plan the edit in BOTH copies of `shared` (see below).
 - If a `specs/` file exists for the feature, it is the source of truth for scope.
@@ -23,7 +25,7 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 ## Commands (Windows: run `.sh` in Git Bash, not PowerShell)
 - Full stack from zero: `./scripts/dev.sh` (`--no-seed` · `--no-client` · `--db-only`)
 - Only Postgres runs in Docker; API and web run on the host.
-- Per-package test / typecheck commands → that package's `CLAUDE.md`.
+- Per-package test / typecheck commands → that package's `AGENTS.md`.
 
 ## Cross-package rules
 - `@devdigest/shared` resolves to `server/src/vendor/shared`. `client/src/vendor/shared` is a
@@ -64,4 +66,4 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 | `docs/agent-prompts/` | writing or tuning a reviewer agent's system prompt or model choice |
 | `specs/` | implementing a feature that spans packages (one spec per feature / lesson) |
 | `INSIGHTS.md` | something fails in a way that "shouldn't happen"; entries are added via the `engineering-insights` skill |
-| `<package>/CLAUDE.md` | before any edit inside that package |
+| `<package>/AGENTS.md` | before any edit inside that package |
