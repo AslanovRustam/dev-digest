@@ -31,6 +31,7 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 | server-integration | `server/` | integration (real Postgres) | vitest | `server-integration.yml` | **yes** |
 | reviewer-core | `reviewer-core/` | unit (engine) | vitest | `reviewer-core.yml` | no |
 | e2e web | `e2e/` | browser e2e (deterministic) | agent-browser + `run.ts` | `e2e-web.yml` | yes (stack) |
+| pr-self-review | `.claude/skills/pr-self-review/` | unit (agent tooling) | `node --test` | `skills.yml` | no |
 
 ## What each suite covers
 
@@ -52,6 +53,14 @@ Docker is unavailable.
 **reviewer-core** — the pure engine: `toReview` selection, prompt construction,
 and a `run` with a stubbed model → grounded findings. No DB / GitHub / FS.
 
+**pr-self-review** — the local pre-PR gate: the hook's deny decisions, the
+secret patterns, citation grounding (including the full-file exemption), patch
+parsing, routing globs, cache identity, and inline suppression. Two tests assert
+that the severity gate and `FULL_FILE_KINDS` copied into `scripts/lib.mjs` still
+match their definitions in `reviewer-core/` — that is why a change under
+`reviewer-core/src/output/to-review.ts` or `grounding.ts` also triggers this
+workflow. Plain `node --test`, no install step.
+
 **e2e web** — see `e2e/README.md`. Deterministic agent-browser flows over the
 main journeys (boot → PR list → PR detail; agents) against a real seeded stack.
 No `chat`, no model key.
@@ -67,6 +76,9 @@ cd reviewer-core && npm test
 cd server && pnpm exec vitest run --exclude '**/*.it.test.ts'   # unit, no Docker
 cd server && pnpm exec vitest run .it.test                      # integration, needs Docker
 cd server && pnpm test                                          # both
+
+# the pre-PR gate's own scripts (no install, no package manager)
+node --test .claude/skills/pr-self-review/scripts/gate.test.mjs
 
 # browser e2e (needs the full stack + agent-browser CLI)
 ./scripts/dev.sh
