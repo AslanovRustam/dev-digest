@@ -58,9 +58,10 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
   answer it (append, or `Insights: nothing new`); never ignore it.
 
 ## Before opening a PR (mandatory)
-- Run the `pr-self-review` skill (`/pr-self-review`). It reviews the branch-vs-base diff AND the
-  working tree, routes each file to the skills that own it, and writes `report.json` +
-  `pr-body-section.md` under `.devdigest/pr-self-review/`.
+- The `pr-self-review` skill has auto-invocation disabled (`disable-model-invocation: true`): the
+  agent cannot run it — ask the user to run `/pr-self-review`, then continue. It reviews the
+  branch-vs-base diff AND the working tree, routes each file to the skills that own it, and writes
+  `report.json` + `pr-body-section.md` under `.devdigest/pr-self-review/`.
 - A `PreToolUse` hook denies `gh pr create` / `gh pr merge` when the report is missing, stale, or
   BLOCKED, and when the PR body lacks the self-review section. It fails OPEN on any error.
 - Disagree with a finding? Suppress it inline with a reason, or re-run with

@@ -1,12 +1,20 @@
 ---
 name: pr-self-review
-description: Use before opening or merging a pull request — before running `gh pr create` or `gh pr merge`, when the PreToolUse gate denies one of those commands, when asked to review local changes before pushing or committing, or on "/pr-self-review", "check my changes before the PR", "is this ready to merge". Covers both committed-but-unmerged work and the uncommitted working tree.
+description: Manual-only pre-PR review gate — runs when the user types `/pr-self-review` (auto-invocation is off). Reviews the local change set (committed-but-unmerged work and the uncommitted working tree) before `gh pr create` / `gh pr merge`, routes each file to the skills that own it, and writes the report the PreToolUse gate checks. If the gate denies one of those commands, or the user asks "is this ready to merge", ask the user to run `/pr-self-review` — the agent cannot invoke it itself.
+disable-model-invocation: true
 ---
 
 # PR self-review
 
 Reviews the whole local change set before it becomes a PR, routes each changed file to the
 project skills that own it, and blocks the merge on any CRITICAL finding.
+
+**Manual invocation only.** `disable-model-invocation: true` keeps this skill out of the agent's
+reach: it runs only when the user types `/pr-self-review`. A full run fans out to several subagents
+and costs real tokens, so the user decides when to spend them. When the gate denies `gh pr create`
+/ `gh pr merge`, or a PR is about to be opened without a fresh report, **ask the user to run
+`/pr-self-review`** — do not try to invoke it, and do not run the scripts below piecemeal as a
+substitute. Once the user has invoked it, follow every step below.
 
 Run every step with the working directory at the repo root. All artefacts land in
 `.devdigest/pr-self-review/`.

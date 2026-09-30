@@ -19,7 +19,7 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
 | [onion-architecture](onion-architecture/SKILL.md) | Backend | Project-owned (not vendored): ring rules for `server/` + `reviewer-core/`, enforced by `pnpm arch` |
 | [engineering-insights](engineering-insights/SKILL.md) | Shared | Project-owned (not vendored): appends non-obvious lessons to the touched module's `INSIGHTS.md`; Stop hook in `.claude/settings.json` |
-| [pr-self-review](pr-self-review/SKILL.md) | Process | Project-owned (not vendored): reviews the local change set before a PR by routing files to the skills above; blocks `gh pr create` / `gh pr merge` on a CRITICAL finding via a `PreToolUse` hook |
+| [pr-self-review](pr-self-review/SKILL.md) | Process | Project-owned (not vendored), **manual invocation only** (`disable-model-invocation: true` — the user runs `/pr-self-review`; the agent asks for it and cannot invoke it itself): reviews the local change set before a PR by routing files to the skills above; blocks `gh pr create` / `gh pr merge` on a CRITICAL finding via a `PreToolUse` hook |
 
 ## What Are Skills?
 

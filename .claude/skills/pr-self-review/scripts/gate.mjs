@@ -11,6 +11,13 @@ import { buildDiff, diffHash, gitSafe, outDir, readConfig, readJson, shortHash }
 const RUN = '`/pr-self-review`';
 
 /**
+ * The skill has `disable-model-invocation: true`: only the user can start it. Every denial must
+ * therefore tell the agent to ASK the user, not to run it — an agent told to "run /pr-self-review"
+ * tries the Skill tool, fails, and starts improvising the steps by hand.
+ */
+const CANNOT_INVOKE = `${RUN} has auto-invocation disabled, so you cannot invoke it yourself`;
+
+/**
  * Split a shell line into statements, with quoted spans blanked out first.
  *
  * Matching the bare substring anywhere is wrong: it denies `echo "gh pr create"` and any command
@@ -60,21 +67,21 @@ export function decide({ action, command, report, currentDiffHash, readFile }) {
   if (!report) {
     return {
       deny: true,
-      reason: `No self-review report found. Run ${RUN} before opening or merging this PR — it reviews the local change set and writes .devdigest/pr-self-review/report.json.`,
+      reason: `No self-review report found (.devdigest/pr-self-review/report.json). Ask the user to run ${RUN}, then retry this command — ${CANNOT_INVOKE}.`,
     };
   }
 
   if (currentDiffHash && report.diff_hash && currentDiffHash !== report.diff_hash) {
     return {
       deny: true,
-      reason: `The self-review report is stale: the change set moved since it was written (report ${shortHash(report.diff_hash)}, current ${shortHash(currentDiffHash)}). Re-run ${RUN}.`,
+      reason: `The self-review report is stale: the change set moved since it was written (report ${shortHash(report.diff_hash)}, current ${shortHash(currentDiffHash)}). Ask the user to re-run ${RUN}, then retry this command — ${CANNOT_INVOKE}.`,
     };
   }
 
   if (report.checks_skipped) {
     return {
       deny: true,
-      reason: `The last self-review ran with --no-checks, so the verification commands never ran and the report cannot be a PASS. Re-run ${RUN} without --no-checks.`,
+      reason: `The last self-review skipped the verification commands (\`checks.mjs --skip\` / \`report.mjs --checks-skipped\`), so the report cannot be a PASS. Ask the user to re-run ${RUN} with the checks enabled — ${CANNOT_INVOKE}.`,
     };
   }
 
@@ -89,9 +96,9 @@ export function decide({ action, command, report, currentDiffHash, readFile }) {
       deny: true,
       reason:
         `Self-review is BLOCKED by ${report.blockers_count ?? 'one or more'} critical finding(s):\n${blockers}\n\n` +
-        `Fix them and re-run ${RUN}. If a finding is wrong, either suppress it inline ` +
-        `(\`// pr-self-review-ignore: <rule_id> — <reason>\`) or re-run with ` +
-        `\`--override "<reason>"\` — the override is recorded in the PR body.`,
+        `Fix them, then ask the user to re-run ${RUN} (${CANNOT_INVOKE}). If a finding is wrong, ` +
+        `either suppress it inline (\`// pr-self-review-ignore: <rule_id> — <reason>\`) or ask the ` +
+        `user to re-run ${RUN} with \`--override "<reason>"\` — the override is recorded in the PR body.`,
     };
   }
 

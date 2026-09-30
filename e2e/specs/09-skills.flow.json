@@ -1,0 +1,11 @@
+{
+  "name": "Skills page renders the skill list shell",
+  "description": "Loads /skills (Skills Lab › Skills) and confirms the list column renders its title and the Add Skill control. Read-only: never opens Create or Import, never submits. Works on a freshly-seeded DB with no skills (the empty state still shows the header).",
+  "steps": [
+    { "cmd": ["open", "{BASE}/skills"], "label": "load the skills page" },
+    { "cmd": ["wait", "--url", "/skills"], "label": "skills route reached" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "skills fetch settles" },
+    { "cmd": ["wait", "--text", "Skills"], "label": "the Skills title renders" },
+    { "cmd": ["wait", "--text", "Add Skill"], "label": "the Add Skill control renders" }
+  ]
+}

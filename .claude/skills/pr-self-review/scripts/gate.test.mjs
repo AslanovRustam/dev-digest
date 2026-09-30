@@ -73,6 +73,28 @@ test('condition 1 — a missing report denies and names the command to run', () 
   assert.match(d.reason, /pr-self-review/);
 });
 
+test('every denial tells the agent to ask the user — the skill cannot be model-invoked', () => {
+  // SKILL.md sets `disable-model-invocation: true`. A reason that says "run /pr-self-review" makes
+  // the agent try (and fail) to invoke it, then improvise the steps by hand.
+  const fresh = { currentDiffHash: 'a'.repeat(64), readFile: noFile };
+  const denials = [
+    decide({ action: 'pr-create', command: 'gh pr create', report: null, readFile: noFile }),
+    decide({ action: 'pr-create', command: 'gh pr create', report: reportOf(), currentDiffHash: 'b'.repeat(64), readFile: noFile }),
+    decide({ action: 'pr-merge', command: 'gh pr merge 1', report: reportOf({ checks_skipped: true }), ...fresh }),
+    decide({
+      action: 'pr-merge',
+      command: 'gh pr merge 1',
+      report: reportOf({ verdict: 'BLOCKED', findings: [{ severity: 'CRITICAL', file: 'a.ts', start_line: 1, title: 'x' }] }),
+      ...fresh,
+    }),
+  ];
+  for (const d of denials) {
+    assert.equal(d.deny, true);
+    assert.match(d.reason, /ask the user to (re-)?run `\/pr-self-review`/i);
+    assert.match(d.reason, /cannot invoke it yourself/);
+  }
+});
+
 test('condition 2 — a stale diff hash denies', () => {
   const d = decide({
     action: 'pr-create',
@@ -94,7 +116,9 @@ test('condition 2 — skipped verification commands can never pass the gate', ()
     readFile: noFile,
   });
   assert.equal(d.deny, true);
-  assert.match(d.reason, /--no-checks/);
+  // Name the real flags: `--no-checks` does not exist anywhere in the skill.
+  assert.match(d.reason, /checks\.mjs --skip/);
+  assert.match(d.reason, /report\.mjs --checks-skipped/);
 });
 
 test('condition 3 — BLOCKED denies and lists the blocking findings', () => {
