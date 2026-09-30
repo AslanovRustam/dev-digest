@@ -31,7 +31,13 @@ _None yet._
 
 ## Recurring Errors & Fixes
 
-_None yet._
+- **2026-09-30** · **Symptom:** `cd client && pnpm typecheck` fails with `error TS6053: File
+  '.../client/.next/types/app/layout.ts' not found`, then passes on an immediate re-run, with no
+  source change in between. **Cause:** `client/tsconfig.json` includes `.next/types/**/*.ts`, a
+  Next-generated directory. A present-but-stale `.next` makes tsc list files that no longer exist;
+  a fresh checkout has no `.next` at all, so the glob matches nothing and CI never sees this.
+  **Fix:** re-run, or `rm -rf client/.next`. Do not chase it as a type error in `src/`.
+  · ref: `client/tsconfig.json` (`include`)
 
 ## Session Notes
 
