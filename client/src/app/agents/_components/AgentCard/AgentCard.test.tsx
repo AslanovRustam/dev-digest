@@ -42,6 +42,14 @@ describe("AgentCard (smoke)", () => {
     expect(screen.getByText("3 skills")).toBeInTheDocument();
   });
 
+  it("uses the singular for one skill and hides the chip when the count is unknown", () => {
+    renderWithIntl(<AgentCard ag={AGENT} skillCount={1} />);
+    expect(screen.getByText("1 skill")).toBeInTheDocument();
+    cleanup();
+    renderWithIntl(<AgentCard ag={AGENT} />);
+    expect(screen.queryByText(/^\d+ skills?$/)).not.toBeInTheDocument();
+  });
+
   it("falls back to a translated placeholder when description is empty", () => {
     renderWithIntl(<AgentCard ag={{ ...AGENT, description: "" }} />);
     expect(screen.getByText("No description")).toBeInTheDocument();

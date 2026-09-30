@@ -1,7 +1,7 @@
 {
   "card": {
     "noDescription": "No description",
-    "skillCount": "{count} skills"
+    "skillCount": "{count, plural, one {# skill} other {# skills}}"
   },
   "list": {
     "breadcrumbLab": "Skills Lab",
@@ -89,9 +89,19 @@
   },
   "skills": {
     "title": "Skills",
-    "enabledCount": "{linked} of {total} enabled",
+    "enabledCount": "{enabled} of {total} enabled",
     "filterPlaceholder": "Filter skills…",
-    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Toggle to attach."
+    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Drag to reorder.",
+    "filterActiveHint": "Reordering is off while the filter is active — clear it to drag skills.",
+    "listLabel": "Skills of this agent",
+    "reorder": "Reorder {name}",
+    "reorderHint": "Drag to reorder, or press Alt+↑ / Alt+↓",
+    "disabledGlobally": "disabled globally",
+    "noMatches": "No skills match “{q}”.",
+    "loadError": "Could not load skills.",
+    "emptyTitle": "No skills yet",
+    "emptyBody": "A skill is a reusable block of review instructions that agents can link.",
+    "emptyCta": "Create a skill"
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."
