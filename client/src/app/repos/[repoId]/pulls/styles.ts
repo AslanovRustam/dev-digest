@@ -89,7 +89,10 @@ export const s = {
     margin: "14px 32px 44px",
     border: "1px solid var(--border)",
     borderRadius: 10,
-    overflow: "hidden",
+    // Clip to the rounded corners, but scroll (not clip) when the grid's
+    // minimum width exceeds a narrow viewport — see GRID in constants.ts.
+    overflowX: "auto",
+    overflowY: "hidden",
     background: "var(--bg-elevated)",
   } satisfies CSSProperties,
   headRow: {

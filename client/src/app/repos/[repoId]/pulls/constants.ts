@@ -23,8 +23,13 @@ export const SIZE_COLOR: Record<string, string> = {
   L: "var(--crit)",
 };
 
-/** Grid template for both the header row and PR rows. */
-export const GRID = "1fr 132px 92px 60px 124px 118px 84px 78px";
+/**
+ * Grid template for both the header row and PR rows. The title column has a
+ * floor: its cell clips (`overflow: hidden`), so a bare `1fr` may shrink to 0px
+ * once the fixed columns fill a narrow table — the row then renders invisible
+ * and unclickable. Past the floor the table card scrolls horizontally instead.
+ */
+export const GRID = "minmax(240px, 1fr) 132px 92px 60px 124px 118px 84px 78px";
 
 /** Line-count thresholds for the S/M/L size bucket. */
 export const SIZE_SMALL_MAX = 100;
