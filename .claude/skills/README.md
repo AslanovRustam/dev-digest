@@ -9,6 +9,7 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [fastify-best-practices](fastify-best-practices/SKILL.md) | Backend | Fastify routes, plugins, JSON-schema validation, error handling |
 | [drizzle-orm-patterns](drizzle-orm-patterns/SKILL.md) | Backend | Drizzle schema, queries, relations, transactions, migrations |
 | [postgresql-table-design](postgresql-table-design/SKILL.md) | Backend | Postgres schema design, data types, indexing, constraints |
+| [frontend-ui-architecture](frontend-ui-architecture/SKILL.md) | Frontend | Project-owned (not vendored): where frontend code goes and how it is split — placement, naming, import direction, barrels, RSC boundary as structure |
 | [next-best-practices](next-best-practices/SKILL.md) | Frontend | Next.js App Router, RSC boundaries, data fetching, optimization |
 | [react-best-practices](react-best-practices/SKILL.md) | Frontend | React anti-patterns, state management, hooks rules |
 | [react-testing-library](react-testing-library/SKILL.md) | Frontend | General-purpose React Testing Library guide with Vitest |
@@ -16,7 +17,9 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [typescript-expert](typescript-expert/SKILL.md) | Full-stack | Type-level programming, performance, tooling, migrations |
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
+| [onion-architecture](onion-architecture/SKILL.md) | Backend | Project-owned (not vendored): ring rules for `server/` + `reviewer-core/`, enforced by `pnpm arch` |
 | [engineering-insights](engineering-insights/SKILL.md) | Shared | Project-owned (not vendored): appends non-obvious lessons to the touched module's `INSIGHTS.md`; Stop hook in `.claude/settings.json` |
+| [pr-self-review](pr-self-review/SKILL.md) | Process | Project-owned (not vendored): reviews the local change set before a PR by routing files to the skills above; blocks `gh pr create` / `gh pr merge` on a CRITICAL finding via a `PreToolUse` hook |
 
 ## What Are Skills?
 

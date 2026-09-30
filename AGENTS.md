@@ -26,6 +26,7 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 - Full stack from zero: `./scripts/dev.sh` (`--no-seed` · `--no-client` · `--db-only`)
 - Only Postgres runs in Docker; API and web run on the host.
 - Per-package test / typecheck commands → that package's `AGENTS.md`.
+- Backend layering is machine-checked: `cd server && pnpm arch` (see the `onion-architecture` skill).
 
 ## Cross-package rules
 - `@devdigest/shared` resolves to `server/src/vendor/shared`. `client/src/vendor/shared` is a
@@ -45,6 +46,10 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 - The DB schema already holds tables for ALL lessons; empty tables are by design, not dead code.
 - Comments mention things not in the starter yet (`agent-runner`, intent, `T1.3`/`T3` task ids) —
   they are future lessons, not missing files.
+- Writing file content through a bash heredoc corrupts backslash escapes silently — `\(` vanishes
+  in a JS template literal, `\1` becomes chr(1) in a Python non-raw string. Use the Write/Edit tools
+  for content with escapes, or verify with `cat -A` afterwards; the terminal renders the damage as
+  nothing.
 
 ## Engineering insights (mandatory)
 - After a non-obvious finding (root cause, dead end, tool quirk, decision) and at the end of every
@@ -52,11 +57,22 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 - A Stop hook (`.claude/settings.json`) asks for this check after every prompt that used tools —
   answer it (append, or `Insights: nothing new`); never ignore it.
 
+## Before opening a PR (mandatory)
+- Run the `pr-self-review` skill (`/pr-self-review`). It reviews the branch-vs-base diff AND the
+  working tree, routes each file to the skills that own it, and writes `report.json` +
+  `pr-body-section.md` under `.devdigest/pr-self-review/`.
+- A `PreToolUse` hook denies `gh pr create` / `gh pr merge` when the report is missing, stale, or
+  BLOCKED, and when the PR body lacks the self-review section. It fails OPEN on any error.
+- Disagree with a finding? Suppress it inline with a reason, or re-run with
+  `--override "<reason>"` — both are recorded in the PR body. Never disable the hook.
+
 ## Do not touch
 - `server/src/db/migrations/**` — generate with `pnpm db:generate`, never hand-edit.
 - `server/clones/**` — runtime data.
-- `.claude/skills/**` — vendored, managed by `skills-lock.json`. Exception: `engineering-insights`
-  is project-owned and edited here.
+- `.claude/skills/**` — vendored, managed by the ROOT `skills-lock.json` (there is no
+  `.claude/skills-lock.json`). Exception: skills with NO entry there are project-owned and edited
+  here. Grep the lock file rather than trusting a list — only 6 of the installed folders are
+  vendored, and the lock also names skills that no longer have a folder.
 
 ## Docs
 | Doc | Use when |

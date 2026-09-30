@@ -13,7 +13,11 @@ _None yet._
 
 ## Codebase Patterns
 
-_None yet._
+- **2026-09-29** · Any code that filters `Finding[]` must exempt `kind` in `{secret_leak,
+  lethal_trifecta, phantom, hook}` from line-level diff grounding: those come from full-file
+  scanners and only require the FILE to be present in the diff, not a `[start_line, end_line]`
+  intersection with a hunk. A naive "drop findings that miss a hunk" filter deletes every secret
+  leak silently. · ref: `reviewer-core/src/grounding.ts:16` (`FULL_FILE_KINDS`)
 
 ## Tool & Library Notes
 
