@@ -1,0 +1,5 @@
+{
+  "fail_on": "critical",
+  "gate_on_push": false,
+  "base": "main"
+}

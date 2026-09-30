@@ -120,4 +120,6 @@ export const s = {
   tabBody: { paddingTop: 18 } satisfies CSSProperties,
   emptyNote: { fontSize: 13, color: "var(--text-muted)", padding: 16 } satisfies CSSProperties,
   noToolCalls: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  findingsHeaderRight: { display: "inline-flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
+  findingsList: { display: "flex", flexDirection: "column", gap: 10 } satisfies CSSProperties,
 } as const;

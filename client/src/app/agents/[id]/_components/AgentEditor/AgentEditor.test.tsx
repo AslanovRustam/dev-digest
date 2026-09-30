@@ -10,6 +10,17 @@ vi.mock("../../../../../lib/hooks/agents", () => ({
   useUpdateAgent: () => ({ mutate: vi.fn(), isPending: false, isSuccess: false, data: undefined }),
   useProviderModels: () => ({ data: [{ id: "gpt-4.1", provider: "openai" }] }),
 }));
+vi.mock("@/lib/hooks/skills", () => ({
+  useSkills: () => ({
+    data: [
+      { id: "s1", name: "flaky-tests", description: "", type: "rubric", source: "manual", body: "", enabled: true, version: 1 },
+    ],
+    isLoading: false,
+    isError: false,
+  }),
+  useAgentSkills: () => ({ data: [], isLoading: false, isError: false }),
+  useSetAgentSkills: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 
 import { AgentEditor } from "./AgentEditor";
 
@@ -44,5 +55,12 @@ describe("A2 Agent Editor (smoke)", () => {
     expect(screen.getByText("Config")).toBeInTheDocument();
     expect(screen.getByText("Configuration")).toBeInTheDocument();
     expect(screen.getByText("Save agent")).toBeInTheDocument();
+  });
+
+  it("renders the Skills tab for ?tab=skills", () => {
+    renderWithIntl(<AgentEditor agent={AGENT} tab="skills" onTab={() => {}} />);
+    expect(screen.getByText("0 of 1 enabled")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "flaky-tests" })).toBeInTheDocument();
+    expect(screen.queryByText("Save agent")).not.toBeInTheDocument();
   });
 });

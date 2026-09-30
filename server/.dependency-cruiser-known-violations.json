@@ -1,0 +1,226 @@
+[
+  {
+    "type": "dependency",
+    "from": "src/adapters/astgrep/index.ts",
+    "to": "src/modules/repo-intel/constants.ts",
+    "unresolvedTo": "../../modules/repo-intel/constants.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "adapters-are-leaves"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/adapters/depgraph/index.ts",
+    "to": "src/modules/repo-intel/constants.ts",
+    "unresolvedTo": "../../modules/repo-intel/constants.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "adapters-are-leaves"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/polling/routes.ts",
+    "to": "node_modules/drizzle-orm/index.cjs",
+    "unresolvedTo": "drizzle-orm",
+    "dependencyTypes": [
+      "npm",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "ring4-routes-no-persistence"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/polling/routes.ts",
+    "to": "src/db/schema.ts",
+    "unresolvedTo": "../../db/schema.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "ring4-routes-no-persistence"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/settings/routes.ts",
+    "to": "node_modules/drizzle-orm/index.cjs",
+    "unresolvedTo": "drizzle-orm",
+    "dependencyTypes": [
+      "npm",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "ring4-routes-no-persistence"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/settings/routes.ts",
+    "to": "src/db/schema.ts",
+    "unresolvedTo": "../../db/schema.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "ring4-routes-no-persistence"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/workspace/routes.ts",
+    "to": "node_modules/drizzle-orm/index.cjs",
+    "unresolvedTo": "drizzle-orm",
+    "dependencyTypes": [
+      "npm",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "ring4-routes-no-persistence"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/workspace/routes.ts",
+    "to": "src/db/schema.ts",
+    "unresolvedTo": "../../db/schema.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "ring4-routes-no-persistence"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/polling/routes.ts",
+    "to": "node_modules/drizzle-orm/index.cjs",
+    "unresolvedTo": "drizzle-orm",
+    "dependencyTypes": [
+      "npm",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "sql-only-in-repository"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/polling/routes.ts",
+    "to": "src/db/schema.ts",
+    "unresolvedTo": "../../db/schema.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "sql-only-in-repository"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/settings/feature-models.ts",
+    "to": "node_modules/drizzle-orm/index.cjs",
+    "unresolvedTo": "drizzle-orm",
+    "dependencyTypes": [
+      "npm",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "sql-only-in-repository"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/settings/feature-models.ts",
+    "to": "src/db/schema.ts",
+    "unresolvedTo": "../../db/schema.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "sql-only-in-repository"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/settings/routes.ts",
+    "to": "node_modules/drizzle-orm/index.cjs",
+    "unresolvedTo": "drizzle-orm",
+    "dependencyTypes": [
+      "npm",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "sql-only-in-repository"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/settings/routes.ts",
+    "to": "src/db/schema.ts",
+    "unresolvedTo": "../../db/schema.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "sql-only-in-repository"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/workspace/routes.ts",
+    "to": "node_modules/drizzle-orm/index.cjs",
+    "unresolvedTo": "drizzle-orm",
+    "dependencyTypes": [
+      "npm",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "sql-only-in-repository"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/modules/workspace/routes.ts",
+    "to": "src/db/schema.ts",
+    "unresolvedTo": "../../db/schema.js",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "sql-only-in-repository"
+    }
+  }
+]

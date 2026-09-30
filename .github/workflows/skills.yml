@@ -1,0 +1,43 @@
+# pr-self-review suite — the local pre-PR gate's own scripts.
+#
+# Zero dependencies: plain `node --test`, no package manager, no install step.
+#
+# reviewer-core/src/** is in the path filter on purpose: the tests assert that the severity
+# gate and the grounding exemption mirrored into scripts/lib.mjs still match their upstream
+# definitions in reviewer-core. A change there must fail HERE, not silently drift.
+name: skills
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.claude/skills/pr-self-review/**'
+      - 'reviewer-core/src/output/to-review.ts'
+      - 'reviewer-core/src/grounding.ts'
+      - '.github/workflows/skills.yml'
+  pull_request:
+    paths:
+      - '.claude/skills/pr-self-review/**'
+      - 'reviewer-core/src/output/to-review.ts'
+      - 'reviewer-core/src/grounding.ts'
+      - '.github/workflows/skills.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skills-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: node --test .claude/skills/pr-self-review/scripts/gate.test.mjs

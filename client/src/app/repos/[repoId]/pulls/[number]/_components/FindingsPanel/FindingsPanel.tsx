@@ -1,11 +1,12 @@
-/* FindingsPanel — hide-low-confidence + j/k navigation + FindingCard list,
-   wiring the accept/dismiss action hook (A2). */
+/* FindingsPanel — one run's FindingCard list with j/k navigation, wiring the
+   accept/dismiss action hook (A2). The confidence + severity filters are
+   page-wide (SeverityFilterBar in FindingsTab) and arrive as props. */
 "use client";
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Toggle, EmptyState } from "@devdigest/ui";
-import type { FindingRecord } from "@devdigest/shared";
+import { EmptyState } from "@devdigest/ui";
+import type { FindingRecord, Severity } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
 import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
 import { KEY_TO_ACTION } from "./constants";
@@ -17,18 +18,27 @@ export function FindingsPanel({
   prId,
   repoFullName,
   headSha,
+  hideLow = false,
+  severity = null,
 }: {
   findings: FindingRecord[];
   prId: string;
   repoFullName?: string | null;
   headSha?: string | null;
+  hideLow?: boolean;
+  severity?: Severity | null;
 }) {
   const t = useTranslations("prReview");
   const action = useFindingAction();
-  const [hideLow, setHideLow] = React.useState(false);
   const [focusIdx, setFocusIdx] = React.useState(0);
 
-  const shown = React.useMemo(() => visibleFindings(findings, hideLow), [findings, hideLow]);
+  const shown = React.useMemo(
+    () => visibleFindings(findings, { hideLow, severity }),
+    [findings, hideLow, severity],
+  );
+
+  // A new filter is a new list — keep the keyboard focus on its first card.
+  React.useEffect(() => setFocusIdx(0), [hideLow, severity]);
 
   // j/k navigation + a/d shortcuts on the focused finding (keyboard).
   React.useEffect(() => {
@@ -47,13 +57,6 @@ export function FindingsPanel({
 
   return (
     <div>
-      <div style={s.toolbar}>
-        <div style={s.toggleGroup}>
-          {t("panel.hideLowConfidence")}
-          <Toggle on={hideLow} onChange={setHideLow} size={16} />
-        </div>
-      </div>
-
       <div style={s.list}>
         {shown.length === 0 ? (
           <EmptyState icon="Filter" title={t("panel.noMatchTitle")} body={t("panel.noMatchBody")} />

@@ -36,9 +36,22 @@ export const ToolCall = z.object({
 });
 export type ToolCall = z.infer<typeof ToolCall>;
 
+/** One skill as injected into the prompt — its own block in the run trace. */
+export const SkillBlock = z.object({
+  skill_id: z.string(),
+  name: z.string(),
+  type: z.string(),
+  version: z.number().int(),
+  tokens: z.number().int(),
+  text: z.string(),
+});
+export type SkillBlock = z.infer<typeof SkillBlock>;
+
 export const PromptAssembly = z.object({
   system: z.string(),
   skills: z.string().nullish(),
+  /** Per-skill breakdown of `skills` (order = prompt order); null when none. */
+  skill_blocks: z.array(SkillBlock).nullish(),
   memory: z.string().nullish(),
   specs: z.string().nullish(),
   /** Callers-of-changed-symbols digest (T1.3); null when absent. */

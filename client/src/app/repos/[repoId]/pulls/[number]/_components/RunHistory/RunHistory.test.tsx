@@ -4,10 +4,11 @@
  * a settled run is colored/labelled by its denormalized blocker/finding counts,
  * and shows the review score ring.
  */
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { RunSummary } from "@devdigest/shared";
+import type { FindingRecord, RunSummary } from "@devdigest/shared";
+import { finding } from "@/test/findings-fixture";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import { RunHistory } from "./RunHistory";
 
@@ -92,5 +93,58 @@ describe("RunHistory — run cost (L01)", () => {
       run({ run_id: "r", status: "running", cost_usd: null }),
     ]);
     expect(screen.queryByTestId("run-cost")).not.toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — findings preview (L01)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  const FINDINGS: FindingRecord[] = [
+    finding({ title: "Hardcoded Stripe secret key in commit", severity: "CRITICAL" }),
+    finding({ title: "Lethal trifecta: untrusted input reaches exfil path", severity: "CRITICAL" }),
+    finding({ title: "Retry-After header omitted on 429", severity: "WARNING", category: "bug" }),
+  ];
+
+  function renderWithFindings(findingsByRun: Map<string, FindingRecord[]>, onGoToReview = vi.fn()) {
+    render(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <RunHistory
+          runs={[run({ status: "done", findings_count: 3, blockers: 2, score: 38 })]}
+          onOpenTrace={() => {}}
+          onGoToReview={onGoToReview}
+          findingsByRun={findingsByRun}
+        />
+      </NextIntlClientProvider>,
+    );
+    return onGoToReview;
+  }
+
+  it("replaces the plain count with per-severity counts; blockers keep their text", () => {
+    renderWithFindings(new Map([["run-1", FINDINGS]]));
+    expect(screen.getByTestId("severity-tally")).toHaveAccessibleName("2 critical, 1 warning");
+    expect(screen.queryByText(/3 finding\(s\)/)).not.toBeInTheDocument();
+    expect(screen.getByText(/2 blockers/)).toBeInTheDocument();
+  });
+
+  it("previews the run's findings on hover", () => {
+    vi.useFakeTimers();
+    renderWithFindings(new Map([["run-1", FINDINGS]]));
+    fireEvent.mouseEnter(screen.getByTestId("severity-tally"));
+    act(() => void vi.advanceTimersByTime(200));
+    const card = screen.getByRole("tooltip");
+    expect(card).toHaveTextContent("3 findings");
+    expect(card).toHaveTextContent("Retry-After header omitted on 429");
+  });
+
+  it("clicking the counts jumps to the run's review", () => {
+    const onGoToReview = renderWithFindings(new Map([["run-1", FINDINGS]]));
+    fireEvent.click(screen.getByRole("button", { name: /2 critical, 1 warning/ }));
+    expect(onGoToReview).toHaveBeenCalledWith("run-1");
+  });
+
+  it("falls back to the plain count when the run's review is not loaded", () => {
+    renderWithFindings(new Map());
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
+    expect(screen.queryByTestId("severity-tally")).not.toBeInTheDocument();
   });
 });

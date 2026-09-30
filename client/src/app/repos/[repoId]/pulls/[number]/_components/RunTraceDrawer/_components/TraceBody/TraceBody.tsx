@@ -16,9 +16,22 @@ import { PromptBlock } from "../PromptBlock";
 import { FindingsSection } from "../FindingsSection";
 import { Row, Stat } from "../atoms";
 
-export function TraceBody({ trace, findings }: { trace: RunTrace; findings: FindingRecord[] }) {
+export function TraceBody({
+  trace,
+  findings,
+  prId,
+  repoFullName,
+  headSha,
+}: {
+  trace: RunTrace;
+  findings: FindingRecord[];
+  prId?: string | null;
+  repoFullName?: string | null;
+  headSha?: string | null;
+}) {
   const t = useTranslations("runs");
   const stats = trace.stats;
+  const skillBlocks = trace.prompt_assembly.skill_blocks ?? [];
   return (
     <>
       <TraceSection icon="Settings" title={t("trace.configuration")}>
@@ -69,13 +82,23 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
         </div>
       </TraceSection>
 
-      <FindingsSection findings={findings} />
+      <FindingsSection findings={findings} prId={prId} repoFullName={repoFullName} headSha={headSha} />
 
       <TraceSection icon="FileText" title={t("trace.promptAssembly")} defaultOpen={false}>
         <PromptBlock label={t("trace.prompt.system")} text={trace.prompt_assembly.system} color={PROMPT_COLORS.system} />
-        {trace.prompt_assembly.skills != null && (
-          <PromptBlock label={t("trace.prompt.skills")} text={trace.prompt_assembly.skills} color={PROMPT_COLORS.skills} />
-        )}
+        {skillBlocks.length > 0
+          ? skillBlocks.map((b) => (
+              <PromptBlock
+                key={b.skill_id}
+                label={t("trace.prompt.skillBlock", { name: b.name, version: b.version, tokens: b.tokens })}
+                text={b.text}
+                color={PROMPT_COLORS.skills}
+              />
+            ))
+          : trace.prompt_assembly.skills != null && (
+              // Traces written before per-skill blocks (L02) only carry the joined string.
+              <PromptBlock label={t("trace.prompt.skills")} text={trace.prompt_assembly.skills} color={PROMPT_COLORS.skills} />
+            )}
         {trace.prompt_assembly.memory != null && (
           <PromptBlock label={t("trace.prompt.memory")} text={trace.prompt_assembly.memory} color={PROMPT_COLORS.memory} />
         )}

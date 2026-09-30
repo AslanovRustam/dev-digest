@@ -25,16 +25,17 @@ Cost and token usage for every **completed** run, on four surfaces:
 
 | Surface | Shows | Component |
 |---|---|---|
-| PR list: `COST` column, between STATUS and UPDATED | `$0.014`, the sum of the latest review | `PRRow` |
+| PR list: `COST` column, between STATUS and UPDATED | `$0.014`, the total of all the PR's runs | `PRRow` |
 | Run timeline ("Agent runs" tab): under the run time | `$0.0013 · 8.2K→1.3K` | `RunHistory` |
 | Run trace drawer: `COST` stat beside Duration / Tokens / Findings | `$0.06` | `TraceBody` |
 | Verdict banner on PR detail: under the summary | `$0.014 · 8.2K→1.3K` | `VerdictBanner` |
 
 **Business decisions**
 
-- **PR-list cost = sum of the latest review.** One "Run Review" click starts several agents in
-  parallel. The column sums `cost_usd` over every run of that one click (a *batch*). This matches
-  the neighbouring `SCORE` column, which also reflects the latest review.
+- **PR-list cost = total of all the PR's runs.** It sums `cost_usd` over every finished run of the
+  PR, across all "Run Review" clicks, so it answers "what has reviewing this PR cost so far?".
+  (Changed 2026-09-25 at the user's request. The first version summed only the latest click's
+  batch, so a re-run replaced the earlier cost instead of adding to it.)
 - **Cost source = `outcome.costUsd`, as is.** Priority: OpenRouter's real `usage.cost` → PriceBook
   (live OpenRouter model price) → static pricing table → `null`. This feature does not change
   the calculation.
@@ -72,13 +73,10 @@ a pricing API, or the OpenRouter dashboard.
   - `PrMeta.cost_usd`: `z.number().nullish()`, list endpoint only, like `score`.
 - **`GET /pulls/:id/runs` and `GET /runs/:id/trace`** carry cost once the above is in place.
 - **`GET /repos/:id/pulls`** gains one `inArray` query over `agent_runs` for the page's PRs
-  (workspace-scoped, newest first). It mirrors the existing latest-review `score` block and is
-  folded by a pure helper, `modules/pulls/cost.ts` → `latestReviewCost(runs)`:
-  1. A PR's latest batch is the `batch_id` of its newest run. A legacy run with `batch_id = NULL`
-     is its own batch.
-  2. If any run in that batch is `running`, the result is `null`, so no half-finished sum is shown.
-  3. Otherwise the result is the sum of `cost_usd` over the batch's `done` runs with a non-null
-     cost. If there are none, the result is `null`.
+  (workspace-scoped), folded by a pure helper, `modules/pulls/cost.ts` → `totalReviewCost(runs)`:
+  1. The result is the sum of `cost_usd` over the PR's `done` runs with a non-null cost.
+  2. A `running` run is not counted yet; it joins the total once it finishes.
+  3. Failed and cancelled runs never enter the sum. With no priced run at all, the result is `null`.
 
 ### Client
 
@@ -121,14 +119,14 @@ significant-digit formatting.
 
 - **server:**
   - `test/contracts.test.ts`: the fixture carries `cost_usd`.
-  - New `test/pulls-cost.test.ts` covers `latestReviewCost`: batch sum; running → `null`; failed
-    runs excluded; legacy `NULL` batch; all-null → `null`.
+  - New `test/pulls-cost.test.ts` covers `totalReviewCost`: sum across reviews; running not counted;
+    failed runs excluded; all-null → `null`; free run stays `0`.
   - `test/reviews.it.test.ts` (`run cost (L01)`): after a review, `agent_runs.cost_usd` is set (from
     the `MockLLMProvider`) along with a `batch_id`. The same cost appears in `GET /pulls/:id/runs`,
     in `stats.cost_usd` of `GET /runs/:id/trace`, and in `GET /repos/:id/pulls`. A second review
-    gets a new `batch_id` and replaces the first in the list (latest, not lifetime). Multi-agent
-    batch sums are covered by the pure `pulls-cost` unit test, so the integration test never runs
-    the seeded agents (which could reach a real LLM).
+    gets a new `batch_id` and ADDS to the list total (lifetime, not latest). Multi-agent sums are
+    covered by the pure `pulls-cost` unit test, so the integration test never runs the seeded agents
+    (which could reach a real LLM).
 - **reviewer-core:** `test/openrouter-cost.test.ts`: `usage.cost` from the response wins over `estimateCost`; with neither, the cost is `null`.
 - **client:**
   - `lib/format.test.ts` pins every formatter case below.
@@ -142,9 +140,9 @@ significant-digit formatting.
 1. `cd server && pnpm db:migrate`. Migrations do not run on boot.
 2. Run `./scripts/dev.sh` (Git Bash), then run a review with 2–3 agents on any PR.
 3. Check the PR list:
-   - that PR shows the batch sum;
+   - that PR shows the sum of all its runs; a second review adds to it;
    - a never-reviewed PR shows `—`;
-   - a PR whose review is still running shows `—`.
+   - a run still in progress is not counted until it finishes.
 4. Check the PR detail page:
    - each `done` timeline card shows `$X · N.NK→N.NK`;
    - an errored card shows no price;

@@ -48,11 +48,12 @@ export function usePrRuns(prId: string | null | undefined) {
 }
 
 // ---- Persisted reviews + findings for a PR ----
-export function usePrReviews(prId: string | null | undefined) {
+/** `enabled: false` defers the fetch (the PR list loads findings on hover only). */
+export function usePrReviews(prId: string | null | undefined, enabled = true) {
   return useQuery({
     queryKey: ["reviews", prId],
     queryFn: () => api.get<ReviewRecord[]>(`/pulls/${prId}/reviews`),
-    enabled: !!prId,
+    enabled: !!prId && enabled,
   });
 }
 
@@ -156,6 +157,8 @@ export function useFindingAction() {
       ),
     onSuccess: (_d, { prId }) => {
       if (prId) qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      // The PR list's FINDINGS counts exclude dismissed findings.
+      qc.invalidateQueries({ queryKey: ["pulls"] });
     },
   });
 }

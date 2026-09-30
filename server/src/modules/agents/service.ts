@@ -2,14 +2,16 @@ import type { Container } from '../../platform/container.js';
 import type {
   Agent,
   AgentSkillLink,
+  AgentSkillsSet,
   AgentVersion,
   CiFailOn,
   ModelInfo,
   Provider,
   ReviewStrategy,
 } from '@devdigest/shared';
+import { ValidationError } from '../../platform/errors.js';
 import { AgentsRepository } from './repository.js';
-import { toAgentDto, toAgentVersionDto } from './helpers.js';
+import { duplicateSkillIds, toAgentDto, toAgentVersionDto } from './helpers.js';
 
 /**
  * A2 — agents service. Business logic for the Agents tab + Agent Editor.
@@ -57,12 +59,12 @@ export class AgentsService {
 
   async list(workspaceId: string): Promise<Agent[]> {
     const rows = await this.repo.list(workspaceId);
-    return rows.map(toAgentDto);
+    return rows.map((r) => toAgentDto(r, r.skillCount));
   }
 
   async get(workspaceId: string, id: string): Promise<Agent | undefined> {
     const row = await this.repo.getById(workspaceId, id);
-    return row ? toAgentDto(row) : undefined;
+    return row ? toAgentDto(row, row.skillCount) : undefined;
   }
 
   /** Delete an agent (and its versions/skill-links, via cascade). */
@@ -135,10 +137,46 @@ export class AgentsService {
     return row ? toAgentVersionDto(row) : undefined;
   }
 
-  /** Linked skills for an agent as AgentSkillLink[] (ordered). */
+  /** Linked skills for an agent as AgentSkillLink[] (ordered, any per-agent state). */
   async skillLinks(agentId: string): Promise<AgentSkillLink[]> {
     const links = await this.repo.linkedSkills(agentId);
-    return links.map((l) => ({ agent_id: agentId, skill_id: l.skill.id, order: l.order }));
+    return links.map((l) => ({
+      agent_id: agentId,
+      skill_id: l.skill.id,
+      order: l.order,
+      enabled: l.enabled,
+    }));
+  }
+
+  /**
+   * Replace the agent's ordered skill set (`PUT /agents/:id/skills`): order =
+   * array index, `enabled` = the per-agent switch. Returns undefined when the
+   * agent isn't in this workspace (route → 404); throws `ValidationError` (422)
+   * when a skill id repeats or doesn't belong to the workspace — nothing is
+   * written in that case.
+   */
+  async setSkillLinks(
+    workspaceId: string,
+    agentId: string,
+    body: AgentSkillsSet,
+  ): Promise<AgentSkillLink[] | undefined> {
+    const agent = await this.repo.getById(workspaceId, agentId);
+    if (!agent) return undefined;
+    const dup = duplicateSkillIds(body.items.map((i) => i.skill_id));
+    if (dup.length > 0) {
+      throw new ValidationError('Duplicate skill ids in the set', { skill_ids: dup });
+    }
+    const result = await this.repo.setSkillLinks(
+      workspaceId,
+      agentId,
+      body.items.map((i) => ({ skillId: i.skill_id, enabled: i.enabled })),
+    );
+    if (!result.ok) {
+      throw new ValidationError('Unknown skill ids for this workspace', {
+        skill_ids: result.foreign,
+      });
+    }
+    return this.skillLinks(agentId);
   }
 
   /**

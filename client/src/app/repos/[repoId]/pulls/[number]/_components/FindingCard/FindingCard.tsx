@@ -61,8 +61,12 @@ export function FindingCard({
           <div style={s.titleRow}>
             <span style={s.title(muted, dismissed)}>{f.title}</span>
             <CategoryTag category={f.category as Category} />
-            {accepted && <span style={s.acceptedTag}>{t("finding.accepted")}</span>}
-            {dismissed && <span style={s.dismissedTag}>{t("finding.dismissed")}</span>}
+            {accepted && (
+              <span style={s.acceptedTag}>{t("finding.accepted")}</span>
+            )}
+            {dismissed && (
+              <span style={s.dismissedTag}>{t("finding.dismissed")}</span>
+            )}
           </div>
           <div style={s.metaRow}>
             <MonoLink href={fileHref}>
@@ -88,28 +92,31 @@ export function FindingCard({
             </div>
           )}
 
-          <div style={s.actions}>
-            <Button
-              kind="secondary"
-              size="sm"
-              icon="Check"
-              disabled={pending}
-              active={accepted}
-              onClick={() => onAction?.("accept")}
-            >
-              {t("finding.accept")}
-            </Button>
-            <Button
-              kind="ghost"
-              size="sm"
-              icon="X"
-              disabled={pending}
-              active={dismissed}
-              onClick={() => onAction?.("dismiss")}
-            >
-              {t("finding.dismiss")}
-            </Button>
-          </div>
+          {/* Read-only when no action handler is wired (nothing to call). */}
+          {onAction && (
+            <div style={s.actions}>
+              <Button
+                kind="secondary"
+                size="sm"
+                icon="Check"
+                disabled={pending}
+                active={accepted}
+                onClick={() => onAction("accept")}
+              >
+                {t("finding.accept")}
+              </Button>
+              <Button
+                kind="ghost"
+                size="sm"
+                icon="X"
+                disabled={pending}
+                active={dismissed}
+                onClick={() => onAction("dismiss")}
+              >
+                {t("finding.dismiss")}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

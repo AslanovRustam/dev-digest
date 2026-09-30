@@ -29,6 +29,7 @@ import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import { type ArchiveReader, NodeZipReader } from '../adapters/archive/index.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -51,6 +52,8 @@ export interface ContainerOverrides {
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
+  /** Read-only zip reader for the skill importer. */
+  archive?: ArchiveReader;
 }
 
 export class Container {
@@ -75,6 +78,7 @@ export class Container {
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
+  private _archive?: ArchiveReader;
   private _priceBook?: PriceBook;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
@@ -129,6 +133,13 @@ export class Container {
     if (this.overrides.tokenizer) return this.overrides.tokenizer;
     this._tokenizer ??= new TiktokenTokenizer();
     return this._tokenizer;
+  }
+
+  /** In-memory .zip reader (skill import). Never extracts to disk. */
+  get archive(): ArchiveReader {
+    if (this.overrides.archive) return this.overrides.archive;
+    this._archive ??= new NodeZipReader();
+    return this._archive;
   }
 
   /**

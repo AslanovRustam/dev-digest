@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
@@ -11,8 +11,20 @@ import { isConfigChange } from './helpers.js';
  * agent side: link/reorder/list for an agent). Workspace-scoped throughout.
  */
 
-import type { AgentRow, AgentVersionRow } from '../../db/rows.js';
+import type { AgentRow, AgentVersionRow, SkillRow } from '../../db/rows.js';
 export type { AgentRow, AgentVersionRow };
+
+/** An agent row plus the number of skills that would reach its prompt. */
+export type AgentRowWithSkillCount = AgentRow & { skillCount: number };
+
+/** One entry of the ordered set written by `setSkillLinks` (order = index). */
+export interface SkillLinkInput {
+  skillId: string;
+  enabled: boolean;
+}
+
+/** `setSkillLinks` outcome: `foreign` lists skill ids not in the workspace (nothing written). */
+export type SetSkillLinksResult = { ok: true } | { ok: false; foreign: string[] };
 
 export interface InsertAgent {
   workspaceId: string;
@@ -42,17 +54,45 @@ export interface UpdateAgent {
   enabled?: boolean;
 }
 
-/** A skill linked to an agent (with its order), joined from agent_skills. */
+/** A skill linked to an agent (with its order + per-agent switch), joined from agent_skills. */
 export interface LinkedSkillRow {
-  skill: typeof t.skills.$inferSelect;
+  skill: SkillRow;
   order: number;
+  enabled: boolean;
 }
 
 export class AgentsRepository {
   constructor(private db: Db) {}
 
-  async list(workspaceId: string): Promise<AgentRow[]> {
-    return this.db.select().from(t.agents).where(eq(t.agents.workspaceId, workspaceId));
+  /**
+   * `agents` LEFT JOIN a per-agent count of the skills that reach the prompt:
+   * the link AND the skill itself must both be enabled (the two switches).
+   * A grouped subquery + join rather than a correlated `sql` subquery: in a
+   * single-table select Drizzle renders `${column}` unqualified, so a
+   * correlated `enabled` would be ambiguous between agent_skills and skills.
+   */
+  private selectWithSkillCount() {
+    const counts = this.db
+      .select({
+        agentId: t.agentSkills.agentId,
+        n: sql<number>`count(*)::int`.as('skill_count'),
+      })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.skills.id, t.agentSkills.skillId))
+      .where(and(eq(t.agentSkills.enabled, true), eq(t.skills.enabled, true)))
+      .groupBy(t.agentSkills.agentId)
+      .as('agent_skill_counts');
+    return this.db
+      .select({
+        ...getTableColumns(t.agents),
+        skillCount: sql<number>`coalesce(${counts.n}, 0)`.mapWith(Number),
+      })
+      .from(t.agents)
+      .leftJoin(counts, eq(counts.agentId, t.agents.id));
+  }
+
+  async list(workspaceId: string): Promise<AgentRowWithSkillCount[]> {
+    return this.selectWithSkillCount().where(eq(t.agents.workspaceId, workspaceId));
   }
 
   async listEnabled(workspaceId: string): Promise<AgentRow[]> {
@@ -62,11 +102,10 @@ export class AgentsRepository {
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.enabled, true)));
   }
 
-  async getById(workspaceId: string, id: string): Promise<AgentRow | undefined> {
-    const [row] = await this.db
-      .select()
-      .from(t.agents)
-      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)));
+  async getById(workspaceId: string, id: string): Promise<AgentRowWithSkillCount | undefined> {
+    const [row] = await this.selectWithSkillCount().where(
+      and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)),
+    );
     return row;
   }
 
@@ -188,15 +227,72 @@ export class AgentsRepository {
 
   // ---- agent_skills link table (A2 owns the agent side) -------------------
 
-  /** Skills linked to an agent, in `order` ascending. */
+  /** Skills linked to an agent (any per-agent state), in `order` ascending. */
   async linkedSkills(agentId: string): Promise<LinkedSkillRow[]> {
     const rows = await this.db
-      .select({ skill: t.skills, order: t.agentSkills.order })
+      .select({ skill: t.skills, order: t.agentSkills.order, enabled: t.agentSkills.enabled })
       .from(t.agentSkills)
       .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
       .where(eq(t.agentSkills.agentId, agentId))
       .orderBy(asc(t.agentSkills.order));
-    return rows.map((r) => ({ skill: r.skill, order: r.order }));
+    return rows.map((r) => ({ skill: r.skill, order: r.order, enabled: r.enabled }));
+  }
+
+  /**
+   * The skills that reach the agent's prompt, in prompt order: the link is
+   * enabled for this agent AND the skill is enabled globally.
+   */
+  async enabledSkillsForAgent(agentId: string): Promise<SkillRow[]> {
+    const rows = await this.db
+      .select({ skill: t.skills })
+      .from(t.agentSkills)
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .where(
+        and(
+          eq(t.agentSkills.agentId, agentId),
+          eq(t.agentSkills.enabled, true),
+          eq(t.skills.enabled, true),
+        ),
+      )
+      .orderBy(asc(t.agentSkills.order));
+    return rows.map((r) => r.skill);
+  }
+
+  /**
+   * Replace the agent's whole ordered skill set in ONE transaction: order =
+   * array index, `enabled` per item. Every skill id must belong to
+   * `workspaceId`; otherwise nothing is written and the offending ids are
+   * returned. The caller has already checked the agent belongs to the workspace.
+   */
+  async setSkillLinks(
+    workspaceId: string,
+    agentId: string,
+    items: SkillLinkInput[],
+  ): Promise<SetSkillLinksResult> {
+    return this.db.transaction(async (tx) => {
+      const ids = [...new Set(items.map((i) => i.skillId))];
+      if (ids.length > 0) {
+        const owned = await tx
+          .select({ id: t.skills.id })
+          .from(t.skills)
+          .where(and(eq(t.skills.workspaceId, workspaceId), inArray(t.skills.id, ids)));
+        const ownedIds = new Set(owned.map((r) => r.id));
+        const foreign = ids.filter((id) => !ownedIds.has(id));
+        if (foreign.length > 0) return { ok: false, foreign };
+      }
+      await tx.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
+      if (items.length > 0) {
+        await tx.insert(t.agentSkills).values(
+          items.map((item, i) => ({
+            agentId,
+            skillId: item.skillId,
+            order: i,
+            enabled: item.enabled,
+          })),
+        );
+      }
+      return { ok: true };
+    });
   }
 
   async skillIdsForAgent(agentId: string): Promise<string[]> {

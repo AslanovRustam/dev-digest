@@ -1,6 +1,6 @@
 import type { Agent, AgentVersion, CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
 import { AgentVersionConfig } from '@devdigest/shared';
-import type { AgentRow, AgentVersionRow } from './repository.js';
+import type { AgentRow, AgentVersionRow } from '../../db/rows.js';
 
 /**
  * Pure helpers for the agents module — DB row ⇄ DTO mapping and the
@@ -8,8 +8,12 @@ import type { AgentRow, AgentVersionRow } from './repository.js';
  * implementations.
  */
 
-/** Map a persisted agent row to the public `Agent` DTO. */
-export function toAgentDto(row: AgentRow): Agent {
+/**
+ * Map a persisted agent row to the public `Agent` DTO. `skillCount` (skills
+ * that would reach the prompt — both switches on) is included when the caller
+ * loaded it; otherwise `skill_count` is left out.
+ */
+export function toAgentDto(row: AgentRow, skillCount?: number): Agent {
   return {
     id: row.id,
     name: row.name,
@@ -23,7 +27,22 @@ export function toAgentDto(row: AgentRow): Agent {
     strategy: row.strategy as ReviewStrategy,
     ci_fail_on: row.ciFailOn as CiFailOn,
     repo_intel: row.repoIntel,
+    ...(skillCount !== undefined ? { skill_count: skillCount } : {}),
   };
+}
+
+/**
+ * Skill ids that appear more than once in an ordered set (a link is unique per
+ * agent+skill, so a repeated id cannot be stored). Order of first repeat.
+ */
+export function duplicateSkillIds(skillIds: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const dup = new Set<string>();
+  for (const id of skillIds) {
+    if (seen.has(id)) dup.add(id);
+    seen.add(id);
+  }
+  return [...dup];
 }
 
 /**

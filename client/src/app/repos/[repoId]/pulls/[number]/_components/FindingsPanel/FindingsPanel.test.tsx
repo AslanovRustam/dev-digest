@@ -3,6 +3,7 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
+import { finding } from "@/test/findings-fixture";
 
 vi.mock("../../../../../../../lib/hooks/reviews", () => ({
   useFindingAction: () => ({ mutate: vi.fn(), isPending: false }),
@@ -13,24 +14,9 @@ import { FindingsPanel } from "./FindingsPanel";
 afterEach(cleanup);
 
 const FINDINGS: FindingRecord[] = [
-  {
-    id: "f1",
-    severity: "CRITICAL",
-    category: "security",
-    title: "Hardcoded secret",
-    file: "src/config.ts",
-    start_line: 11,
-    end_line: 11,
-    rationale: "A secret is committed.",
-    suggestion: null,
-    confidence: 0.95,
-    kind: "finding",
-    trifecta_components: null,
-    evidence: null,
-    review_id: "r1",
-    accepted_at: null,
-    dismissed_at: null,
-  },
+  finding({ title: "Hardcoded secret", severity: "CRITICAL", confidence: 0.95 }),
+  finding({ title: "N+1 query", severity: "WARNING", category: "perf", confidence: 0.86 }),
+  finding({ title: "Maybe rename", severity: "SUGGESTION", category: "style", confidence: 0.4 }),
 ];
 
 function renderWithIntl(ui: React.ReactElement) {
@@ -41,15 +27,30 @@ function renderWithIntl(ui: React.ReactElement) {
   );
 }
 
-describe("FindingsPanel (smoke)", () => {
-  it("renders the toolbar + a finding card", () => {
+describe("FindingsPanel", () => {
+  it("renders every finding card; the filters live in SeverityFilterBar now", () => {
     renderWithIntl(<FindingsPanel findings={FINDINGS} prId="pr1" />);
-    expect(screen.getByText("Hide low confidence")).toBeInTheDocument();
+    expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
+    expect(screen.getByText("N+1 query")).toBeInTheDocument();
+    expect(screen.getByText("Maybe rename")).toBeInTheDocument();
+    expect(screen.queryByText("Hide low confidence")).not.toBeInTheDocument();
+  });
+
+  it("shows only the selected severity", () => {
+    renderWithIntl(<FindingsPanel findings={FINDINGS} prId="pr1" severity="WARNING" />);
+    expect(screen.getByText("N+1 query")).toBeInTheDocument();
+    expect(screen.queryByText("Hardcoded secret")).not.toBeInTheDocument();
+    expect(screen.queryByText("Maybe rename")).not.toBeInTheDocument();
+  });
+
+  it("hides low-confidence findings when asked", () => {
+    renderWithIntl(<FindingsPanel findings={FINDINGS} prId="pr1" hideLow />);
+    expect(screen.queryByText("Maybe rename")).not.toBeInTheDocument();
     expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
   });
 
   it("shows the empty state when nothing matches", () => {
-    renderWithIntl(<FindingsPanel findings={[]} prId="pr1" />);
+    renderWithIntl(<FindingsPanel findings={FINDINGS.slice(0, 1)} prId="pr1" severity="SUGGESTION" />);
     expect(screen.getByText("No findings match")).toBeInTheDocument();
   });
 });

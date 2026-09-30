@@ -24,6 +24,7 @@ vi.mock("../../../../../../../lib/hooks/trace", () => ({
 }));
 vi.mock("../../../../../../../lib/hooks/reviews", () => ({
   useRunEvents: () => ({ events: [], running: false }),
+  useFindingAction: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import RunTraceDrawer from "./RunTraceDrawer";

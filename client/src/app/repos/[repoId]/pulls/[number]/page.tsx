@@ -21,6 +21,7 @@ import { usePrReviews, useCancelRun, usePrActiveRuns, usePrRuns, useDeleteRun } 
 import { useActiveRepo, useRepoNotFound } from "../../../../../lib/repo-context";
 import { ApiError } from "../../../../../lib/api";
 import { githubPrUrl } from "../../../../../lib/github-urls";
+import { isSeverity } from "../../../../../lib/findings";
 import type { FindingRecord } from "@devdigest/shared";
 
 export default function PRDetailPage() {
@@ -59,6 +60,8 @@ export default function PRDetailPage() {
 
   const tab = search.get("tab") ?? "overview";
   const traceRunId = search.get("trace");
+  const severityParam = search.get("severity");
+  const severity = isSeverity(severityParam) ? severityParam : null;
   const setParam = (key: string, val: string | null) => {
     const sp = new URLSearchParams(search.toString());
     if (val == null) sp.delete(key);
@@ -69,8 +72,11 @@ export default function PRDetailPage() {
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
   const runs = reviews ?? [];
+  // Derive from `reviews` directly: `runs` is recomputed from it on every
+  // render, so [reviews] was already the correct dependency — this just makes
+  // the link visible to the exhaustive-deps rule.
   const allFindings: FindingRecord[] = React.useMemo(
-    () => runs.flatMap((r) => r.findings),
+    () => (reviews ?? []).flatMap((r) => r.findings),
     [reviews],
   );
   const lethalTrifecta = allFindings.filter((f) => f.kind === "lethal_trifecta");
@@ -147,6 +153,8 @@ export default function PRDetailPage() {
             prCommits={pr.commits}
             repoFullName={repoFullName}
             headSha={pr.head_sha}
+            severity={severity}
+            onSeverityChange={(sev) => setParam("severity", sev)}
             cancelMutation={cancel}
             onOpenTrace={(id) => setParam("trace", id)}
             onDelete={(id) => {
@@ -177,6 +185,9 @@ export default function PRDetailPage() {
           prNumber={pr.number}
           findings={runs.find((r) => r.run_id === traceRunId)?.findings ?? []}
           agentName={runs.find((r) => r.run_id === traceRunId)?.agent_name ?? null}
+          prId={prId}
+          repoFullName={repoFullName}
+          headSha={pr.head_sha}
           onClose={() => setParam("trace", null)}
         />
       )}

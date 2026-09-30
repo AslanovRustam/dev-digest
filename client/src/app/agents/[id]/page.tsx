@@ -9,10 +9,9 @@ import { Button, Dropdown, ErrorState, Skeleton, Icon, Badge } from "@devdigest/
 import { AppShell } from "../../../components/app-shell";
 import { AgentCard } from "../_components/AgentCard";
 import { AgentEditor } from "./_components/AgentEditor";
+import { TAB_KEYS } from "./_components/AgentEditor/constants";
 import { useAgents, useAgent, useUpdateAgent } from "../../../lib/hooks/agents";
 import { ApiError } from "../../../lib/api";
-
-const VALID_TABS = ["config"];
 
 export default function AgentEditorPage() {
   const params = useParams<{ id: string }>();
@@ -24,7 +23,8 @@ export default function AgentEditorPage() {
   const { data: agent, isLoading, isError, error, refetch } = useAgent(id);
   const update = useUpdateAgent();
 
-  const tab = VALID_TABS.includes(search.get("tab") ?? "") ? search.get("tab")! : "config";
+  const requestedTab = search.get("tab") ?? "";
+  const tab = TAB_KEYS.includes(requestedTab) ? requestedTab : "config";
   const setTab = (t: string) => {
     const sp = new URLSearchParams(search.toString());
     sp.set("tab", t);
@@ -85,6 +85,7 @@ export default function AgentEditorPage() {
                 key={a.id}
                 ag={a}
                 active={a.id === id}
+                skillCount={a.skill_count ?? undefined}
                 onClick={() => router.push(`/agents/${a.id}?tab=${tab}`)}
                 onToggle={(enabled) => update.mutate({ id: a.id, patch: { enabled } })}
               />

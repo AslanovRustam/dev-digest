@@ -8,11 +8,11 @@ description: Captures non-obvious engineering lessons into the INSIGHTS.md of th
 1. Review the work since the last check against the 7 sections below.
 2. Keep only candidates that pass EVERY gate check. If none pass, reply `Insights: nothing new` and stop.
 3. Route each insight to one file — the most specific path wins.
-4. Grep that file and the module's `CLAUDE.md`. Already there → skip. Contradicts an existing
+4. Grep that file and the module's `AGENTS.md`. Already there → skip. Contradicts an existing
    entry → write a new entry starting with `Supersedes YYYY-MM-DD:`.
 5. Append under the right section. NEVER edit or delete existing lines (append-only).
 6. Same trap already in Recurring Errors & Fixes (second hit) → propose a line for that
-   package's `CLAUDE.md` → Gotchas.
+   package's `AGENTS.md` → Gotchas.
 7. Report in one line: `Insights: +N → <file> (<section>)`.
 
 ## Routing

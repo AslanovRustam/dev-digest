@@ -41,6 +41,7 @@ export const s = {
   sizeBadgeBorder: (color: string): CSSProperties => ({ border: `1px solid ${color}` }),
   scoreCell: { display: "flex", alignItems: "center" } satisfies CSSProperties,
   costCell: { display: "flex", alignItems: "center" } satisfies CSSProperties,
+  findingsCell: { display: "flex", alignItems: "center", minWidth: 0 } satisfies CSSProperties,
   updatedCell: {
     fontSize: 12,
     color: "var(--text-muted)",
@@ -88,7 +89,10 @@ export const s = {
     margin: "14px 32px 44px",
     border: "1px solid var(--border)",
     borderRadius: 10,
-    overflow: "hidden",
+    // Clip to the rounded corners, but scroll (not clip) when the grid's
+    // minimum width exceeds a narrow viewport — see GRID in constants.ts.
+    overflowX: "auto",
+    overflowY: "hidden",
     background: "var(--bg-elevated)",
   } satisfies CSSProperties,
   headRow: {

@@ -31,6 +31,17 @@
     "noMatchTitle": "No findings match",
     "noMatchBody": "Adjust the filters above, or run a review to generate findings."
   },
+  "severityFilter": {
+    "ariaLabel": "Filter findings by severity",
+    "level": "{count} {severity}",
+    "showOnly": "Show only {severity} findings",
+    "clear": "Show all severities"
+  },
+  "findingsPreview": {
+    "header": "{count, plural, one {# finding} other {# findings}}",
+    "loading": "Loading findings…",
+    "empty": "No open findings"
+  },
   "runReview": {
     "runAll": "Run all enabled agents",
     "configureAgents": "Configure agents…",
@@ -91,11 +102,13 @@
       "author": "Author",
       "size": "Size",
       "score": "Score",
+      "findings": "Findings",
       "status": "Status",
       "cost": "Cost",
       "updated": "Updated"
     },
     "filesCount": "{count} files",
+    "findingsNone": "No findings",
     "errorTitle": "Couldn’t load pull requests",
     "errorBody": "The engine returned an error.",
     "emptyTitle": "No pull requests",
