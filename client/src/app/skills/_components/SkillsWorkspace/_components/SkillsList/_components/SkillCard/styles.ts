@@ -23,7 +23,15 @@ export const s = {
     overflow: "hidden",
     textOverflow: "ellipsis",
   } satisfies CSSProperties,
-  toggleWrap: { display: "inline-flex", alignItems: "center", flexShrink: 0 } satisfies CSSProperties,
+  // `position: relative` anchors the absolutely-positioned srOnly label here.
+  // Without it the label's containing block is the page, so labels of cards
+  // below the fold escape the list's scroll box and lengthen the document.
+  toggleWrap: {
+    display: "inline-flex",
+    alignItems: "center",
+    flexShrink: 0,
+    position: "relative",
+  } satisfies CSSProperties,
   srOnly: {
     position: "absolute",
     width: 1,

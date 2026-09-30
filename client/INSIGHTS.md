@@ -70,6 +70,14 @@ _None yet._
   `const [a] = arr` are `T | undefined` under tsc, so code green in vitest can still fail typecheck — run both.
   · ref: `client/tsconfig.json`
 
+- **2026-09-30** · **Symptom:** the whole page scrolls into an empty band below the app shell
+  (`document.documentElement.scrollHeight` > viewport) although every pane has its own `overflow: auto`.
+  **Cause:** a visually-hidden `position: absolute` label (sr-only text for a kit `Toggle`) inside a list
+  item with no positioned ancestor — its containing block is the page, so labels of items below the fold
+  escape the scroll box. **Fix:** `position: relative` on the element wrapping the sr-only text. Find it by
+  listing elements whose `getBoundingClientRect().bottom > innerHeight`.
+  · ref: `src/app/skills/_components/SkillsWorkspace/_components/SkillsList/_components/SkillCard/styles.ts`
+
 ## Recurring Errors & Fixes
 
 - **2026-09-30** · **Symptom:** `cd client && pnpm typecheck` fails with `error TS6053: File
