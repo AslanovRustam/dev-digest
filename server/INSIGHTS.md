@@ -9,14 +9,56 @@ _None yet._
 
 ## What Doesn't Work
 
+- **2026-09-29** · Never write `import * as t from '../../db/schema.js'` just to spell
+  `typeof t.repos.$inferSelect` — import the alias from `src/db/rows.ts` instead. why: static analysis
+  cannot tell that namespace import is type-only, so it counts as a VALUE import of the data layer and
+  trips `sql-only-in-repository` / `domain-files-are-pure`. The same shape between `helpers.ts` and
+  `repository.ts` also fabricates a dependency CYCLE (helpers →(type) repository →(value) helpers) that
+  `no-circular` reports. Fixing 5 files this way took `pnpm arch` from 35 violations to 23.
+  · ref: `src/db/rows.ts`, `src/modules/repos/helpers.ts`
+
 _None yet._
 - **2026-09-24** · Don't verify run-level UI (timeline, trace drawer, cost/tokens) on seeded data — why:
   `seed.ts` inserts a review for PR #482 but no `agent_runs` / `run_traces`, so those surfaces render empty;
   run a real review via `./scripts/dev.sh` instead. · ref: `src/db/seed.ts`
+- **2026-09-30** · To amend a not-yet-applied migration, don't delete its `.sql` and re-run
+  `pnpm db:generate` — change the schema and generate a FOLLOW-UP migration instead. why: drizzle-kit
+  keeps the entry in `meta/_journal.json` and `meta/NNNN_snapshot.json`, so after the delete the journal
+  points at a missing file and the next generate diffs against the stale snapshot; `drizzle-kit drop` is
+  interactive and hand-editing `meta/` is forbidden. Recovery used: restore the `.sql` byte-for-byte,
+  then generate. · ref: `src/db/migrations/0011_puzzling_amazoness.sql`, `0012_hesitant_the_captain.sql`
+- **2026-09-30** · Don't trust a zip's central-directory sizes as the zip-bomb guard — they are
+  self-declared. `NodeZipReader.readZip` also sums the bytes inflation actually produced (plus
+  `inflateRawSync({ maxOutputLength })` per entry); without it, headers that under-report passed the 2 MB
+  total and decoded ~50 MB. · ref: `src/adapters/archive/index.ts`, `test/archive-adapter.test.ts`
 
 ## Codebase Patterns
 
+- **2026-09-29** · A repo function that must compose into a `db.transaction()` takes `DbOrTx`,
+  not `Db` (`src/db/client.ts` exports `Tx` and `DbOrTx`). Drizzle’s transaction handle is a
+  `PgTransaction`, not assignable to `PostgresJsDatabase`, so a `Db`-typed parameter cannot accept `tx`.
+  Pattern: keep the single-statement functions, add a wrapper that opens the transaction and passes
+  `tx` to both. · ref: `src/modules/reviews/repository/review.repo.ts` (`insertReviewWithFindings`)
+## Codebase Patterns
+
 _None yet._
+- **2026-09-29** · Backend layering is now MACHINE-checked, not prose: `pnpm arch` (dependency-cruiser,
+  `.dependency-cruiser.cjs`, 13 ring rules) plus `test/architecture.test.ts`, which runs the same config in
+  the unit lane. `.dependency-cruiser-known-violations.json` is a debt LEDGER for `polling`/`settings`/
+  `workspace` (+2 `adapters → repo-intel/constants` inversions) — entries may only be removed, and a PR that
+  grows it is wrong. Those modules' inline-SQL routes are debt, NOT a pattern to copy; `pulls` was migrated
+  out of that set as the worked example. why: the same rules had been prose in `AGENTS.md` and were violated
+  ~30 times. · ref: `.dependency-cruiser.cjs`, `.claude/skills/onion-architecture/`
+- **2026-09-29** · Ring-boundary rules live in ONE place. `eslint.config.mjs` used to carry three
+  `import/no-restricted-paths` zones at `warn` (so CI never failed on them); they were folded into the
+  dependency-cruiser ruleset, which also expresses what ESLint could not — routes ↛ persistence, SQL only in
+  a repository, SDKs only in adapters, and the `type-only` carve-out. Don't re-add zones to ESLint; two
+  half-overlapping definitions drift invisibly. · ref: `eslint.config.mjs`, `.dependency-cruiser.cjs`
+- **2026-09-29** · A service is ring 2 and cannot import Fastify, so it cannot use `app.log`. Pass a
+  callback (`type WarnFn = (meta, msg) => void`, bound in `routes.ts`) or use `platform/run-logger.ts`.
+  Importing `FastifyBaseLogger` as a type to satisfy the checker keeps the coupling and only hides it.
+  This is the main friction when extracting a service from a route handler — `pulls/routes.ts` had 6
+  `app.log.warn` calls. · ref: `src/modules/pulls/service.ts`
 - **2026-09-24** · Run cost is already computed; don't re-implement pricing — read `outcome.costUsd` in
   `run-executor.ts` (destructure at ~L213 drops it) and persist it. why: `d45ab0d` removed only the
   `agent_runs.cost_usd` column + contract fields; `reviewer-core` still returns `ReviewOutcome.costUsd`
@@ -36,10 +78,42 @@ _None yet._
   PR has cost / what is still open", and a clean LLM re-run (same agent, same diff, `findings: []`, grounding
   `0/0`) made earlier findings look deleted. Only SCORE stays latest-review. · ref: `src/modules/pulls/cost.ts`
 
+- **2026-09-30** · To find runs whose prompt carried a skill, test the trace document with
+  `run_traces.trace @> jsonb_build_object('prompt_assembly', jsonb_build_object('skill_blocks',
+  jsonb_build_array(jsonb_build_object('skill_id', <uuid col>::text))))` — why: `skill_blocks[].skill_id` is
+  a JSON string, so without `::text` the uuid never matches; a run with no trace yields NULL, which
+  `count(*) filter (where …)` treats as false, so a LEFT JOIN is safe. · ref: `src/modules/skills/repository.ts`
+
 ## Tool & Library Notes
 
 _None yet._
+- **2026-09-29** · dependency-cruiser's PROGRAMMATIC api does not validate unless you pass
+  `validate: true` explicitly — the CLI sets it for you. Without it `summary.violations` is silently `[]`
+  and an architecture test passes while proving nothing. Call it as
+  `cruise(['src'], { ...config.options, ruleSet: config, validate: true })`. It is also ESM-only: `require()`
+  throws `ERR_PACKAGE_PATH_NOT_EXPORTED`. · ref: `test/architecture.test.ts`
+- **2026-09-29** · For depcruise on this repo, `tsConfig: { fileName: 'tsconfig.json' }` +
+  `tsPreCompilationDeps: true` are both mandatory: the first resolves `.js` specifiers back to `.ts` and
+  follows the tsconfig `paths` aliases, the second supplies the `type-only` dependency flag. Aliased packages
+  (`@devdigest/shared`, `@devdigest/reviewer-core`) resolve with `dependencyTypes: ['undetermined']`, so write
+  rules against the resolved `path`, never `dependencyTypes: ['npm']`. Baseline flow:
+  `pnpm arch:baseline` writes the ledger, `pnpm arch` honours it via `--ignore-known`.
+  · ref: `.dependency-cruiser.cjs`
 
+- **2026-09-30** · Drizzle 0.38 leaves column names UNQUALIFIED inside a `` sql`…` `` fragment when the outer
+  select has a single table: a correlated `` sql`(select count(*) … where ${t.agentSkills.enabled})` `` inside
+  `db.select().from(t.agents)` renders `"enabled"` and Postgres fails with `column reference "enabled" is
+  ambiguous` (500 on every `/agents` route). Use a grouped subquery (`.groupBy().as('x')`) + `.leftJoin(...)`
+  instead — with a join Drizzle qualifies columns. · ref: `src/modules/agents/repository.ts`
+
+## Recurring Errors & Fixes
+
+- **2026-09-29** · **Symptom:** 6 tests in `test/indexer-pipeline.test.ts` fail on Windows with
+  `ENOENT: no such file or directory` on a path under `%TEMP%`. **Cause:** the local `writeFileAt` helper
+  derived the parent directory with `full.lastIndexOf('/')`, but `join()` emits `\` on Windows, so the
+  search returned -1 and `mkdir` never ran. **Fix:** `dirname(full)` from `node:path`. The same helper in
+  `test/indexer-walk.test.ts` hid the bug — `slice(0, -1)` quietly created a junk directory and the test
+  still passed. Never split a path by hand; `dirname`/`basename` are platform-correct.
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `dev.sh` logs "applying migrations" and `pnpm db:migrate` / `db:seed` exit 0,
@@ -64,6 +138,16 @@ _None yet._
 ## Session Notes
 
 _None yet._
+
+### 2026-09-29 — onion-architecture skill + ring enforcement
+Added `.claude/skills/onion-architecture/`, `server/.dependency-cruiser.cjs` (13 rules) with a committed
+baseline, `test/architecture.test.ts`, `reviewer-core/test/purity.test.ts`, and a CI step in
+`server-unit.yml`. Migrated `pulls` from a 357-line route-only module to routes(59)/service/repository with
+zero test edits; baseline went 20 → 16.
+Baseline-testing the skill on subagents: agents already get ports and layering right in modules that HAVE a
+service/repository, and get it wrong by copying the neighbouring broken module — one justified inline SQL
+with "this module deliberately has no service.ts/repository.ts: its convention is a thin route that talks to
+container.db". The failure mode is contagion from existing violations, not ignorance.
 
 ## Open Questions
 

@@ -67,6 +67,12 @@ _None yet._
   lock is not an inventory either — `architecture-patterns` and `github-workflow-automation` are
   locked but have no folder at all. · ref: `skills-lock.json`, `AGENTS.md` (Do not touch)
 
+- **2026-09-30** · A skill with `disable-model-invocation: true` (now `pr-self-review`) cannot be run by the
+  agent through the Skill tool, so hook messages must say "ask the user to run `/pr-self-review`", not "run
+  /pr-self-review" — otherwise the agent tries, fails and improvises the steps by hand. The gate's deny texts
+  use the `CANNOT_INVOKE` wording and `gate.test.mjs` asserts it on all deny paths.
+  · ref: `.claude/skills/pr-self-review/scripts/gate.mjs`
+
 ## Tool & Library Notes
 
 _None yet._
