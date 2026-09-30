@@ -46,4 +46,9 @@ jobs:
 
       - run: pnpm typecheck
 
+      # Enforces the import-direction rules from the frontend-ui-architecture
+      # skill. A boundary that only lives in a document erodes; this fails on
+      # the commit that breaks it.
+      - run: pnpm lint
+
       - run: pnpm test

@@ -69,6 +69,11 @@ export function HoverCard({
   React.useEffect(() => cancel, [cancel]);
 
   // Place after every render while open: the content may grow (loading → list).
+  // The missing dependency array is deliberate — exhaustive-deps suggests [open],
+  // which would stop the repositioning this effect exists to do. It cannot loop:
+  // the updater below returns the previous object unchanged when top/left match,
+  // so React bails out instead of re-rendering.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useLayoutEffect(() => {
     if (!open) {
       setPlace(null);

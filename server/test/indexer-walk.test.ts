@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { walkClone } from '../src/modules/repo-intel/pipeline/walk.js';
 import {
   EXCLUDED_DIRS,
@@ -17,8 +17,9 @@ import {
 
 async function writeFileAt(root: string, rel: string, contents: string): Promise<void> {
   const full = join(root, rel);
-  const dir = full.slice(0, full.lastIndexOf('/'));
-  if (dir && dir !== root) await mkdir(dir, { recursive: true });
+  // dirname(), not lastIndexOf('/'): join() emits '\' on Windows, where the manual
+  // search returned -1 and slice(0, -1) silently created a junk directory instead.
+  await mkdir(dirname(full), { recursive: true });
   await writeFile(full, contents);
 }
 

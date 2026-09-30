@@ -65,6 +65,23 @@ jobs:
 
       - run: pnpm typecheck
 
+      # Lint. Module-boundary rules used to live here; they are now the Onion
+      # ring ruleset in the arch step below.
+      # Inlined like the vitest step below so it does not depend on the
+      # committed package.json carrying the script.
+      - run: pnpm exec eslint .
+
+      # Onion Architecture ring rules (.dependency-cruiser.cjs): routes ↛
+      # persistence, SQL only in a repository, I/O SDKs only behind a port,
+      # no cross-module imports, reviewer-core reached only via its index.
+      # `--ignore-known` honours .dependency-cruiser-known-violations.json, the
+      # committed debt ledger for the modules that predate the rules: a PR that
+      # GROWS that file is the thing to reject. Rationale + migration recipe:
+      # .claude/skills/onion-architecture/
+      # Runs here rather than as its own job: this job already installs the
+      # reviewer-core deps the resolver needs, so a step costs no extra runner.
+      - run: pnpm exec depcruise src --config .dependency-cruiser.cjs --ignore-known
+
   unit:
     name: tests
     runs-on: ubuntu-latest

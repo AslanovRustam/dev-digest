@@ -41,22 +41,24 @@ export class ReviewRepository {
 
   // ---- reviews + findings -------------------------------------------------
 
-  insertReview(values: {
-    workspaceId: string;
-    prId: string;
-    agentId: string | null;
-    runId: string | null;
-    kind: 'summary' | 'review';
-    verdict: string | null;
-    summary: string | null;
-    score: number | null;
-    model: string | null;
-  }): Promise<ReviewRow> {
-    return reviewRepo.insertReview(this.db, values);
-  }
-
-  insertFindings(reviewId: string, findings: Finding[]): Promise<FindingRow[]> {
-    return reviewRepo.insertFindings(this.db, reviewId, findings);
+  /** Persist a review and its findings atomically — see `insertReviewWithFindings`.
+   *  The two used to be separate calls; a failure in between produced a review
+   *  with no findings that looked like a clean run. */
+  insertReviewWithFindings(
+    values: {
+      workspaceId: string;
+      prId: string;
+      agentId: string | null;
+      runId: string | null;
+      kind: 'summary' | 'review';
+      verdict: string | null;
+      summary: string | null;
+      score: number | null;
+      model: string | null;
+    },
+    findings: Finding[],
+  ): Promise<{ review: ReviewRow; findings: FindingRow[] }> {
+    return reviewRepo.insertReviewWithFindings(this.db, values, findings);
   }
 
   /** Reviews for a PR (newest first), each with its findings. */

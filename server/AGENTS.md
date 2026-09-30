@@ -36,6 +36,10 @@ Fastify 5 · Drizzle ORM 0.38 + `postgres` driver · Postgres 16 + pgvector · Z
 - Services receive the `Container`; get adapters from it (`container.llm(...)`, `container.git`),
   never `new` an adapter inside a service. Throw `AppError` / `NotFoundError` from `platform/errors`.
 - Services hold no SQL — persistence goes through the module's `repository`.
+- These layering rules are ENFORCED: `pnpm arch` (dependency-cruiser) + `test/architecture.test.ts`.
+  `pulls`/`polling`/`settings`/`workspace` predate them — their violations are recorded in
+  `.dependency-cruiser-known-violations.json` and are debt, not a pattern to copy. Invoke the
+  `onion-architecture` skill before adding or moving backend code.
 - Tests: mock via `src/adapters/mocks.ts` or `ContainerOverrides`; a test importing
   `test/helpers/pg.ts` MUST be named `*.it.test.ts`.
 - Expensive routes get a per-route rate limit; SSE and `/health*` are exempt.

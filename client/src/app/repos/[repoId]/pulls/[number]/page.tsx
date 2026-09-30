@@ -72,8 +72,11 @@ export default function PRDetailPage() {
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
   const runs = reviews ?? [];
+  // Derive from `reviews` directly: `runs` is recomputed from it on every
+  // render, so [reviews] was already the correct dependency — this just makes
+  // the link visible to the exhaustive-deps rule.
   const allFindings: FindingRecord[] = React.useMemo(
-    () => runs.flatMap((r) => r.findings),
+    () => (reviews ?? []).flatMap((r) => r.findings),
     [reviews],
   );
   const lethalTrifecta = allFindings.filter((f) => f.kind === "lethal_trifecta");
