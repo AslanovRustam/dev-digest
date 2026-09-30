@@ -8,6 +8,7 @@ import { MockLLMProvider, MockEmbedder, MockGitClient, MockGitHubClient } from '
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
+import { insertReviewWithFindings } from '../src/modules/reviews/repository/review.repo.js';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -380,5 +381,162 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     // seed has 2 enabled agents; we may have created more above in this PR's ws.
     expect(body.runs.length).toBeGreaterThanOrEqual(2);
     await app.close();
+  });
+
+  it('skills (L02): only link-enabled AND globally-enabled skills reach the prompt, log and trace', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const db = pg.handle.db;
+    const { pr } = await setupRepoAndPr(db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'Skilled', provider: 'openai', model: 'gpt-4.1', system_prompt: 's' },
+      })
+    ).json();
+
+    const mkSkill = async (name: string, enabled: boolean) =>
+      (
+        await db
+          .insert(t.skills)
+          .values({
+            workspaceId,
+            name,
+            description: `When ${name} applies, flag it.`,
+            type: 'convention',
+            source: 'manual',
+            body: `- Rule body of ${name}.`,
+            enabled,
+          })
+          .returning()
+      )[0]!;
+    const on = await mkSkill('skill-on', true);
+    const linkOff = await mkSkill('skill-link-off', true);
+    const globalOff = await mkSkill('skill-global-off', false);
+
+    const put = await app.inject({
+      method: 'PUT',
+      url: `/agents/${agent.id}/skills`,
+      payload: {
+        items: [
+          { skill_id: linkOff.id, enabled: false },
+          { skill_id: on.id, enabled: true },
+          { skill_id: globalOff.id, enabled: true },
+        ],
+      },
+    });
+    expect(put.statusCode).toBe(200);
+
+    const body = (
+      await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } })
+    ).json();
+    await waitForPrRuns(db, pr.id, { expected: 1 });
+    const runId = body.runs[0].run_id;
+    const trace = (await app.inject({ method: 'GET', url: `/runs/${runId}/trace` })).json();
+
+    const blocks = trace.prompt_assembly.skill_blocks;
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({
+      skill_id: on.id,
+      name: 'skill-on',
+      type: 'convention',
+      version: 1,
+      text: '### Skill: skill-on\n_When skill-on applies, flag it._\n- Rule body of skill-on.',
+    });
+    expect(blocks[0].tokens).toBeGreaterThan(0);
+
+    const user: string = trace.prompt_assembly.user;
+    expect(user).toContain('## Skills / rules');
+    expect(user).toContain('### Skill: skill-on');
+    expect(user).not.toContain('### Skill: skill-link-off');
+    expect(user).not.toContain('### Skill: skill-global-off');
+
+    const msgs: string[] = trace.log.map((l: { msg: string }) => l.msg);
+    expect(msgs.some((m) => m.startsWith('skill "skill-on" v1 attached (~'))).toBe(true);
+    expect(msgs.some((m) => m.includes('skill "skill-link-off"'))).toBe(false);
+    expect(msgs.some((m) => m.includes('skill "skill-global-off"'))).toBe(false);
+
+    await app.close();
+  });
+
+  it('skills (L02): an agent with no skills gets no skills section and null skill_blocks', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'Skill-less', provider: 'openai', model: 'gpt-4.1', system_prompt: 's' },
+      })
+    ).json();
+    const body = (
+      await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } })
+    ).json();
+    await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+    const trace = (
+      await app.inject({ method: 'GET', url: `/runs/${body.runs[0].run_id}/trace` })
+    ).json();
+    expect(trace.prompt_assembly.skill_blocks ?? null).toBeNull();
+    expect(trace.prompt_assembly.user).not.toContain('## Skills / rules');
+    expect(trace.log.some((l: { msg: string }) => l.msg.includes('attached (~'))).toBe(false);
+    await app.close();
+  });
+
+  it('review + findings are atomic: a rejected finding rolls the review back', async () => {
+    const db = pg.handle.db;
+    const { pr } = await setupRepoAndPr(db, workspaceId);
+    const before = await db.select().from(t.reviews).where(eq(t.reviews.prId, pr.id));
+
+    // `title` is NOT NULL, so the findings insert fails. Before the transaction
+    // the review row from the first statement survived, and the UI rendered it
+    // as a completed run that found nothing.
+    const broken = { ...REVIEW_FIXTURE.findings[0]!, title: undefined as unknown as string };
+
+    await expect(
+      insertReviewWithFindings(
+        db,
+        {
+          workspaceId,
+          prId: pr.id,
+          agentId: null,
+          runId: null,
+          kind: 'review',
+          verdict: 'comment',
+          summary: 'must not survive the rollback',
+          score: null,
+          model: null,
+        },
+        [broken],
+      ),
+    ).rejects.toThrow();
+
+    const after = await db.select().from(t.reviews).where(eq(t.reviews.prId, pr.id));
+    expect(after).toHaveLength(before.length);
+    expect(after.some((r) => r.summary === 'must not survive the rollback')).toBe(false);
+  });
+
+  it('review + findings are atomic: the happy path still persists both', async () => {
+    const db = pg.handle.db;
+    const { pr } = await setupRepoAndPr(db, workspaceId);
+
+    const { review, findings } = await insertReviewWithFindings(
+      db,
+      {
+        workspaceId,
+        prId: pr.id,
+        agentId: null,
+        runId: null,
+        kind: 'review',
+        verdict: 'request_changes',
+        summary: 'committed together',
+        score: 10,
+        model: null,
+      },
+      REVIEW_FIXTURE.findings,
+    );
+
+    expect(findings).toHaveLength(REVIEW_FIXTURE.findings.length);
+    const persisted = await db.select().from(t.findings).where(eq(t.findings.reviewId, review.id));
+    expect(persisted).toHaveLength(REVIEW_FIXTURE.findings.length);
   });
 });
