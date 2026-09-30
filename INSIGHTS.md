@@ -73,6 +73,11 @@ _None yet._
   use the `CANNOT_INVOKE` wording and `gate.test.mjs` asserts it on all deny paths.
   · ref: `.claude/skills/pr-self-review/scripts/gate.mjs`
 
+- **2026-09-30** · A CI job's log is not readable without auth (`/actions/jobs/<id>/logs` → 403) and `gh`
+  is not installed here, but the public API still gives the failing STEP and annotations:
+  `curl https://api.github.com/repos/AslanovRustam/dev-digest/actions/jobs/<id>` (steps + conclusions) and
+  `/check-runs/<id>/annotations`. Use that to pick what to reproduce locally. · ref: `.github/workflows/`
+
 ## Tool & Library Notes
 
 _None yet._

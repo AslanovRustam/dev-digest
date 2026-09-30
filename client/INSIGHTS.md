@@ -26,6 +26,13 @@ _None yet._
   (pages-router error shell). Deleting `.next` does not recover it; only restarting `next dev` does.
   Verify a production build with the dev server stopped. · ref: `client/next.config.mjs`
 
+- **2026-09-30** · Never give a grid column a bare `1fr` when its cell clips (`overflow: hidden` +
+  ellipsis) — its grid min-width becomes 0, so once fixed columns fill a narrow container the column
+  collapses to 0px: the row is in the DOM but invisible and unclickable (seen at a ~770px-wide main area in a
+  Playwright replay of the e2e flows; CI's agent-browser viewport is wide enough not to hit it). Use
+  `minmax(<floor>px, 1fr)` and let the container scroll (`overflowX: auto`).
+  · ref: `src/app/repos/[repoId]/pulls/constants.ts` (`GRID`)
+
 ## Codebase Patterns
 
 _None yet._

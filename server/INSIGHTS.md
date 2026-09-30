@@ -106,6 +106,11 @@ _None yet._
   ambiguous` (500 on every `/agents` route). Use a grouped subquery (`.groupBy().as('x')`) + `.leftJoin(...)`
   instead — with a join Drizzle qualifies columns. · ref: `src/modules/agents/repository.ts`
 
+- **2026-09-30** · VS Code (bundled TypeScript 6) flags `tsconfig.json` with "The common source directory
+  of 'tsconfig.json' is '..'. The 'rootDir' setting must be explicitly set" while `pnpm typecheck` (tsc 5.7)
+  passes — the `paths` alias to `../reviewer-core/src` pulls sources outside `server/`. `rootDir: ".."` fixes
+  it without changing TS 5's computed output layout. · ref: `tsconfig.json`
+
 ## Recurring Errors & Fixes
 
 - **2026-09-29** · **Symptom:** 6 tests in `test/indexer-pipeline.test.ts` fail on Windows with
