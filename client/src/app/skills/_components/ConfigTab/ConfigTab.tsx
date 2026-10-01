@@ -10,7 +10,8 @@ import { useTranslations } from "next-intl";
 import { Button, FormField, SelectInput, TextInput, Textarea, Toggle } from "@devdigest/ui";
 import type { SkillType, Skill } from "@devdigest/shared";
 import { SKILL_TYPES } from "@/components/skill-type-badge";
-import { useCreateSkill, useDeleteSkill, useUpdateSkill } from "@/lib/hooks";
+import { useCreateSkill, useUpdateSkill } from "@/lib/hooks";
+import { DeleteSkillModal } from "@/app/skills/_components/DeleteSkillModal";
 import { useToast } from "@/lib/toast";
 import { VersionBadge } from "../VersionBadge";
 import { BodyEditor } from "./_components/BodyEditor";
@@ -24,7 +25,6 @@ export function ConfigTab({ skill }: { skill?: Skill }) {
   const create = useCreateSkill();
   const update = useUpdateSkill();
   const toggle = useUpdateSkill();
-  const del = useDeleteSkill();
 
   const base = formFrom(skill);
   const [form, setForm] = React.useState<SkillForm>(base);
@@ -87,15 +87,7 @@ export function ConfigTab({ skill }: { skill?: Skill }) {
     setNote("");
   };
 
-  const remove = () => {
-    if (!skill || !window.confirm(t("config.deleteConfirm", { name: skill.name }))) return;
-    del.mutate(skill.id, {
-      onSuccess: () => {
-        toast.success(t("config.deletedToast"));
-        router.push("/skills");
-      },
-    });
-  };
+  const [confirmingDelete, setConfirmingDelete] = React.useState(false);
 
   return (
     <div style={s.wrap}>
@@ -156,9 +148,12 @@ export function ConfigTab({ skill }: { skill?: Skill }) {
             {t("config.cancel")}
           </Button>
           {skill && (
-            <Button kind="danger" icon="Trash" onClick={remove} loading={del.isPending} style={s.delete}>
+            <Button kind="danger" icon="Trash" onClick={() => setConfirmingDelete(true)} style={s.delete}>
               {t("config.delete")}
             </Button>
+          )}
+          {skill && confirmingDelete && (
+            <DeleteSkillModal skill={skill} onClose={() => setConfirmingDelete(false)} />
           )}
         </div>
       </div>

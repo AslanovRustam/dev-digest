@@ -17,7 +17,7 @@ vi.mock("@/lib/hooks", () => ({
 }));
 
 import { VersionsTab } from "./VersionsTab";
-import { formatVersionDate, newestFirst } from "./helpers";
+import { formatVersionDate, newestFirst, previousVersion } from "./helpers";
 
 const SKILL: Skill = {
   id: "sk1",
@@ -49,16 +49,22 @@ function renderTab() {
 const rowOf = (note: string) => screen.getByText(note).closest("li")!;
 
 describe("VersionsTab", () => {
-  it("lists versions newest first with the current one marked, and diffs an older one inline", () => {
+  it("lists versions newest first and marks the current one; only older ones restore", () => {
     renderTab();
     expect(screen.getByText("2 versions")).toBeInTheDocument();
     const rows = screen.getAllByRole("listitem");
     expect(within(rows[0]!).getByText("v2")).toBeInTheDocument();
     expect(within(rows[0]!).getByText("Current")).toBeInTheDocument();
+    expect(within(rows[0]!).getByRole("button", { name: "Diff" })).toBeInTheDocument();
     expect(within(rows[0]!).queryByRole("button", { name: "Restore" })).not.toBeInTheDocument();
+    expect(within(rows[1]!).getByRole("button", { name: "Restore" })).toBeInTheDocument();
     expect(within(rows[1]!).getByText("2026-09-01")).toBeInTheDocument();
+  });
 
-    fireEvent.click(within(rowOf("Initial version")).getByRole("button", { name: "Diff" }));
+  it("diffs the CURRENT version against the one before it", () => {
+    renderTab();
+    fireEvent.click(within(rowOf("Tightened wording")).getByRole("button", { name: "Diff" }));
+    expect(screen.getByText("Changes in v2 vs v1")).toBeInTheDocument();
     const removed = screen.getByText("old line").closest("[data-kind]")!;
     const added = screen.getByText("new line").closest("[data-kind]")!;
     expect(removed).toHaveAttribute("data-kind", "del");
@@ -66,8 +72,16 @@ describe("VersionsTab", () => {
     expect(added).toHaveAttribute("data-kind", "add");
     expect(added).toHaveTextContent("+new line");
 
-    fireEvent.click(within(rowOf("Initial version")).getByRole("button", { name: "Hide diff" }));
+    fireEvent.click(within(rowOf("Tightened wording")).getByRole("button", { name: "Hide diff" }));
     expect(screen.queryByText("old line")).not.toBeInTheDocument();
+  });
+
+  it("shows v1 as its initial content (all added)", () => {
+    renderTab();
+    fireEvent.click(within(rowOf("Initial version")).getByRole("button", { name: "Diff" }));
+    expect(screen.getByText("v1 — initial content")).toBeInTheDocument();
+    expect(screen.getByText("old line").closest("[data-kind]")).toHaveAttribute("data-kind", "add");
+    expect(screen.queryByText("new line")).not.toBeInTheDocument();
   });
 
   it("restores only after confirmation", () => {
@@ -89,5 +103,12 @@ describe("VersionsTab helpers", () => {
     expect(formatVersionDate("2026-09-12T08:30:00Z")).toBe("2026-09-12");
     expect(formatVersionDate("not a date")).toBe("not a date");
     expect(newestFirst(VERSIONS).map((v) => v.version)).toEqual([2, 1]);
+  });
+
+  it("finds the version a given one was edited from, across gaps", () => {
+    const gappy = [VERSIONS[0]!, { ...VERSIONS[1]!, version: 4 }, { ...VERSIONS[1]!, version: 7 }];
+    expect(previousVersion(gappy, 7)?.version).toBe(4);
+    expect(previousVersion(gappy, 4)?.version).toBe(1);
+    expect(previousVersion(gappy, 1)).toBeUndefined();
   });
 });

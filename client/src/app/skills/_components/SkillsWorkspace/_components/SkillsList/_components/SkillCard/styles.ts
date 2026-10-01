@@ -14,6 +14,16 @@ export const s = {
     outlineOffset: 2,
   }),
   headerRow: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
+  deleteBtn: {
+    background: "none",
+    border: "none",
+    padding: 4,
+    margin: -4,
+    display: "inline-flex",
+    cursor: "pointer",
+    color: "var(--text-muted)",
+    flexShrink: 0,
+  } satisfies CSSProperties,
   name: {
     fontSize: 13,
     fontWeight: 700,

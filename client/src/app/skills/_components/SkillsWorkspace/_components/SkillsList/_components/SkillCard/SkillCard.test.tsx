@@ -3,6 +3,17 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { Skill } from "@devdigest/shared";
 import messages from "@/../messages/en/skills.json";
+
+// The modal has its own test; here we only check the card opens it.
+vi.mock("@/app/skills/_components/DeleteSkillModal", () => ({
+  DeleteSkillModal: ({ skill, onClose }: { skill: { name: string }; onClose: () => void }) => (
+    <div role="dialog">
+      confirm delete {skill.name}
+      <button onClick={onClose}>close</button>
+    </div>
+  ),
+}));
+
 import { SkillCard } from "./SkillCard";
 
 afterEach(cleanup);
@@ -60,5 +71,15 @@ describe("SkillCard", () => {
 
     fireEvent.click(screen.getByText("untested-branches"));
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("the trash button opens the delete confirmation without selecting the card", () => {
+    const onClick = vi.fn();
+    renderCard({ onClick });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete untested-branches" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("confirm delete untested-branches");
+    expect(onClick).not.toHaveBeenCalled();
   });
 });
