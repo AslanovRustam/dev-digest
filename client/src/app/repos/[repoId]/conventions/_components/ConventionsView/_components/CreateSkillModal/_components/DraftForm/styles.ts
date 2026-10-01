@@ -15,6 +15,8 @@ export const s = {
     position: "relative",
     cursor: "pointer",
   } satisfies CSSProperties,
+  // Block label around a SelectInput; `position: relative` anchors srOnly.
+  labelled: { display: "block", position: "relative" } satisfies CSSProperties,
   srOnly: {
     position: "absolute",
     width: 1,

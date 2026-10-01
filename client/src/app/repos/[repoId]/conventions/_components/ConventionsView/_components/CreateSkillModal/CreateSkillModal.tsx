@@ -143,7 +143,7 @@ export function CreateSkillModal({
               {draft.error instanceof Error ? draft.error.message : t("modal.draftError")}
             </div>
           ) : (
-            <div style={s.loading} aria-label={t("modal.draftLoading")}>
+            <div role="status" aria-busy="true" aria-label={t("modal.draftLoading")} style={s.loading}>
               <Skeleton height={40} />
               <Skeleton height={40} />
               <Skeleton height={220} />

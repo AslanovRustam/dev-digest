@@ -82,8 +82,9 @@ describe("ConventionCard", () => {
     const onPatch = renderCard();
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "Prefer async/await" } });
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "error-handling" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(onPatch).toHaveBeenCalledWith({ rule: "Prefer async/await" });
+    expect(onPatch).toHaveBeenCalledWith({ rule: "Prefer async/await", category: "error-handling" });
   });
 
   it("marks a candidate already merged into a skill", () => {

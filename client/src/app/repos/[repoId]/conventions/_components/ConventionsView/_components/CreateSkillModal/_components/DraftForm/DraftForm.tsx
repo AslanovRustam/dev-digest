@@ -89,7 +89,11 @@ export function DraftForm({
       </FormField>
       <div style={s.row}>
         <FormField label={t("modal.type")}>
-          <SelectInput value={form.type} onChange={(v) => set("type")(v as SkillType)} options={SKILL_TYPES} />
+          {/* SelectInput takes no aria-label; the wrapping label names it. */}
+          <label style={s.labelled}>
+            <span style={s.srOnly}>{t("modal.type")}</span>
+            <SelectInput value={form.type} onChange={(v) => set("type")(v as SkillType)} options={SKILL_TYPES} />
+          </label>
         </FormField>
         <FormField label={t("modal.enabled")} hint={t("modal.enabledHint")}>
           <label style={s.toggle}>
@@ -99,7 +103,10 @@ export function DraftForm({
         </FormField>
       </div>
       <FormField label={t("modal.agent")} hint={t("modal.agentHint")}>
-        <SelectInput value={form.agentId} onChange={set("agentId")} options={agentOptions} mono={false} />
+        <label style={s.labelled}>
+          <span style={s.srOnly}>{t("modal.agent")}</span>
+          <SelectInput value={form.agentId} onChange={set("agentId")} options={agentOptions} mono={false} />
+        </label>
       </FormField>
       <FormField label={t("modal.body")} required>
         <BodyEditor fileName={`${form.name || "skill"}.md`} value={form.body} onChange={set("body")} dirty />

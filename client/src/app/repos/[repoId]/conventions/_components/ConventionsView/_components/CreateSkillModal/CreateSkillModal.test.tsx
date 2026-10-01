@@ -15,10 +15,11 @@ const DRAFT: ConventionSkillDraft = {
 
 const createMutate = vi.fn();
 const draftHook = vi.fn();
+let createError: Error | null = null;
 vi.mock("@/lib/hooks", () => ({
   useConventionSkillDraft: (...args: unknown[]) => draftHook(...args),
   useAgents: () => ({ data: [{ id: "ag1", name: "API Contract Reviewer" }] }),
-  useCreateSkillFromConventions: () => ({ mutate: createMutate, isPending: false, error: null }),
+  useCreateSkillFromConventions: () => ({ mutate: createMutate, isPending: false, error: createError }),
 }));
 
 import { ToastProvider } from "@/lib/toast";
@@ -44,6 +45,7 @@ const cand = (id: string): ConventionCandidate => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  createError = null;
   draftHook.mockReturnValue({ data: DRAFT, isError: false, error: null });
   createMutate.mockImplementation((_input, opts) =>
     opts?.onSuccess?.({ skill_id: "sk1", name: _input.name, version: 1, convention_ids: [], linked_agent_ids: [] }),
@@ -71,7 +73,7 @@ describe("CreateSkillModal", () => {
     expect(screen.getByLabelText("Skill body (markdown)")).toHaveValue(DRAFT.body);
 
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "payments-house-rules" } });
-    fireEvent.change(screen.getByDisplayValue("Don't attach now"), { target: { value: "ag1" } });
+    fireEvent.change(screen.getByLabelText("Attach to agent"), { target: { value: "ag1" } });
     fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
 
     expect(createMutate).toHaveBeenCalledWith(
@@ -87,6 +89,16 @@ describe("CreateSkillModal", () => {
       expect.anything(),
     );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("shows the server error and stays open when saving fails", () => {
+    createError = new Error("Convention c2 is no longer accepted");
+    createMutate.mockImplementation(() => undefined);
+    const onClose = renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
+    expect(createMutate).toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Convention c2 is no longer accepted");
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("flipping Enabled does not submit the form", () => {
