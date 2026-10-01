@@ -132,6 +132,13 @@ _None yet._
   like data corruption but isn't. Prefix `PYTHONIOENCODING=utf8` (or wrap `sys.stdin.buffer` in a utf-8
   `TextIOWrapper`) before comparing API data with files.
 
+- **2026-10-01** · `/pr-self-review`: `INV-MIGRATION` fires on `server/src/db/migrations/meta/_journal.json` for
+  EVERY new generated migration (it is status `M`, not `A`), and `INV-RUNTIME-DATA` on any `client/src/vendor/ui/**`
+  edit. Both are file-level findings (`start_line: 0`), so `// pr-self-review-ignore` can never match them — the only
+  exit is `report.mjs --override "<reason>"`. Also: run `cache.mjs store` after EVERY fan-out pass, or the next
+  `cache.mjs plan` re-reviews everything since the last store; and tell reviewers `start_line` is a SOURCE-file line —
+  they otherwise cite `diff.patch` line numbers and grounding drops the finding. · ref: `.claude/skills/pr-self-review/scripts/invariants.mjs`, `report.mjs` (`applySuppression`)
+
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `GET /repos` → 500; logs show `read ECONNRESET`, then `28P01 auth_failed`
