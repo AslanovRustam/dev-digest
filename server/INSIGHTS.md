@@ -124,6 +124,14 @@ _None yet._
   search returned -1 and `mkdir` never ran. **Fix:** `dirname(full)` from `node:path`. The same helper in
   `test/indexer-walk.test.ts` hid the bug — `slice(0, -1)` quietly created a junk directory and the test
   still passed. Never split a path by hand; `dirname`/`basename` are platform-correct.
+
+- **2026-10-01** · **Symptom:** a review of a freshly imported open PR approves with "No diff was provided"; the
+  Live log says `Diff ready — 0 changed file(s)`. **Cause:** `loadDiff` first tries `git diff base head` in the
+  depth-1 clone, which lacks the PR head commit, then falls back to `pr_files` — and those are written only by
+  `PullsService.detail` (`GET /pulls/:id`), not by the list import. **Fix:** open the PR detail page (or
+  `GET /pulls/:id`) before running a review; a run started straight from the API after `POST /repos/:id/refresh`
+  reviews nothing. · ref: `src/modules/reviews/diff-loader.ts`, `src/modules/pulls/service.ts` (`detail`)
+
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `dev.sh` logs "applying migrations" and `pnpm db:migrate` / `db:seed` exit 0,
