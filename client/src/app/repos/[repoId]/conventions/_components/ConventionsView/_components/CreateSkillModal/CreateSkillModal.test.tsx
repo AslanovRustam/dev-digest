@@ -92,11 +92,23 @@ describe("CreateSkillModal", () => {
   });
 
   it("shows the server error and stays open when saving fails", () => {
-    createError = new Error("Convention c2 is no longer accepted");
-    createMutate.mockImplementation(() => undefined);
-    const onClose = renderModal();
+    // The mutation fails on submit: only then does the hook report an error.
+    createMutate.mockImplementation(() => {
+      createError = new Error("Convention c2 is no longer accepted");
+    });
+    const onClose = vi.fn();
+    const tree = () => (
+      <NextIntlClientProvider locale="en" messages={{ conventions, skills }}>
+        <ToastProvider>
+          <CreateSkillModal repoId="r1" repoName="payments-api" candidates={[cand("c1"), cand("c2")]} onClose={onClose} />
+        </ToastProvider>
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(tree());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
-    expect(createMutate).toHaveBeenCalled();
+    rerender(tree());
     expect(screen.getByRole("alert")).toHaveTextContent("Convention c2 is no longer accepted");
     expect(onClose).not.toHaveBeenCalled();
   });
