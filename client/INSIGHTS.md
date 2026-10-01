@@ -33,6 +33,12 @@ _None yet._
   `minmax(<floor>px, 1fr)` and let the container scroll (`overflowX: auto`).
   · ref: `src/app/repos/[repoId]/pulls/constants.ts` (`GRID`)
 
+- **2026-10-01** · Supersedes 2026-10-01 (portal + stopPropagation wrapper): a wrapper that calls
+  `e.stopPropagation()` on `onKeyDown` also hides the key from a `window` keydown listener, so an Escape
+  pressed with focus INSIDE the dialog never closed it. Handle Escape in the wrapper's own `onKeyDown`, and keep
+  the `window` listener only for focus outside the dialog. · ref: `src/app/skills/_components/DeleteSkillModal/DeleteSkillModal.tsx`,
+  `src/app/repos/[repoId]/conventions/_components/ConventionsView/_components/CreateSkillModal/CreateSkillModal.tsx`
+
 ## Codebase Patterns
 
 _None yet._
@@ -101,6 +107,10 @@ _None yet._
 - **2026-10-01** · Kit `SelectInput` renders a `<select>` with no accessible name (no `aria-label` prop), so RTL's
   `getByRole('combobox', { name })` / `getByLabelText` can't find it — select it with `getByDisplayValue("<selected option label>")`.
   · ref: `src/app/repos/[repoId]/conventions/_components/ConventionsView/_components/CreateSkillModal/CreateSkillModal.test.tsx`
+
+- **2026-10-01** · Kit buttons default to `type="submit"`: `Toggle` rendered a bare `<button>`, so inside a
+  `<form>` clicking a switch submitted the form (the create-skill modal saved the skill). `Toggle` now sets
+  `type="button"`; check any other kit control you put inside a `<form>` the same way. · ref: `src/vendor/ui/primitives/Toggle.tsx`
 
 ## Recurring Errors & Fixes
 

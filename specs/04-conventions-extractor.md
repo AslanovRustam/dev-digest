@@ -50,12 +50,16 @@ skills the agent misses a breaking change, with skills it reports it.
 
 ## Data model
 
-Migrations `0013` (add) + `0014` (drop `accepted`), generated.
+Migrations `0013`–`0017` (generated; the later ones came out of `/pr-self-review`).
 
 - `convention_scans`: `id, workspace_id, repo_id, source_sha, sample_files jsonb, model, proposed,
-  dropped_ungrounded, dropped_duplicate, cost_usd, created_at`.
-- `conventions`: + `scan_id` (cascade), `category`, `evidence_start_line`, `evidence_end_line`,
-  `status`, `skill_id` (set null), `created_at`, `updated_at`; − `accepted`.
+  dropped_ungrounded, dropped_duplicate, cost_usd, created_at`; indexes on `(repo_id, created_at)`
+  and `workspace_id`.
+- `conventions`: + `scan_id` (**set null** — a scan is provenance, deleting one must not delete
+  triaged or skill-merged conventions), `category` (typed from `CONVENTION_CATEGORIES`, pinned to
+  `ConventionCategory` by a unit test), `evidence_start_line` / `evidence_end_line`, `status`,
+  `skill_id` (set null), `created_at`, `updated_at`; − `accepted`. Evidence columns are NOT NULL;
+  CHECKs on `status`, `category` and `1 ≤ start ≤ end`; indexes on `repo_id`, `scan_id`, `skill_id`.
 
 ## Contracts (both `shared` copies)
 
