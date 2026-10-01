@@ -4,7 +4,10 @@ import {
   buildSkillDraft,
   clampConfidence,
   configCandidatesFor,
+  diversifySample,
   groundCandidates,
+  isProjectSource,
+  isTrivialSample,
   knownConventions,
   locateSnippet,
   normaliseRepoPath,
@@ -147,6 +150,59 @@ describe('groundCandidates', () => {
     );
     expect(out.kept).toHaveLength(0);
     expect(out.droppedDuplicate).toBe(1);
+  });
+});
+
+describe('diversifySample', () => {
+  it('spreads a rank-ordered pool across top-level dirs, max N per directory first', () => {
+    const ranked = [
+      'client/src/agents/a.tsx',
+      'client/src/agents/b.tsx',
+      'client/src/agents/c.tsx',
+      'client/src/agents/d.tsx',
+      'client/src/skills/e.tsx',
+      'server/src/modules/x/service.ts',
+      'server/src/modules/x/routes.ts',
+      'server/src/modules/x/helpers.ts',
+      'README.md',
+    ];
+    expect(diversifySample(ranked, 2)).toEqual([
+      'client/src/agents/a.tsx',
+      'server/src/modules/x/service.ts',
+      'README.md',
+      'client/src/agents/b.tsx',
+      'server/src/modules/x/routes.ts',
+      'client/src/skills/e.tsx',
+      // second pass: what the per-dir cap held back, in rank order
+      'client/src/agents/c.tsx',
+      'client/src/agents/d.tsx',
+      'server/src/modules/x/helpers.ts',
+    ]);
+  });
+
+  it('keeps every path exactly once', () => {
+    const ranked = ['a/1.ts', 'a/2.ts', 'b/3.ts'];
+    expect([...diversifySample(ranked)].sort()).toEqual([...ranked].sort());
+  });
+});
+
+describe('isProjectSource', () => {
+  it('skips vendored, generated, fixture and hidden-directory code', () => {
+    expect(isProjectSource('server/src/modules/x/service.ts')).toBe(true);
+    expect(isProjectSource('index.ts')).toBe(true);
+    expect(isProjectSource('.claude/skills/x/utility-types.ts')).toBe(false);
+    expect(isProjectSource('client/src/vendor/ui/Button.tsx')).toBe(false);
+    expect(isProjectSource('pkg/dist/index.js')).toBe(false);
+    expect(isProjectSource('test/__fixtures__/a.ts')).toBe(false);
+    // a file NAMED like an excluded segment is fine
+    expect(isProjectSource('src/build.ts')).toBe(true);
+  });
+});
+
+describe('isTrivialSample', () => {
+  it('treats barrels and stubs as trivial', () => {
+    expect(isTrivialSample("export { A, default } from './A';\n")).toBe(true);
+    expect(isTrivialSample(USERS_TS)).toBe(false);
   });
 });
 

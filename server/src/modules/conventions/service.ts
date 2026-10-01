@@ -20,6 +20,7 @@ import {
   MAX_SOURCE_CHARS,
   MAX_SOURCE_LINES,
   SAMPLE_FILE_COUNT,
+  SAMPLE_POOL_SIZE,
   SYSTEM_PROMPT_FILE,
 } from './constants.js';
 import {
@@ -27,7 +28,10 @@ import {
   buildExtractionMessages,
   buildSkillDraft,
   configCandidatesFor,
+  diversifySample,
   groundCandidates,
+  isProjectSource,
+  isTrivialSample,
   knownConventions,
   normaliseRepoPath,
   toConventionDto,
@@ -71,9 +75,10 @@ export class ConventionsService {
     }
     const ref = { owner: repo.owner, name: repo.name };
 
-    // 1. SAMPLE — code only, no model.
-    const samplePaths = await this.container.repoIntel.getConventionSamples(repo.id, SAMPLE_FILE_COUNT);
-    if (samplePaths.length === 0) {
+    // 1. SAMPLE — code only, no model. A wide ranked pool, spread across the
+    //    repo, read until SAMPLE_FILE_COUNT non-trivial files are in hand.
+    const pool = await this.container.repoIntel.getConventionSamples(repo.id, SAMPLE_POOL_SIZE);
+    if (pool.length === 0) {
       throw new AppError(
         'repo_not_indexed',
         'No files to sample — the repository is not indexed yet (or repo-intel is disabled).',
@@ -90,15 +95,17 @@ export class ConventionsService {
     };
 
     const sources: SampleFile[] = [];
-    for (const path of samplePaths) {
+    for (const path of diversifySample(pool.filter(isProjectSource))) {
+      if (sources.length >= SAMPLE_FILE_COUNT) break;
       const content = await read(path);
-      if (content === null) continue;
+      if (content === null || isTrivialSample(content)) continue;
       const { text, truncated } = truncateForPrompt(content, MAX_SOURCE_LINES, MAX_SOURCE_CHARS);
       sources.push({ path, content: text, truncated });
     }
     if (sources.length === 0) {
       throw new AppError('repo_not_readable', 'The sampled files could not be read from the clone.', 409);
     }
+    const samplePaths = sources.map((f) => f.path);
     const configs: SampleFile[] = [];
     for (const path of configCandidatesFor(samplePaths)) {
       if (configs.length >= MAX_CONFIG_FILES) break;

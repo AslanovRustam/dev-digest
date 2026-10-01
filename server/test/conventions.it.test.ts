@@ -24,9 +24,27 @@ const USERS_TS = [
   '  const posts = await db.posts.findMany({ userId: id });',
   '  return { user, posts };',
   '}',
+  '',
+  'export async function getAdmin(id: string) {',
+  '  const admin = await db.admins.find(id);',
+  '  return admin;',
+  '}',
 ].join('\n');
 
-const REDIS_TS = "import Redis from 'ioredis';\nexport const redis = new Redis(config.redisUrl);\n";
+const REDIS_TS = [
+  "import Redis from 'ioredis';",
+  "import { config } from '../config.js';",
+  '',
+  'export const redis = new Redis(config.redisUrl);',
+  '',
+  'export async function cached<T>(key: string, load: () => Promise<T>): Promise<T> {',
+  '  const hit = await redis.get(key);',
+  '  if (hit) return JSON.parse(hit) as T;',
+  '  const value = await load();',
+  '  await redis.set(key, JSON.stringify(value), "EX", 60);',
+  '  return value;',
+  '}',
+].join('\n');
 
 const EXTRACTION = {
   candidates: [

@@ -3,8 +3,37 @@
  * is one cheap structured call with a predictable prompt size.
  */
 
-/** Top-ranked source files sent to the model (`repoIntel.getConventionSamples`). */
+/** Source files sent to the model. */
 export const SAMPLE_FILE_COUNT = 12;
+
+/**
+ * Ranked files fetched from `repoIntel.getConventionSamples` before
+ * diversifying. Rank alone clusters in one area (the 12 most central files of
+ * a monorepo are often siblings), so the sample is picked from a wider pool.
+ */
+export const SAMPLE_POOL_SIZE = 200;
+
+/**
+ * Path segments whose code is not the team's own: vendored copies, build
+ * output, fixtures. A segment starting with "." (`.claude/`, `.github/`) is
+ * skipped as well — tool config, not product code.
+ */
+export const NON_PROJECT_SEGMENTS = [
+  'vendor',
+  'node_modules',
+  'dist',
+  'build',
+  'generated',
+  '__generated__',
+  'fixtures',
+  '__fixtures__',
+] as const;
+
+/** First-pass cap per directory, so one folder cannot fill the sample. */
+export const MAX_SAMPLES_PER_DIR = 2;
+
+/** A file with fewer non-blank lines (a re-export barrel, a stub) shows no convention. */
+export const MIN_SAMPLE_LINES = 8;
 
 /**
  * Config files that state conventions explicitly. Looked up at the repo root

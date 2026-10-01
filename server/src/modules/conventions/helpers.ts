@@ -11,8 +11,11 @@ import type { ConventionRow, ConventionScanRow } from '../../db/rows.js';
 import {
   CONFIG_FILE_NAMES,
   FENCE_LANG,
+  MAX_SAMPLES_PER_DIR,
   MAX_SNIPPET_LINES,
+  MIN_SAMPLE_LINES,
   MIN_SNIPPET_CHARS,
+  NON_PROJECT_SEGMENTS,
 } from './constants.js';
 
 /**
@@ -70,6 +73,68 @@ export function configCandidatesFor(samplePaths: string[]): string[] {
     }
   }
   return dirs.flatMap((d) => CONFIG_FILE_NAMES.map((n) => (d ? `${d}/${n}` : n)));
+}
+
+function topDir(path: string): string {
+  const slash = path.indexOf('/');
+  return slash > 0 ? path.slice(0, slash) : '';
+}
+
+function parentDir(path: string): string {
+  const slash = path.lastIndexOf('/');
+  return slash > 0 ? path.slice(0, slash) : '';
+}
+
+/**
+ * Reorder a rank-ordered pool so the sample spans the repo: round-robin over
+ * top-level directories (`client/`, `server/`, …), at most `perDir` files per
+ * directory in the first pass, then everything left in rank order. The caller
+ * reads files in this order until it has enough non-trivial ones.
+ */
+export function diversifySample(ranked: string[], perDir = MAX_SAMPLES_PER_DIR): string[] {
+  const groups = new Map<string, string[]>();
+  for (const p of ranked) {
+    const key = topDir(p);
+    const g = groups.get(key);
+    if (g) g.push(p);
+    else groups.set(key, [p]);
+  }
+  const queues = [...groups.values()];
+  const perDirCount = new Map<string, number>();
+  const picked: string[] = [];
+  const taken = new Set<string>();
+  let progress = true;
+  while (progress) {
+    progress = false;
+    for (const q of queues) {
+      const i = q.findIndex((p) => (perDirCount.get(parentDir(p)) ?? 0) < perDir);
+      if (i < 0) continue;
+      const [p] = q.splice(i, 1);
+      perDirCount.set(parentDir(p!), (perDirCount.get(parentDir(p!)) ?? 0) + 1);
+      picked.push(p!);
+      taken.add(p!);
+      progress = true;
+    }
+  }
+  return [...picked, ...ranked.filter((p) => !taken.has(p))];
+}
+
+/** False for vendored, generated, fixture or hidden-directory files — not the team's own code. */
+export function isProjectSource(path: string): boolean {
+  const segments = path.split('/').slice(0, -1);
+  return !segments.some(
+    (seg) => seg.startsWith('.') || (NON_PROJECT_SEGMENTS as readonly string[]).includes(seg),
+  );
+}
+
+/** True when a file has too little code to show a convention (barrels, stubs). */
+export function isTrivialSample(content: string): boolean {
+  let n = 0;
+  for (const line of content.split(/\r?\n/)) {
+    if (line.trim()) n += 1;
+    if (n >= MIN_SAMPLE_LINES) return false;
+  }
+  return true;
 }
 
 /** Cap a file for the prompt by lines, then by characters. */
