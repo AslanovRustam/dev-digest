@@ -29,7 +29,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
   // handed to it as a plain callback.
   const warn: WarnFn = (meta, msg) => app.log.warn(meta, msg);
 
-  app.get('/repos/:id/pulls', { schema: { params: IdParams } }, async (req): Promise<PrMeta[]> => {
+  app.get('/repos/:id/pull-requests', { schema: { params: IdParams } }, async (req): Promise<PrMeta[]> => {
     const { workspaceId } = await getContext(app.container, req);
     return service.listForRepo(workspaceId, req.params.id, warn);
   });
