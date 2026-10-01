@@ -4,14 +4,16 @@ import { NextIntlClientProvider } from "next-intl";
 import type { Skill } from "@devdigest/shared";
 import messages from "@/../messages/en/skills.json";
 
-// The modal has its own test; here we only check the card opens it.
-vi.mock("@/app/skills/_components/DeleteSkillModal", () => ({
-  DeleteSkillModal: ({ skill, onClose }: { skill: { name: string }; onClose: () => void }) => (
-    <div role="dialog">
-      confirm delete {skill.name}
-      <button onClick={onClose}>close</button>
-    </div>
-  ),
+import { ToastProvider } from "@/lib/toast";
+
+// Mock only the boundaries the real DeleteSkillModal needs, so the card is
+// tested with its real portal + event isolation.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/skills",
+}));
+vi.mock("@/lib/hooks", () => ({
+  useDeleteSkill: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import { SkillCard } from "./SkillCard";
@@ -35,7 +37,9 @@ const SKILL: Skill = {
 function renderCard(props: Partial<React.ComponentProps<typeof SkillCard>> = {}) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ skills: messages }}>
-      <SkillCard skill={SKILL} {...props} />
+      <ToastProvider>
+        <SkillCard skill={SKILL} {...props} />
+      </ToastProvider>
     </NextIntlClientProvider>,
   );
 }
@@ -79,7 +83,12 @@ describe("SkillCard", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Delete untested-branches" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent("confirm delete untested-branches");
+    expect(screen.getByRole("dialog")).toHaveTextContent("untested-branches");
+    expect(onClick).not.toHaveBeenCalled();
+
+    // Clicks inside the portalled dialog must not bubble up and select the card.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(onClick).not.toHaveBeenCalled();
   });
 });

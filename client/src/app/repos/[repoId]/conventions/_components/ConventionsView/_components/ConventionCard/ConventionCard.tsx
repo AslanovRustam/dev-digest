@@ -13,7 +13,7 @@ import type { ConventionCandidate, ConventionCategory, ConventionPatch } from "@
 import { githubBlobUrl } from "@/lib/github-urls";
 import { useToast } from "@/lib/toast";
 import { CATEGORIES } from "../../constants";
-import { confidenceColor, evidenceRef } from "../../helpers";
+import { confidenceColor, evidenceRef } from "./helpers";
 import { s } from "./styles";
 
 export function ConventionCard({

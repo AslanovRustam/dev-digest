@@ -1,10 +1,5 @@
 import type { ConventionCandidate, ConventionCategory } from "@devdigest/shared";
-import {
-  CONFIDENCE_HIGH,
-  CONFIDENCE_MID,
-  type CategoryFilter,
-  type StatusFilter,
-} from "./constants";
+import { CATEGORIES, STATUS_FILTERS, type CategoryFilter, type StatusFilter } from "./constants";
 
 /** Candidates visible under the status + category filters. */
 export function filterCandidates(
@@ -42,20 +37,6 @@ export function countBy(list: ConventionCandidate[]) {
   return { status, category };
 }
 
-/** Bar colour for a 0..1 confidence (ok ≥ 85 %, warn ≥ 65 %, else muted). */
-export function confidenceColor(confidence: number): string {
-  if (confidence >= CONFIDENCE_HIGH) return "var(--ok)";
-  if (confidence >= CONFIDENCE_MID) return "var(--warn)";
-  return "var(--text-muted)";
-}
-
-/** `path:start-end` (or `path:line`). */
-export function evidenceRef(c: Pick<ConventionCandidate, "evidence_path" | "evidence_start_line" | "evidence_end_line">): string {
-  return c.evidence_start_line === c.evidence_end_line
-    ? `${c.evidence_path}:${c.evidence_start_line}`
-    : `${c.evidence_path}:${c.evidence_start_line}-${c.evidence_end_line}`;
-}
-
 /** Compact age ("5m", "3h", "2d"), or null when under a minute or unparsable. */
 export function compactAge(iso: string, now = Date.now()): string | null {
   const then = Date.parse(iso);
@@ -66,4 +47,14 @@ export function compactAge(iso: string, now = Date.now()): string | null {
   const h = Math.round(m / 60);
   if (h < 24) return `${h}h`;
   return `${Math.round(h / 24)}d`;
+}
+
+/** `?status=` → a known status filter, else "all". */
+export function parseStatus(value: string | null): StatusFilter {
+  return (STATUS_FILTERS as readonly string[]).includes(value ?? "") ? (value as StatusFilter) : "all";
+}
+
+/** `?category=` → a known category, else "all". */
+export function parseCategory(value: string | null): CategoryFilter {
+  return (CATEGORIES as string[]).includes(value ?? "") ? (value as CategoryFilter) : "all";
 }

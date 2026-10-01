@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, jsonb, timestamp, doublePrecision, integer, vector, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { pgTable, uuid, text, jsonb, timestamp, doublePrecision, integer, vector, index, check } from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces } from './core';
 import { repos } from './repos';
@@ -85,5 +86,18 @@ export const conventions = pgTable(
     createdAt: now(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => ({ repoIdx: index('conventions_repo_idx').on(t.repoId) }),
+  (t) => ({
+    repoIdx: index('conventions_repo_idx').on(t.repoId),
+    // FK columns are not indexed by Postgres; deleting a scan (cascade) or a
+    // skill (set null) would otherwise scan the whole table.
+    scanIdx: index('conventions_scan_idx').on(t.scanId),
+    skillIdx: index('conventions_skill_idx').on(t.skillId),
+    // The enums above narrow only the TS type — these make the DB refuse drift.
+    // Keep `category` in sync with `ConventionCategory` (vendor/shared).
+    statusChk: check('conventions_status_chk', sql`${t.status} in ('pending', 'accepted', 'rejected')`),
+    categoryChk: check(
+      'conventions_category_chk',
+      sql`${t.category} in ('naming', 'async', 'error-handling', 'imports', 'architecture', 'typing', 'testing', 'style', 'api', 'other')`,
+    ),
+  }),
 );

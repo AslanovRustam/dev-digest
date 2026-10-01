@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { ConventionStatus } from "@devdigest/shared";
-import { STATUS_ACCENT } from "../../constants";
+import { STATUS_ACCENT } from "./constants";
 
 /** Co-located styles for a convention candidate card. */
 export const s = {

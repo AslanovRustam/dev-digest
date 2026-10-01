@@ -6,6 +6,7 @@
 "use client";
 
 import React from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Chip, EmptyState, ErrorState, Skeleton } from "@devdigest/ui";
 import type { ConventionPatch } from "@devdigest/shared";
@@ -25,7 +26,7 @@ import {
   type CategoryFilter,
   type StatusFilter,
 } from "./constants";
-import { compactAge, countBy, filterCandidates, skillCandidates } from "./helpers";
+import { compactAge, countBy, filterCandidates, parseCategory, parseStatus, skillCandidates } from "./helpers";
 import { s } from "./styles";
 
 export function ConventionsView({
@@ -44,8 +45,22 @@ export function ConventionsView({
   const extract = useExtractConventions(repoId);
   const patch = usePatchConvention(repoId);
   const bulk = useBulkConventionStatus(repoId);
-  const [status, setStatus] = React.useState<StatusFilter>("all");
-  const [category, setCategory] = React.useState<CategoryFilter>("all");
+  // Filters live in the URL (?status&category) so a reload, a back-navigation
+  // from a linked skill or a shared link keeps them — same as the Pulls page.
+  const search = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const status = parseStatus(search.get("status"));
+  const category = parseCategory(search.get("category"));
+  const setFilter = (key: "status" | "category", value: string) => {
+    const sp = new URLSearchParams(search.toString());
+    if (value === "all") sp.delete(key);
+    else sp.set(key, value);
+    const qs = sp.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  };
+  const setStatus = (v: StatusFilter) => setFilter("status", v);
+  const setCategory = (v: CategoryFilter) => setFilter("category", v);
   const [creating, setCreating] = React.useState(false);
 
   const candidates = data?.candidates ?? [];

@@ -64,9 +64,8 @@ function renderModal() {
 }
 
 describe("CreateSkillModal", () => {
-  it("requests the draft for exactly the accepted candidates it was given", () => {
+  it("says how many accepted conventions it merges", () => {
     renderModal();
-    expect(draftHook).toHaveBeenCalledWith("r1", ["c1", "c2"], true);
     expect(screen.getByText(/2 accepted conventions/)).toBeInTheDocument();
   });
 

@@ -1,4 +1,4 @@
-import type { ConventionCategory, ConventionStatus } from "@devdigest/shared";
+import type { ConventionCategory } from "@devdigest/shared";
 
 /** Status filter tabs, in display order. */
 export const STATUS_FILTERS = ["pending", "accepted", "rejected", "all"] as const;
@@ -23,16 +23,5 @@ export const CATEGORIES: ConventionCategory[] = [
   "api",
   "other",
 ];
-
-/** Confidence bar thresholds — same as the kit's ConfidenceNum. */
-export const CONFIDENCE_HIGH = 0.85;
-export const CONFIDENCE_MID = 0.65;
-
-/** Left accent of a candidate card by triage status. */
-export const STATUS_ACCENT: Record<ConventionStatus, string> = {
-  pending: "var(--border-strong)",
-  accepted: "var(--ok)",
-  rejected: "var(--crit)",
-};
 
 export const SKELETON_CARDS = 3;

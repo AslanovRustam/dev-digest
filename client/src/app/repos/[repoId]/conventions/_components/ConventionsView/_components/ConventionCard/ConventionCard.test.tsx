@@ -88,6 +88,6 @@ describe("ConventionCard", () => {
 
   it("marks a candidate already merged into a skill", () => {
     renderCard({ status: "accepted", skill_id: "sk1", skill_name: "payments-conventions" });
-    expect(screen.getByText("in skill payments-conventions").closest("a")).toHaveAttribute("href", "/skills/sk1");
+    expect(screen.getByRole("link", { name: "in skill payments-conventions" })).toHaveAttribute("href", "/skills/sk1");
   });
 });

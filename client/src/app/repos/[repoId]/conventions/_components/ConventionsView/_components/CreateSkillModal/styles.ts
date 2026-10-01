@@ -17,30 +17,6 @@ export const s = {
   } satisfies CSSProperties,
   bannerIcon: { color: "var(--accent-text)", flexShrink: 0, marginTop: 2 } satisfies CSSProperties,
   accent: { color: "var(--accent-text)" } satisfies CSSProperties,
-  row: {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-    gap: 20,
-  } satisfies CSSProperties,
-  // `position: relative` anchors the absolutely-positioned srOnly label.
-  toggle: {
-    display: "inline-flex",
-    alignItems: "center",
-    height: 38,
-    position: "relative",
-    cursor: "pointer",
-  } satisfies CSSProperties,
-  srOnly: {
-    position: "absolute",
-    width: 1,
-    height: 1,
-    padding: 0,
-    margin: -1,
-    overflow: "hidden",
-    clip: "rect(0, 0, 0, 0)",
-    whiteSpace: "nowrap",
-    border: 0,
-  } satisfies CSSProperties,
   loading: { display: "flex", flexDirection: "column", gap: 14, paddingBottom: 20 } satisfies CSSProperties,
   error: {
     fontSize: 13,

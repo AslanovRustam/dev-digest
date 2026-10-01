@@ -1,13 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { ConventionCandidate } from "@devdigest/shared";
-import {
-  compactAge,
-  confidenceColor,
-  countBy,
-  evidenceRef,
-  filterCandidates,
-  skillCandidates,
-} from "./helpers";
+import { compactAge, countBy, filterCandidates, parseCategory, parseStatus, skillCandidates } from "./helpers";
 
 const cand = (over: Partial<ConventionCandidate>): ConventionCandidate => ({
   id: "c1",
@@ -61,18 +54,7 @@ describe("filterCandidates / countBy", () => {
   });
 });
 
-describe("display helpers", () => {
-  it("colours confidence like ConfidenceNum", () => {
-    expect(confidenceColor(0.91)).toBe("var(--ok)");
-    expect(confidenceColor(0.78)).toBe("var(--warn)");
-    expect(confidenceColor(0.4)).toBe("var(--text-muted)");
-  });
-
-  it("formats the evidence reference", () => {
-    expect(evidenceRef(cand({}))).toBe("src/a.ts:3-5");
-    expect(evidenceRef(cand({ evidence_end_line: 3 }))).toBe("src/a.ts:3");
-  });
-
+describe("compactAge", () => {
   it("formats a compact age", () => {
     const now = Date.parse("2026-10-01T12:00:00.000Z");
     expect(compactAge("2026-10-01T11:59:40.000Z", now)).toBeNull();
@@ -80,5 +62,15 @@ describe("display helpers", () => {
     expect(compactAge("2026-10-01T09:00:00.000Z", now)).toBe("3h");
     expect(compactAge("2026-09-29T12:00:00.000Z", now)).toBe("2d");
     expect(compactAge("nope", now)).toBeNull();
+  });
+});
+
+describe("URL filter parsing", () => {
+  it("accepts known values and falls back to all", () => {
+    expect(parseStatus("accepted")).toBe("accepted");
+    expect(parseStatus("bogus")).toBe("all");
+    expect(parseStatus(null)).toBe("all");
+    expect(parseCategory("error-handling")).toBe("error-handling");
+    expect(parseCategory("nope")).toBe("all");
   });
 });
