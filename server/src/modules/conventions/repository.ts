@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { ConventionCategory, ConventionStatus } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
@@ -84,7 +84,7 @@ export class ConventionsRepository {
       .leftJoin(t.skills, eq(t.conventions.skillId, t.skills.id))
       .leftJoin(t.conventionScans, eq(t.conventions.scanId, t.conventionScans.id))
       .where(and(eq(t.conventions.workspaceId, workspaceId), eq(t.conventions.repoId, repoId)))
-      .orderBy(desc(t.conventions.createdAt), desc(t.conventions.confidence));
+      .orderBy(desc(t.conventions.createdAt), desc(t.conventions.confidence), asc(t.conventions.id));
     return rows.map((r) => ({
       row: r.row,
       skillName: r.skillName ?? null,
