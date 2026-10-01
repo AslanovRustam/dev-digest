@@ -5,7 +5,12 @@
     "headingPrefix": "Conventions in ",
     "repoFallback": "repo",
     "subtitle": "Scan the cloned repo to surface house-rules — each backed by evidence you can turn into a Skill.",
+    "scanSummary": "Detected from {files, plural, one {# sample file} other {# sample files}} · last scan {age}",
+    "scanGate": "{proposed} proposed · {dropped} dropped without real evidence · {duplicates} already known",
+    "justNow": "just now",
+    "ago": "{age} ago",
     "scanning": "Scanning…",
+    "scanningHint": "Sampling files and asking the conventions model — this takes a few seconds.",
     "rescan": "Re-scan",
     "runExtraction": "Run extraction",
     "extractionFailed": "Extraction failed",
@@ -15,12 +20,76 @@
       "body": "Scan the repo to surface house-rules — naming, error handling, structure — each backed by evidence you can turn into a Skill.",
       "cta": "Run extraction"
     },
+    "noneSurvived": {
+      "title": "No candidate survived the evidence gate",
+      "body": "The model proposed {proposed} rules but none of them quoted real code from the repo. Re-scan, or pick a different model in Settings → Feature Models."
+    },
+    "noMatch": "No conventions match these filters.",
     "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files"
+  },
+  "toolbar": {
+    "acceptAll": "Accept all",
+    "deselectAll": "Deselect all",
+    "acceptedCount": "{accepted} of {total} accepted",
+    "createSkill": "Create skill",
+    "createSkillHint": "Accepted conventions in the current filter that are not in a skill yet",
+    "status": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "all": "All"
+    },
+    "allCategories": "All categories"
+  },
+  "category": {
+    "naming": "naming",
+    "async": "async",
+    "error-handling": "error handling",
+    "imports": "imports",
+    "architecture": "architecture",
+    "typing": "typing",
+    "testing": "testing",
+    "style": "style",
+    "api": "api",
+    "other": "other"
   },
   "card": {
     "confidence": "Confidence",
+    "accept": "Accept",
     "accepted": "Accepted",
-    "accepting": "Accepting…",
+    "reject": "Reject",
+    "rejected": "Rejected",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "ruleLabel": "Rule",
+    "categoryLabel": "Category",
+    "copy": "Copy evidence",
+    "copied": "Evidence copied",
+    "openOnGithub": "Open {ref} on GitHub",
+    "inSkill": "in skill {name}",
     "acceptAsSkill": "Accept as Skill"
+  },
+  "modal": {
+    "title": "Create skill from conventions",
+    "banner": "Merged from <b>{count, plural, one {# accepted convention} other {# accepted conventions}}</b> in <accent>{repo}</accent>. Everything below is editable before you save.",
+    "name": "Name",
+    "description": "Description",
+    "descriptionHint": "The agent reads this first — say when the rules apply and what to flag.",
+    "type": "Type",
+    "enabled": "Enabled",
+    "enabledHint": "Whether this block is added to agents' prompts.",
+    "body": "Skill body",
+    "agent": "Attach to agent",
+    "agentNone": "Don't attach now",
+    "agentHint": "Links the skill to this agent right away; you can change it later in the agent's Skills tab.",
+    "draftLoading": "Merging conventions…",
+    "draftError": "Could not build the draft.",
+    "savedAs": "Saved as <b>v1</b> · added to Skills Lab",
+    "cancel": "Cancel",
+    "create": "Create skill",
+    "creating": "Creating…",
+    "createdToast": "Skill \"{name}\" created",
+    "createdLinkedToast": "Skill \"{name}\" created and linked to {agent}"
   }
 }

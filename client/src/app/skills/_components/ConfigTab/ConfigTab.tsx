@@ -14,7 +14,7 @@ import { useCreateSkill, useUpdateSkill } from "@/lib/hooks";
 import { DeleteSkillModal } from "@/app/skills/_components/DeleteSkillModal";
 import { useToast } from "@/lib/toast";
 import { VersionBadge } from "../VersionBadge";
-import { BodyEditor } from "./_components/BodyEditor";
+import { BodyEditor } from "@/components/skill-body-editor";
 import { contentPatch, formFrom, isDirty, isValid, type SkillForm } from "./helpers";
 import { s } from "./styles";
 
