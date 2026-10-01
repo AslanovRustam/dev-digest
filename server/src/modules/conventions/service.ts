@@ -60,7 +60,7 @@ export class ConventionsService {
     ]);
     return {
       scan: scan ? toScanDto(scan) : null,
-      candidates: rows.map((r) => toConventionDto(r.row, r.skillName)),
+      candidates: rows.map((r) => toConventionDto(r.row, r.skillName, r.sourceSha)),
     };
   }
 

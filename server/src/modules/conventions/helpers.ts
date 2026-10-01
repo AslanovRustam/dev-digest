@@ -412,12 +412,14 @@ export function buildSkillDraft(repoName: string, rows: DraftInput[]): Conventio
 export function toConventionDto(
   row: ConventionRow,
   skillName: string | null,
+  sourceSha: string | null,
 ): ConventionCandidate {
   const category = ConventionCategory.safeParse(row.category);
   return {
     id: row.id,
     repo_id: row.repoId ?? '',
     scan_id: row.scanId,
+    source_sha: sourceSha,
     category: category.success ? category.data : 'other',
     rule: row.rule,
     evidence_path: row.evidencePath ?? '',

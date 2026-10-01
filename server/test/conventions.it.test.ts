@@ -140,6 +140,7 @@ d('/repos/:id/conventions', () => {
     const async = body.candidates.find((c: { category: string }) => c.category === 'async');
     expect(async).toMatchObject({
       status: 'pending',
+      source_sha: 'deadbeef',
       evidence_path: 'src/api/users.ts',
       evidence_start_line: 4,
       evidence_end_line: 5,

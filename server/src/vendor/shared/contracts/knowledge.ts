@@ -268,6 +268,8 @@ export const ConventionCandidate = z.object({
   id: z.string(),
   repo_id: z.string(),
   scan_id: z.string().nullable(),
+  /** Commit the evidence was read at — pins the GitHub link (null for legacy rows). */
+  source_sha: z.string().nullable(),
   category: ConventionCategory,
   rule: z.string(),
   evidence_path: z.string(),

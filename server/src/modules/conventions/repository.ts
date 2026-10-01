@@ -15,6 +15,7 @@ export type { ConventionRow, ConventionScanRow };
 export interface ConventionWithSkill {
   row: ConventionRow;
   skillName: string | null;
+  sourceSha: string | null;
 }
 
 export interface InsertScan {
@@ -68,15 +69,27 @@ export class ConventionsRepository {
     return row;
   }
 
-  /** All candidates of a repo (every scan), newest first, with the merged skill's name. */
+  /**
+   * All candidates of a repo (every scan), newest first, with the merged
+   * skill's name and the commit their scan read the evidence at.
+   */
   async list(workspaceId: string, repoId: string): Promise<ConventionWithSkill[]> {
     const rows = await this.db
-      .select({ row: t.conventions, skillName: t.skills.name })
+      .select({
+        row: t.conventions,
+        skillName: t.skills.name,
+        sourceSha: t.conventionScans.sourceSha,
+      })
       .from(t.conventions)
       .leftJoin(t.skills, eq(t.conventions.skillId, t.skills.id))
+      .leftJoin(t.conventionScans, eq(t.conventions.scanId, t.conventionScans.id))
       .where(and(eq(t.conventions.workspaceId, workspaceId), eq(t.conventions.repoId, repoId)))
       .orderBy(desc(t.conventions.createdAt), desc(t.conventions.confidence));
-    return rows.map((r) => ({ row: r.row, skillName: r.skillName ?? null }));
+    return rows.map((r) => ({
+      row: r.row,
+      skillName: r.skillName ?? null,
+      sourceSha: r.sourceSha ?? null,
+    }));
   }
 
   /** Accepted and rejected candidates — the maintainer's decisions a re-scan must respect. */
