@@ -85,6 +85,7 @@
     "agentHint": "Links the skill to this agent right away; you can change it later in the agent's Skills tab.",
     "draftLoading": "Merging conventions…",
     "draftError": "Could not build the draft.",
+    "required": "Name and skill body are required.",
     "savedAs": "Saved as <b>v1</b> · added to Skills Lab",
     "cancel": "Cancel",
     "create": "Create skill",

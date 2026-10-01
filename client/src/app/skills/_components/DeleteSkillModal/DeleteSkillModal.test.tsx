@@ -59,7 +59,10 @@ describe("DeleteSkillModal", () => {
     const onClose = renderModal();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(onClose).toHaveBeenCalledTimes(2);
+    // Escape with focus inside the dialog: the wrapper stops keydown before it
+    // reaches window, so it must close the dialog itself.
+    fireEvent.keyDown(screen.getByRole("button", { name: "Cancel" }), { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(3);
     expect(deleteMutate).not.toHaveBeenCalled();
   });
 

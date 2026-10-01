@@ -18,6 +18,7 @@ import {
 } from "@/lib/hooks";
 import { ApiError } from "@/lib/api";
 import { ConventionCard } from "./_components/ConventionCard";
+import { ConventionsHeader } from "./_components/ConventionsHeader";
 import { CreateSkillModal } from "./_components/CreateSkillModal";
 import {
   CATEGORIES,
@@ -26,7 +27,7 @@ import {
   type CategoryFilter,
   type StatusFilter,
 } from "./constants";
-import { compactAge, countBy, filterCandidates, parseCategory, parseStatus, skillCandidates } from "./helpers";
+import { countBy, filterCandidates, parseCategory, parseStatus, skillCandidates } from "./helpers";
 import { s } from "./styles";
 
 export function ConventionsView({
@@ -73,43 +74,14 @@ export function ConventionsView({
   const scanning = extract.isPending;
 
   const onPatch = (id: string) => (p: ConventionPatch) => patch.mutate({ id, patch: p });
-  const age = scan ? compactAge(scan.created_at) : null;
-
   const header = (
-    <div style={s.header}>
-      <div style={s.headerText}>
-        <h1 style={s.title}>
-          {t("page.headingPrefix")}
-          <span className="mono" style={s.repo}>
-            {repoName}
-          </span>
-        </h1>
-        <p style={s.subtitle}>
-          {scanning
-            ? t("page.scanningHint")
-            : scan
-              ? t("page.scanSummary", {
-                  files: scan.sample_files.length,
-                  age: age ? t("page.ago", { age }) : t("page.justNow"),
-                })
-              : t("page.subtitle")}
-        </p>
-        {scan && !scanning && (
-          <p style={s.gate}>
-            {t("page.scanGate", {
-              proposed: scan.proposed,
-              dropped: scan.dropped_ungrounded,
-              duplicates: scan.dropped_duplicate,
-            })}
-          </p>
-        )}
-      </div>
-      {(scan || candidates.length > 0) && (
-        <Button icon="RefreshCw" onClick={() => extract.mutate()} loading={scanning}>
-          {scanning ? t("page.scanning") : t("page.rescan")}
-        </Button>
-      )}
-    </div>
+    <ConventionsHeader
+      repoName={repoName}
+      scan={scan}
+      scanning={scanning}
+      showRescan={!!scan || candidates.length > 0}
+      onRescan={() => extract.mutate()}
+    />
   );
 
   if (isLoading) {

@@ -64,13 +64,9 @@ function renderModal() {
 }
 
 describe("CreateSkillModal", () => {
-  it("says how many accepted conventions it merges", () => {
-    renderModal();
-    expect(screen.getByText(/2 accepted conventions/)).toBeInTheDocument();
-  });
-
   it("pre-fills every field from the draft and saves the edited values", () => {
     const onClose = renderModal();
+    expect(screen.getByText(/2 accepted conventions/)).toBeInTheDocument();
     expect(screen.getByLabelText("Name")).toHaveValue("payments-api-conventions");
     expect(screen.getByLabelText("Skill body (markdown)")).toHaveValue(DRAFT.body);
 
@@ -93,9 +89,24 @@ describe("CreateSkillModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("disables saving without a name", () => {
+  it("does not save without a name and says why", () => {
     renderModal();
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
+    expect(createMutate).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Name and skill body are required.");
+  });
+
+  it("closes on Escape pressed inside the dialog", () => {
+    const onClose = renderModal();
+    fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("shows the draft error and keeps Create disabled when the draft fails", () => {
+    draftHook.mockReturnValue({ data: undefined, isError: true, error: new Error("boom") });
+    renderModal();
+    expect(screen.getByRole("alert")).toHaveTextContent("boom");
     expect(screen.getByRole("button", { name: "Create skill" })).toBeDisabled();
   });
 

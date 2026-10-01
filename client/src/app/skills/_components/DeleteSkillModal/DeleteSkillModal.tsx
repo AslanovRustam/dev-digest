@@ -45,7 +45,15 @@ export function DeleteSkillModal({ skill, onClose }: { skill: Skill; onClose: ()
   const agents = skill.agent_count ?? 0;
 
   return createPortal(
-    <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+    <div
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        // Stopping propagation also hides the key from the window listener
+        // above, so Escape pressed inside the dialog is handled here.
+        e.stopPropagation();
+        if (e.key === "Escape" && !del.isPending) onClose();
+      }}
+    >
       <Modal
         width={460}
         title={t("deleteModal.title")}

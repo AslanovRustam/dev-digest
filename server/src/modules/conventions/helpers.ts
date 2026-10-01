@@ -479,13 +479,12 @@ export function toConventionDto(
   skillName: string | null,
   sourceSha: string | null,
 ): ConventionCandidate {
-  const category = ConventionCategory.safeParse(row.category);
   return {
     id: row.id,
     repo_id: row.repoId ?? '',
     scan_id: row.scanId,
     source_sha: sourceSha,
-    category: category.success ? category.data : 'other',
+    category: row.category,
     rule: row.rule,
     evidence_path: row.evidencePath ?? '',
     evidence_start_line: row.evidenceStartLine ?? 1,

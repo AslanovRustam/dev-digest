@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { ConventionCategory } from '@devdigest/shared';
+import { CONVENTION_CATEGORIES } from '../src/db/schema/knowledge.js';
 import {
   buildExtractionMessages,
   buildSkillDraft,
@@ -285,5 +287,11 @@ describe('buildSkillDraft', () => {
   it('uses a longer fence when the snippet contains backticks', () => {
     const d = buildSkillDraft('r', [{ ...row, evidenceSnippet: 'const s = ```x```;' }]);
     expect(d.body).toContain('````ts\nconst s = ```x```;\n````');
+  });
+});
+
+describe('schema / contract parity', () => {
+  it('the DB category list (column type + CHECK) matches the ConventionCategory contract', () => {
+    expect([...CONVENTION_CATEGORIES]).toEqual(ConventionCategory.options);
   });
 });

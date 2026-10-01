@@ -3,9 +3,12 @@
    each rule and its real evidence); everything is editable here before the
    skill exists. Saving re-checks server-side that every candidate is still
    accepted, writes the skill as v1 (source "extracted") and can link it to an
-   agent in the same step. Portalled + event-isolated like DeleteSkillModal.
-   The editable form mounts only once the draft has arrived, so its state is
-   seeded from the draft instead of being synced into it by an effect. */
+   agent in the same step.
+   The Modal is rendered once; only its body swaps from the loading state to
+   the form, which mounts when the draft arrives (state seeded from it, no
+   effect) and is submitted by the footer button through `form=`. Portalled +
+   event-isolated like DeleteSkillModal; Escape is handled on the wrapper
+   because the wrapper stops keydown from reaching window. */
 "use client";
 
 import React from "react";
@@ -15,7 +18,8 @@ import { Button, Icon, Modal, Skeleton } from "@devdigest/ui";
 import type { ConventionCandidate } from "@devdigest/shared";
 import { useAgents, useConventionSkillDraft, useCreateSkillFromConventions } from "@/lib/hooks";
 import { useToast } from "@/lib/toast";
-import { DraftForm, type DraftFormValues, type ModalFrame } from "./_components/DraftForm";
+import { DraftForm, type DraftFormValues } from "./_components/DraftForm";
+import { FORM_ID } from "./constants";
 import { s } from "./styles";
 
 export function CreateSkillModal({
@@ -36,14 +40,7 @@ export function CreateSkillModal({
   const draft = useConventionSkillDraft(repoId, ids, true);
   const agents = useAgents();
   const create = useCreateSkillFromConventions(repoId);
-
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !create.isPending) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, create.isPending]);
+  const close = create.isPending ? undefined : onClose;
 
   const save = (form: DraftFormValues) => {
     create.mutate(
@@ -70,70 +67,67 @@ export function CreateSkillModal({
     );
   };
 
-  /** The dialog chrome shared by the loading state and the form. */
-  const frame: ModalFrame = ({ subtitle, footer, children }) => (
-    <Modal
-      width={880}
-      title={t("modal.title")}
-      subtitle={subtitle}
-      onClose={create.isPending ? undefined : onClose}
-      footer={
-        <div style={s.footer}>
-          <span style={s.savedAs}>
-            <Icon.GitCommit size={13} />
-            {t.rich("modal.savedAs", { b: (chunks) => <b className="mono">{chunks}</b> })}
-          </span>
-          <span style={s.spacer} />
-          {footer}
-        </div>
-      }
-    >
-      <div style={s.body}>
-        <div style={s.banner}>
-          <Icon.GitMerge size={15} style={s.bannerIcon} />
-          <span>
-            {t.rich("modal.banner", {
-              count: candidates.length,
-              repo: repoName,
-              b: (chunks) => <b>{chunks}</b>,
-              accent: (chunks) => (
-                <span className="mono" style={s.accent}>
-                  {chunks}
-                </span>
-              ),
-            })}
-          </span>
-        </div>
-        {children}
-      </div>
-    </Modal>
-  );
-
   return createPortal(
-    <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-      {draft.data ? (
-        <DraftForm
-          draft={draft.data}
-          agents={agents.data ?? []}
-          saving={create.isPending}
-          error={create.error}
-          onSave={save}
-          onCancel={onClose}
-          frame={frame}
-        />
-      ) : (
-        frame({
-          footer: (
-            <>
-              <Button kind="secondary" onClick={onClose}>
-                {t("modal.cancel")}
-              </Button>
-              <Button kind="primary" icon="Sparkles" disabled>
-                {t("modal.create")}
-              </Button>
-            </>
-          ),
-          children: draft.isError ? (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Escape") close?.();
+      }}
+    >
+      <Modal
+        width={880}
+        title={t("modal.title")}
+        subtitle={draft.data ? <span className="mono">{draft.data.name}</span> : undefined}
+        onClose={close}
+        footer={
+          <div style={s.footer}>
+            <span style={s.savedAs}>
+              <Icon.GitCommit size={13} />
+              {t.rich("modal.savedAs", { b: (chunks) => <b className="mono">{chunks}</b> })}
+            </span>
+            <span style={s.spacer} />
+            <Button kind="secondary" onClick={onClose} disabled={create.isPending}>
+              {t("modal.cancel")}
+            </Button>
+            <Button
+              kind="primary"
+              icon="Sparkles"
+              type="submit"
+              form={FORM_ID}
+              disabled={!draft.data}
+              loading={create.isPending}
+            >
+              {create.isPending ? t("modal.creating") : t("modal.create")}
+            </Button>
+          </div>
+        }
+      >
+        <div style={s.body}>
+          <div style={s.banner}>
+            <Icon.GitMerge size={15} style={s.bannerIcon} />
+            <span>
+              {t.rich("modal.banner", {
+                count: candidates.length,
+                repo: repoName,
+                b: (chunks) => <b>{chunks}</b>,
+                accent: (chunks) => (
+                  <span className="mono" style={s.accent}>
+                    {chunks}
+                  </span>
+                ),
+              })}
+            </span>
+          </div>
+          {draft.data ? (
+            <DraftForm
+              id={FORM_ID}
+              draft={draft.data}
+              agents={agents.data ?? []}
+              error={create.error}
+              onSubmit={save}
+            />
+          ) : draft.isError ? (
             <div role="alert" style={s.error}>
               {draft.error instanceof Error ? draft.error.message : t("modal.draftError")}
             </div>
@@ -143,9 +137,9 @@ export function CreateSkillModal({
               <Skeleton height={40} />
               <Skeleton height={220} />
             </div>
-          ),
-        })
-      )}
+          )}
+        </div>
+      </Modal>
     </div>,
     document.body,
   );

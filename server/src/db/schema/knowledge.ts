@@ -54,8 +54,28 @@ export const conventionScans = pgTable(
     costUsd: doublePrecision('cost_usd'),
     createdAt: now(),
   },
-  (t) => ({ repoIdx: index('convention_scans_repo_idx').on(t.repoId, t.createdAt) }),
+  (t) => ({
+    repoIdx: index('convention_scans_repo_idx').on(t.repoId, t.createdAt),
+    wsIdx: index('convention_scans_ws_idx').on(t.workspaceId),
+  }),
 );
+
+/**
+ * Convention categories — mirrors `ConventionCategory` in vendor/shared (the
+ * schema may not import contracts). Drives both the column type and its CHECK.
+ */
+export const CONVENTION_CATEGORIES = [
+  'naming',
+  'async',
+  'error-handling',
+  'imports',
+  'architecture',
+  'typing',
+  'testing',
+  'style',
+  'api',
+  'other',
+] as const;
 
 /**
  * A convention candidate. Only evidence-verified candidates are stored. Triage
@@ -71,8 +91,10 @@ export const conventions = pgTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     repoId: uuid('repo_id').references(() => repos.id, { onDelete: 'cascade' }),
-    scanId: uuid('scan_id').references(() => conventionScans.id, { onDelete: 'cascade' }),
-    category: text('category').notNull().default('other'),
+    // A scan is provenance, not the owner: deleting one must not take triaged
+    // or skill-merged conventions with it (the evidence link just loses its sha).
+    scanId: uuid('scan_id').references(() => conventionScans.id, { onDelete: 'set null' }),
+    category: text('category', { enum: CONVENTION_CATEGORIES }).notNull().default('other'),
     rule: text('rule').notNull(),
     evidencePath: text('evidence_path'),
     evidenceStartLine: integer('evidence_start_line'),
@@ -88,16 +110,15 @@ export const conventions = pgTable(
   },
   (t) => ({
     repoIdx: index('conventions_repo_idx').on(t.repoId),
-    // FK columns are not indexed by Postgres; deleting a scan (cascade) or a
-    // skill (set null) would otherwise scan the whole table.
+    // FK columns are not indexed by Postgres; deleting a scan or a
+    // skill (both set null) would otherwise scan the whole table.
     scanIdx: index('conventions_scan_idx').on(t.scanId),
     skillIdx: index('conventions_skill_idx').on(t.skillId),
     // The enums above narrow only the TS type — these make the DB refuse drift.
-    // Keep `category` in sync with `ConventionCategory` (vendor/shared).
     statusChk: check('conventions_status_chk', sql`${t.status} in ('pending', 'accepted', 'rejected')`),
     categoryChk: check(
       'conventions_category_chk',
-      sql`${t.category} in ('naming', 'async', 'error-handling', 'imports', 'architecture', 'typing', 'testing', 'style', 'api', 'other')`,
+      sql`${t.category} in (${sql.raw(CONVENTION_CATEGORIES.map((c) => `'${c}'`).join(', '))})`,
     ),
   }),
 );
