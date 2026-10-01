@@ -8,7 +8,7 @@
    the form, which mounts when the draft arrives (state seeded from it, no
    effect) and is submitted by the footer button through `form=`. Portalled +
    event-isolated like DeleteSkillModal; Escape is handled on the wrapper
-   because the wrapper stops keydown from reaching window. */
+   (which stops keydown from reaching window) and on window (focus outside). */
 "use client";
 
 import React from "react";
@@ -41,6 +41,17 @@ export function CreateSkillModal({
   const agents = useAgents();
   const create = useCreateSkillFromConventions(repoId);
   const close = create.isPending ? undefined : onClose;
+
+  // Escape while focus is still outside the dialog (draft loading or failed —
+  // the form's autofocus has not happened yet). Inside, the wrapper handles it.
+  React.useEffect(() => {
+    if (create.isPending) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, create.isPending]);
 
   const save = (form: DraftFormValues) => {
     create.mutate(

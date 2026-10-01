@@ -439,15 +439,15 @@ export function buildSkillDraft(repoName: string, rows: DraftInput[]): Conventio
     let slug = slugify(r.rule);
     for (let i = 2; usedSlugs.has(slug); i += 1) slug = `${slugify(r.rule)}-${i}`;
     usedSlugs.add(slug);
-    const ref = evidenceRef(r.evidencePath ?? '', r.evidenceStartLine ?? 1, r.evidenceEndLine ?? 1);
-    const code = r.evidenceSnippet ?? '';
+    const ref = evidenceRef(r.evidencePath, r.evidenceStartLine, r.evidenceEndLine);
+    const code = r.evidenceSnippet;
     const fence = fenceFor(code);
     return [
       `## ${slug}`,
       r.rule,
       '',
       `Detected in \`${ref}\`:`,
-      `${fence}${fenceLang(r.evidencePath ?? '')}`,
+      `${fence}${fenceLang(r.evidencePath)}`,
       code,
       fence,
     ].join('\n');
@@ -466,9 +466,7 @@ export function buildSkillDraft(repoName: string, rows: DraftInput[]): Conventio
     description,
     type: 'convention',
     body,
-    evidence_files: rows.map((r) =>
-      evidenceRef(r.evidencePath ?? '', r.evidenceStartLine ?? 1, r.evidenceEndLine ?? 1),
-    ),
+    evidence_files: rows.map((r) => evidenceRef(r.evidencePath, r.evidenceStartLine, r.evidenceEndLine)),
   };
 }
 
@@ -486,10 +484,10 @@ export function toConventionDto(
     source_sha: sourceSha,
     category: row.category,
     rule: row.rule,
-    evidence_path: row.evidencePath ?? '',
-    evidence_start_line: row.evidenceStartLine ?? 1,
-    evidence_end_line: row.evidenceEndLine ?? row.evidenceStartLine ?? 1,
-    evidence_snippet: row.evidenceSnippet ?? '',
+    evidence_path: row.evidencePath,
+    evidence_start_line: row.evidenceStartLine,
+    evidence_end_line: row.evidenceEndLine,
+    evidence_snippet: row.evidenceSnippet,
     confidence: row.confidence ?? 0,
     status: row.status,
     skill_id: row.skillId,

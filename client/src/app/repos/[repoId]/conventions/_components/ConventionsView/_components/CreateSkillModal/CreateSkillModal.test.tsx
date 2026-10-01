@@ -89,6 +89,14 @@ describe("CreateSkillModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("flipping Enabled does not submit the form", () => {
+    renderModal();
+    const toggle = screen.getByRole("switch", { name: "Enabled" });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(createMutate).not.toHaveBeenCalled();
+  });
+
   it("does not save without a name and says why", () => {
     renderModal();
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  " } });
@@ -108,6 +116,13 @@ describe("CreateSkillModal", () => {
     renderModal();
     expect(screen.getByRole("alert")).toHaveTextContent("boom");
     expect(screen.getByRole("button", { name: "Create skill" })).toBeDisabled();
+  });
+
+  it("closes on Escape while the draft is still loading (focus outside the dialog)", () => {
+    draftHook.mockReturnValue({ data: undefined, isError: false, error: null });
+    const onClose = renderModal();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("shows skeletons until the draft arrives", () => {

@@ -11,6 +11,8 @@ export function Toggle({
 }) {
   return (
     <button
+      // A switch must never submit a surrounding <form> (the default type).
+      type="button"
       onClick={() => onChange(!on)}
       role="switch"
       aria-checked={on}

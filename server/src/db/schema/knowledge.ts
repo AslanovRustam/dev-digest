@@ -96,10 +96,11 @@ export const conventions = pgTable(
     scanId: uuid('scan_id').references(() => conventionScans.id, { onDelete: 'set null' }),
     category: text('category', { enum: CONVENTION_CATEGORIES }).notNull().default('other'),
     rule: text('rule').notNull(),
-    evidencePath: text('evidence_path'),
-    evidenceStartLine: integer('evidence_start_line'),
-    evidenceEndLine: integer('evidence_end_line'),
-    evidenceSnippet: text('evidence_snippet'),
+    // Only evidence-verified candidates are stored, so evidence is mandatory.
+    evidencePath: text('evidence_path').notNull(),
+    evidenceStartLine: integer('evidence_start_line').notNull(),
+    evidenceEndLine: integer('evidence_end_line').notNull(),
+    evidenceSnippet: text('evidence_snippet').notNull(),
     confidence: doublePrecision('confidence'),
     status: text('status', { enum: ['pending', 'accepted', 'rejected'] })
       .notNull()
@@ -115,6 +116,10 @@ export const conventions = pgTable(
     scanIdx: index('conventions_scan_idx').on(t.scanId),
     skillIdx: index('conventions_skill_idx').on(t.skillId),
     // The enums above narrow only the TS type — these make the DB refuse drift.
+    evidenceLinesChk: check(
+      'conventions_evidence_lines_chk',
+      sql`${t.evidenceStartLine} >= 1 and ${t.evidenceEndLine} >= ${t.evidenceStartLine}`,
+    ),
     statusChk: check('conventions_status_chk', sql`${t.status} in ('pending', 'accepted', 'rejected')`),
     categoryChk: check(
       'conventions_category_chk',
