@@ -103,6 +103,31 @@ container: `container.featureModel()`, `container.skillsRepo`, `container.agents
 - Control experiment: a PR that renames a response field and changes a route param, reviewed with
   all four skills unchecked, then checked. Runbook: `docs/skills/README.md`.
 
+## Results (2026-10-01, `openrouter/deepseek/deepseek-v4-pro`, one run per cell)
+
+Conventions Extractor on `AslanovRustam/dev-digest` (`deepseek-v4-flash`, ~$0.001 per scan):
+
+| Scan | Sample | Proposed | Dropped (no evidence) | Kept |
+|---|---|---|---|---|
+| 1 — top-12 by rank | 12 files, all `client/src/app/agents/**` (flat `file_rank`) | 14 | 3 | 11 |
+| 3 — diversified sample | 12 files over client / server / reviewer-core / e2e + 4 tsconfigs | 15 | 1 | 14 |
+
+Triage: 6 accepted (one edited), 8 rejected → `dev-digest-conventions` (v1, `source: extracted`,
+6 `evidence_files`) linked to General Reviewer; a review of PR #3 logged
+`skill "dev-digest-conventions" v1 attached (~524 tokens)`.
+
+API Contract Reviewer control experiment (demo PRs, closed unmerged):
+
+| PR | Contract changes | Without skills | With the 4 skills |
+|---|---|---|---|
+| #4 | route `/repos/:id/pulls` → `/pull-requests`; DTO `full_name` → `fullName` | 2 CRITICAL — both caught | 2 CRITICAL, now citing the missing deprecation |
+| #5 | new required `default_branch`; URL narrowed to GitHub; DELETE → 204 no body; `clone_path` nullable → optional | 2 CRITICAL + 1 WARNING; **`clone_path` explicitly dismissed** ("unlikely to cause issues") | 3 CRITICAL incl. **`clone_path` nullable → optional**; DELETE 204 raised to CRITICAL (that finding was then dropped by grounding — the model cited `route.ts` instead of `routes.ts`) |
+
+Takeaway: the role-level prompt already catches blunt breaks (renamed route / field) on `v4-pro`; the
+skills add the subtle ones a checklist names explicitly (nullability/optionality, removed response
+body) and raise their severity. A single run per cell — the model is not deterministic at
+`temperature: 0`.
+
 ## Out of scope
 
 A file-selection LLM step (the mock's `ConventionFileSelection` name stays unused) · editing a
