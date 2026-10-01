@@ -98,6 +98,10 @@ _None yet._
   `--text-primary` (kept `color-scheme` for scrollbars). Verify via `getComputedStyle(select.options[1])` —
   the open popup can't be screenshotted. · ref: `src/vendor/ui/styles.css`
 
+- **2026-10-01** · Kit `SelectInput` renders a `<select>` with no accessible name (no `aria-label` prop), so RTL's
+  `getByRole('combobox', { name })` / `getByLabelText` can't find it — select it with `getByDisplayValue("<selected option label>")`.
+  · ref: `src/app/repos/[repoId]/conventions/_components/ConventionsView/_components/CreateSkillModal/CreateSkillModal.test.tsx`
+
 ## Recurring Errors & Fixes
 
 - **2026-09-30** · **Symptom:** `cd client && pnpm typecheck` fails with `error TS6053: File

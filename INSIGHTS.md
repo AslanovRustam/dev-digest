@@ -127,6 +127,11 @@ _None yet._
   backslashes via chr(92). Verify afterwards with `cat -A` or a codepoint scan, not by eyeballing.
   · ref: this file, the sed-delimiter entry above
 
+- **2026-10-01** · Piping API JSON into Python on this Windows machine (`curl … | python -c "json.load(sys.stdin)"`) decodes
+  stdin as cp1251: non-ASCII text (—, →) is mangled and string lengths differ from the stored value, which looks
+  like data corruption but isn't. Prefix `PYTHONIOENCODING=utf8` (or wrap `sys.stdin.buffer` in a utf-8
+  `TextIOWrapper`) before comparing API data with files.
+
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `GET /repos` → 500; logs show `read ECONNRESET`, then `28P01 auth_failed`

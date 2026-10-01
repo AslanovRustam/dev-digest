@@ -111,6 +111,11 @@ _None yet._
   passes — the `paths` alias to `../reviewer-core/src` pulls sources outside `server/`. `rootDir: ".."` fixes
   it without changing TS 5's computed output layout. · ref: `tsconfig.json`
 
+- **2026-10-01** · When one schema change ADDS and DROPS columns of the same table, `pnpm db:generate` stops on an
+  interactive "created or renamed from another column?" prompt, which a non-interactive shell cannot answer. Split
+  it: first keep the old column and generate (adds only), then delete it and generate again (drop only).
+  · ref: `src/db/migrations/0013_ancient_nightshade.sql`, `0014_eager_human_fly.sql`
+
 ## Recurring Errors & Fixes
 
 - **2026-09-29** · **Symptom:** 6 tests in `test/indexer-pipeline.test.ts` fail on Windows with
