@@ -133,7 +133,9 @@ export type SecretsStatus = z.infer<typeof SecretsStatus>;
 
 // ---- Repos ----
 export const RepoInput = z.object({
-  url: z.string().url(),
+  url: z.string().url().startsWith('https://github.com/'),
+  /** Branch to clone and review against. */
+  default_branch: z.string().min(1),
 });
 export type RepoInput = z.infer<typeof RepoInput>;
 
@@ -144,7 +146,7 @@ export const Repo = z.object({
   name: z.string(),
   full_name: z.string(),
   default_branch: z.string(),
-  clone_path: z.string().nullable(),
+  clone_path: z.string().optional(),
   last_polled_at: z.string().nullable(),
   created_by: z.string().nullable(),
 });

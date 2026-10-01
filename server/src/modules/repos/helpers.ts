@@ -49,7 +49,7 @@ export function toRepoDto(row: RepoRow): Repo {
     name: row.name,
     full_name: row.fullName,
     default_branch: row.defaultBranch,
-    clone_path: row.clonePath,
+    ...(row.clonePath ? { clone_path: row.clonePath } : {}),
     last_polled_at: row.lastPolledAt?.toISOString() ?? null,
     created_by: row.createdBy,
   };
