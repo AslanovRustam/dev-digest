@@ -1,7 +1,7 @@
 import type { ConventionCategory } from "@devdigest/shared";
 
 /** Status filter tabs, in display order. */
-export const STATUS_FILTERS = ["pending", "accepted", "rejected", "all"] as const;
+export const STATUS_FILTERS = ["all", "pending", "accepted", "rejected"] as const;
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 /** "all" = no category filter. */
