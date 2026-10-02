@@ -1,23 +1,21 @@
 import type { UnifiedDiff } from '@devdigest/shared';
 
 /**
- * Machine-written files a reviewer should not read in bulk: migration-tool
- * snapshots and source maps. They carry no reviewable intent, yet they can
- * dominate a diff — on PR #6, 18.7k of 23.5k changed lines were drizzle-kit
- * `migrations/meta/*_snapshot.json`, which a `git diff` would put into the
- * prompt in full.
+ * Machine-written files a reviewer should not read in bulk. They carry no
+ * reviewable intent, yet they can dominate a diff — on PR #6, 18.7k of 23.5k
+ * changed lines were drizzle-kit `migrations/meta/NNNN_snapshot.json`, which a
+ * `git diff` would put into the prompt in full.
  *
- * Paths are author-controlled, so the list is deliberately narrow — nothing the
- * system reads at runtime or install time: no
- * lockfiles (a swapped `resolved` URL / `integrity` hash is a supply-chain
- * attack the reviewer must see, and line-count padding could hide it) and no
- * executables (`*.min.js` runs). Skips are named in the review summary.
+ * Paths are author-controlled, so the list holds ONLY data that nothing reads
+ * at runtime, install or build time. Deliberately NOT here: lockfiles (a
+ * swapped `resolved` / `integrity` is a supply-chain attack), the migration
+ * journal (the migrator reads it), minified bundles and `*.map` (an extension
+ * proves nothing — `require('./x.map')` runs JS). Skips are named in the review
+ * summary.
  */
 const GENERATED_PATTERNS: readonly RegExp[] = [
-  // drizzle-kit `meta/NNNN_snapshot.json` — read only by `drizzle-kit generate`. NOT
-  // `meta/_journal.json`: the migrator reads it at runtime to pick and order the .sql files.
+  // drizzle-kit snapshots — read only by `drizzle-kit generate`.
   /(^|\/)migrations\/meta\/\d+_snapshot\.json$/,
-  /\.map$/,
 ];
 
 /** A generated file is skipped only when it changed more lines than this. */

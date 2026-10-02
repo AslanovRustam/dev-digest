@@ -13,10 +13,10 @@ const BIG = GENERATED_SKIP_MIN_LINES + 1;
 const file = (path: string, additions = 1) => ({ path, additions, deletions: 0, hunks: [] });
 
 describe('isGeneratedPath', () => {
-  it('matches migration snapshots and source maps', () => {
+  it('matches drizzle migration snapshots', () => {
     for (const p of [
       'server/src/db/migrations/meta/0013_snapshot.json',
-      'dist/app.js.map',
+      'db/migrations/meta/0001_snapshot.json',
     ]) {
       expect(isGeneratedPath(p), p).toBe(true);
     }
@@ -35,8 +35,10 @@ describe('isGeneratedPath', () => {
       'package.json',
       'src/lock.ts',
       'docs/meta/notes.json',
-      // a minified bundle still runs — it is reviewed like any other code
+      // executable or loadable whatever the extension says — always reviewed
       'public/app.min.js',
+      'dist/app.js.map',
+      'src/payload.map',
     ]) {
       expect(isGeneratedPath(p), p).toBe(false);
     }
@@ -48,27 +50,30 @@ describe('excludeGeneratedFiles', () => {
     raw:
       block('src/a.ts', 'const a = 1;') +
       block('server/src/db/migrations/meta/0013_snapshot.json', '"x": 1') +
-      block('dist/app.js.map', 'mappings: x') +
+      block('server/src/db/migrations/meta/0014_snapshot.json', '"y": 2') +
       block('src/b.ts', 'const b = 2;'),
     files: [
       file('src/a.ts'),
       file('server/src/db/migrations/meta/0013_snapshot.json', BIG),
-      file('dist/app.js.map', BIG),
+      file('server/src/db/migrations/meta/0014_snapshot.json', BIG),
       file('src/b.ts'),
     ],
   };
 
   it('drops LARGE generated files from both the file list and the raw diff', () => {
     const { diff: out, excluded } = excludeGeneratedFiles(diff);
-    expect(excluded).toEqual(['server/src/db/migrations/meta/0013_snapshot.json', 'dist/app.js.map']);
+    expect(excluded).toEqual([
+      'server/src/db/migrations/meta/0013_snapshot.json',
+      'server/src/db/migrations/meta/0014_snapshot.json',
+    ]);
     expect(out.files.map((f) => f.path)).toEqual(['src/a.ts', 'src/b.ts']);
     expect(out.raw).toBe(block('src/a.ts', 'const a = 1;') + block('src/b.ts', 'const b = 2;'));
   });
 
   it('keeps a small change to a generated file in the review', () => {
     const small: UnifiedDiff = {
-      raw: block('src/a.ts', 'x') + block('server/src/db/migrations/meta/0014_snapshot.json', '"id": "x"'),
-      files: [file('src/a.ts'), file('server/src/db/migrations/meta/0014_snapshot.json', 7)],
+      raw: block('src/a.ts', 'x') + block('server/src/db/migrations/meta/0015_snapshot.json', '"id": "x"'),
+      files: [file('src/a.ts'), file('server/src/db/migrations/meta/0015_snapshot.json', 7)],
     };
     const res = excludeGeneratedFiles(small);
     expect(res.excluded).toEqual([]);
