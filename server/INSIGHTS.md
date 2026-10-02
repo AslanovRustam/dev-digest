@@ -119,6 +119,12 @@ _None yet._
   search returned -1 and `mkdir` never ran. **Fix:** `dirname(full)` from `node:path`. The same helper in
   `test/indexer-walk.test.ts` hid the bug — `slice(0, -1)` quietly created a junk directory and the test
   still passed. Never split a path by hand; `dirname`/`basename` are platform-correct.
+
+- **2026-10-02** · **Symptom:** a review run ends within seconds as `failed` with `error: null`, and
+  `GET /runs/:id/trace` returns 404. **Cause:** `pnpm dev` is `tsx watch`, so saving any server or reviewer-core file
+  (or `git switch`) restarts the API mid-run, and `reapStaleRuns` marks the orphaned run failed on boot. **Fix:** don't
+  edit sources or switch branches while a live run is in flight; re-run it afterwards. · ref: `src/modules/reviews/service.ts` (`reapStaleRuns`)
+
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `dev.sh` logs "applying migrations" and `pnpm db:migrate` / `db:seed` exit 0,
