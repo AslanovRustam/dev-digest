@@ -24,6 +24,42 @@ import { toJsonSchema, parseWithRepair } from './structured.js';
 
 const NOT_SUPPORTED = 'OpenRouterProvider only implements completeStructured';
 
+/**
+ * Calls are STREAMED. A non-streaming OpenRouter request is answered with
+ * headers at once and its body kept open while the upstream generates, so the
+ * SDK timeout (which stops at headers) never fires: a 67k-token review stalled
+ * for 20+ minutes non-streaming, twice, yet streamed back in 74 s. Streaming
+ * also lets us tell a stalled upstream (no chunks) from a slow but working one.
+ */
+
+/** Abort when no chunk (content OR reasoning) arrives for this long. */
+const DEFAULT_IDLE_TIMEOUT_MS = 120_000;
+
+/** Hard wall-clock cap for one request, however steadily it streams. */
+const DEFAULT_DEADLINE_MS = 600_000;
+
+/**
+ * Extra tries after a stall or deadline. OpenRouter routes each request to one
+ * of several upstream providers; a retry is usually served by another.
+ */
+const STALL_RETRIES = 1;
+
+/** The request body minus the streaming switches `streamCompletion` adds. */
+type CompletionBody = Omit<
+  OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+  'stream' | 'stream_options'
+>;
+
+/** What a streamed completion adds up to. */
+interface StreamedCompletion {
+  content: string;
+  /** At least one chunk carried a choice (else: upstream error / no output). */
+  gotChoice: boolean;
+  usage: { prompt_tokens?: number; completion_tokens?: number; cost?: number } | null;
+  /** OpenRouter mid-stream error message, if any. */
+  error: string | null;
+}
+
 export interface OpenRouterProviderOptions {
   /** OpenAI-compatible base URL (default: OpenRouter). */
   baseURL?: string;
@@ -32,6 +68,10 @@ export interface OpenRouterProviderOptions {
   /** Per-request timeout (ms) — the SDK retries on timeout/5xx/429 with backoff. */
   timeoutMs?: number;
   maxRetries?: number;
+  /** Abort a request that streams nothing for this long (default 120 s). */
+  idleTimeoutMs?: number;
+  /** Hard cap (ms) for one request (default 600 s); a request's `timeoutMs` overrides it. */
+  deadlineMs?: number;
   /** Injected cost estimator; returns USD or null when the model is unknown. */
   estimateCost?: (model: string, tokensIn: number, tokensOut: number) => number | null;
 }
@@ -42,12 +82,16 @@ export class OpenRouterProvider implements LLMProvider {
   private baseURL: string;
   private apiKey: string;
   private estimateCost?: OpenRouterProviderOptions['estimateCost'];
+  private deadlineMs: number;
+  private idleTimeoutMs: number;
 
   constructor(apiKey: string, opts: OpenRouterProviderOptions = {}) {
     this.id = opts.id ?? 'openrouter';
     this.apiKey = apiKey;
     this.baseURL = opts.baseURL ?? 'https://openrouter.ai/api/v1';
     this.estimateCost = opts.estimateCost;
+    this.deadlineMs = opts.deadlineMs ?? DEFAULT_DEADLINE_MS;
+    this.idleTimeoutMs = opts.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
     this.client = new OpenAI({
       apiKey,
       baseURL: this.baseURL,
@@ -65,8 +109,10 @@ export class OpenRouterProvider implements LLMProvider {
     let costFromApi: number | null = null;
     let lastRaw = '';
 
+    const deadlineMs = req.timeoutMs ?? this.deadlineMs;
+
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      const res = await this.client.chat.completions.create({
+      const body = {
         model: req.model,
         messages,
         temperature: req.temperature ?? 0,
@@ -81,21 +127,19 @@ export class OpenRouterProvider implements LLMProvider {
         // OpenRouter usage accounting — ask it to return the REAL generation
         // cost (USD) in `usage.cost`, instead of estimating from a price book.
         ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
-      });
+      } satisfies CompletionBody;
+      const res = await this.streamCompletion(body, deadlineMs, req);
 
-      // OpenRouter can return HTTP 200 with no `choices` (an upstream provider
-      // error / moderation / free-tier limit in the body) — surface it.
-      const choice = res.choices?.[0];
-      if (!choice) {
-        const errMsg = (res as unknown as { error?: { message?: string } }).error?.message;
-        throw new Error(`OpenRouter returned no choices for ${req.schemaName}${errMsg ? `: ${errMsg}` : ''}`);
+      // OpenRouter can answer 200 with no choices (an upstream provider error /
+      // moderation / free-tier limit in the body) — surface it.
+      if (!res.gotChoice) {
+        throw new Error(`OpenRouter returned no choices for ${req.schemaName}${res.error ? `: ${res.error}` : ''}`);
       }
-      lastRaw = choice.message?.content ?? '';
+      lastRaw = res.content;
       tokensIn += res.usage?.prompt_tokens ?? 0;
       tokensOut += res.usage?.completion_tokens ?? 0;
       // `usage.cost` is an OpenRouter extension (USD), absent from the OpenAI SDK type.
-      const apiCost = (res.usage as { cost?: number } | null | undefined)?.cost;
-      if (typeof apiCost === 'number') costFromApi = (costFromApi ?? 0) + apiCost;
+      if (typeof res.usage?.cost === 'number') costFromApi = (costFromApi ?? 0) + res.usage.cost;
 
       const parsed = parseWithRepair(req.schema, lastRaw);
       if (parsed.ok) {
@@ -113,6 +157,60 @@ export class OpenRouterProvider implements LLMProvider {
       messages.push({ role: 'user', content: parsed.repromptMessage });
     }
     throw new Error(`OpenRouter structured output failed schema validation for ${req.schemaName}`);
+  }
+
+  /**
+   * One streamed chat completion. Aborts when nothing streams for
+   * `idleTimeoutMs` (a stalled upstream) or the request outlives `deadlineMs`;
+   * either is retried STALL_RETRIES time(s) before the call fails.
+   */
+  private async streamCompletion(
+    body: CompletionBody,
+    deadlineMs: number,
+    req: { schemaName: string; model: string },
+  ): Promise<StreamedCompletion> {
+    const tries = 1 + STALL_RETRIES;
+    for (let i = 1; ; i++) {
+      const idle = new AbortController();
+      const signal = AbortSignal.any([idle.signal, AbortSignal.timeout(deadlineMs)]);
+      let timer = setTimeout(() => idle.abort(), this.idleTimeoutMs);
+      const alive = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => idle.abort(), this.idleTimeoutMs);
+      };
+      try {
+        const stream = await this.client.chat.completions.create(
+          { ...body, stream: true, stream_options: { include_usage: true } },
+          { signal },
+        );
+        const out: StreamedCompletion = { content: '', gotChoice: false, usage: null, error: null };
+        for await (const chunk of stream) {
+          alive(); // reasoning deltas count — the model is working
+          const choice = chunk.choices?.[0];
+          if (choice) {
+            out.gotChoice = true;
+            out.content += choice.delta?.content ?? '';
+          }
+          if (chunk.usage) out.usage = chunk.usage as StreamedCompletion['usage'];
+          const err = (chunk as { error?: { message?: string } }).error;
+          if (err) out.error = err.message ?? 'upstream error';
+        }
+        // On abort the SDK's stream iterator just STOPS (no throw) — so a
+        // stalled call would otherwise look like an empty answer.
+        if (!signal.aborted) return out;
+      } catch (err) {
+        if (!signal.aborted) throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+      // Aborted (stall or deadline): retry, or give up with the reason.
+      if (i >= tries) {
+        const why = idle.signal.aborted
+          ? `streamed nothing for ${this.idleTimeoutMs / 1000}s`
+          : `exceeded its ${deadlineMs / 1000}s deadline`;
+        throw new Error(`${this.id} ${req.schemaName} call ${why} ${tries} time(s) (model ${req.model})`);
+      }
+    }
   }
 
   /**

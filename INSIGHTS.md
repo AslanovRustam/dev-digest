@@ -127,6 +127,11 @@ _None yet._
   backslashes via chr(92). Verify afterwards with `cat -A` or a codepoint scan, not by eyeballing.
   · ref: this file, the sed-delimiter entry above
 
+- **2026-10-02** · `/pr-self-review`: run `cache.mjs store` only AFTER `agent-findings.json` holds this pass's
+  findings and BEFORE editing the reviewed files. `store` hashes the files in the current `plan.json` and marks them
+  reviewed with whatever the findings file contains — run it after a fix commit and the NEW, unreviewed version is
+  cached as clean (it happened once; recovery: `cache.mjs clear` and a full re-plan). · ref: `.claude/skills/pr-self-review/scripts/cache.mjs`
+
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `GET /repos` → 500; logs show `read ECONNRESET`, then `28P01 auth_failed`
