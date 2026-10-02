@@ -13,12 +13,8 @@ const BIG = GENERATED_SKIP_MIN_LINES + 1;
 const file = (path: string, additions = 1) => ({ path, additions, deletions: 0, hunks: [] });
 
 describe('isGeneratedPath', () => {
-  it('matches lockfiles, migration snapshots and source maps', () => {
+  it('matches migration snapshots and source maps', () => {
     for (const p of [
-      'pnpm-lock.yaml',
-      'client/package-lock.json',
-      'yarn.lock',
-      'go.sum',
       'server/src/db/migrations/meta/0013_snapshot.json',
       'server/src/db/migrations/meta/_journal.json',
       'dist/app.js.map',
@@ -27,8 +23,12 @@ describe('isGeneratedPath', () => {
     }
   });
 
-  it('keeps hand-written code, executable bundles and the migration SQL itself', () => {
+  it('keeps hand-written code, lockfiles, executable bundles and the migration SQL itself', () => {
     for (const p of [
+      // a swapped `resolved` / `integrity` in a lockfile is a supply-chain attack — always reviewed
+      'pnpm-lock.yaml',
+      'client/package-lock.json',
+      'go.sum',
       'server/src/db/migrations/0013_ancient_nightshade.sql',
       'server/src/db/schema/knowledge.ts',
       'package.json',
@@ -47,27 +47,27 @@ describe('excludeGeneratedFiles', () => {
     raw:
       block('src/a.ts', 'const a = 1;') +
       block('server/src/db/migrations/meta/0013_snapshot.json', '"x": 1') +
-      block('pnpm-lock.yaml', 'lock: 1') +
+      block('dist/app.js.map', 'mappings: x') +
       block('src/b.ts', 'const b = 2;'),
     files: [
       file('src/a.ts'),
       file('server/src/db/migrations/meta/0013_snapshot.json', BIG),
-      file('pnpm-lock.yaml', BIG),
+      file('dist/app.js.map', BIG),
       file('src/b.ts'),
     ],
   };
 
   it('drops LARGE generated files from both the file list and the raw diff', () => {
     const { diff: out, excluded } = excludeGeneratedFiles(diff);
-    expect(excluded).toEqual(['server/src/db/migrations/meta/0013_snapshot.json', 'pnpm-lock.yaml']);
+    expect(excluded).toEqual(['server/src/db/migrations/meta/0013_snapshot.json', 'dist/app.js.map']);
     expect(out.files.map((f) => f.path)).toEqual(['src/a.ts', 'src/b.ts']);
     expect(out.raw).toBe(block('src/a.ts', 'const a = 1;') + block('src/b.ts', 'const b = 2;'));
   });
 
-  it('keeps a small lockfile edit — a swapped resolved URL or integrity hash must be reviewed', () => {
+  it('keeps a small change to a generated file in the review', () => {
     const small: UnifiedDiff = {
-      raw: block('src/a.ts', 'x') + block('pnpm-lock.yaml', 'integrity: sha512-evil'),
-      files: [file('src/a.ts'), file('pnpm-lock.yaml', 2)],
+      raw: block('src/a.ts', 'x') + block('server/src/db/migrations/meta/_journal.json', '"idx": 14'),
+      files: [file('src/a.ts'), file('server/src/db/migrations/meta/_journal.json', 7)],
     };
     const res = excludeGeneratedFiles(small);
     expect(res.excluded).toEqual([]);

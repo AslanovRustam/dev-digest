@@ -45,7 +45,7 @@ describe('reviewPullRequest (engine)', () => {
 
   it('never sends a large generated file to the model and names the skip in the summary', async () => {
     const llm = new MockLLMProvider('openai', { structured: { ...fixture, findings: [] } });
-    const lockLines = Array.from({ length: 60 }, (_, i) => `+LOCKFILE_MARKER_${i}: 1`);
+    const snapLines = Array.from({ length: 60 }, (_, i) => `+  "SNAPSHOT_MARKER_${i}": 1,`);
     const raw = [
       'diff --git a/src/config.ts b/src/config.ts',
       '--- a/src/config.ts',
@@ -54,12 +54,12 @@ describe('reviewPullRequest (engine)', () => {
       '   port: 3000,',
       '+  retries: 3,',
       '   redisUrl: x,',
-      'diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml',
-      '--- a/pnpm-lock.yaml',
-      '+++ b/pnpm-lock.yaml',
-      `@@ -1,1 +1,${lockLines.length + 1} @@`,
-      ' lockfileVersion: 9',
-      ...lockLines,
+      'diff --git a/db/migrations/meta/0001_snapshot.json b/db/migrations/meta/0001_snapshot.json',
+      '--- a/db/migrations/meta/0001_snapshot.json',
+      '+++ b/db/migrations/meta/0001_snapshot.json',
+      `@@ -1,1 +1,${snapLines.length + 1} @@`,
+      ' {',
+      ...snapLines,
     ].join('\n');
     const diff = await new MockGitClient({ diff: raw }).diff();
     const events: string[] = [];
@@ -72,10 +72,10 @@ describe('reviewPullRequest (engine)', () => {
     });
     const sent = JSON.stringify((llm.calls.find((c) => c.method === 'completeStructured')!.req as { messages: unknown }).messages);
     expect(sent).toContain('retries: 3');
-    expect(sent).not.toContain('LOCKFILE_MARKER');
-    expect(events).toContain('Skipped 1 large generated file(s): pnpm-lock.yaml');
+    expect(sent).not.toContain('SNAPSHOT_MARKER');
+    expect(events).toContain('Skipped 1 large generated file(s): db/migrations/meta/0001_snapshot.json');
     expect(events).toContain('Reviewing 1 changed file(s) in one pass');
-    expect(outcome.review.summary).toContain('Not reviewed (large generated files): pnpm-lock.yaml');
+    expect(outcome.review.summary).toContain('Not reviewed (large generated files): db/migrations/meta/0001_snapshot.json');
   });
 
   it('single-pass: assembles, grounds, drops the hallucinated finding', async () => {

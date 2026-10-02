@@ -1,20 +1,18 @@
 import type { UnifiedDiff } from '@devdigest/shared';
 
 /**
- * Machine-written files a reviewer should not read in bulk: lockfiles,
- * migration-tool snapshots, source maps. They carry no reviewable intent, yet
- * they can dominate a diff — on PR #6, 18.7k of 23.5k changed lines were
- * drizzle-kit `migrations/meta/*_snapshot.json`, which a `git diff` would put
- * into the prompt in full.
+ * Machine-written files a reviewer should not read in bulk: migration-tool
+ * snapshots and source maps. They carry no reviewable intent, yet they can
+ * dominate a diff — on PR #6, 18.7k of 23.5k changed lines were drizzle-kit
+ * `migrations/meta/*_snapshot.json`, which a `git diff` would put into the
+ * prompt in full.
  *
- * Only paths — which the PR author controls — decide the match, so the filter
- * is deliberately narrow: no executable patterns (a `*.min.js` runs, so it is
- * reviewed), and a matching file is skipped only when its change is LARGE. A
- * small, targeted lockfile edit (a swapped `resolved` URL or `integrity`
- * hash) stays in the prompt, and every skip is named in the review summary.
+ * Paths are author-controlled, so the list is deliberately narrow: no
+ * lockfiles (a swapped `resolved` URL / `integrity` hash is a supply-chain
+ * attack the reviewer must see, and line-count padding could hide it) and no
+ * executables (`*.min.js` runs). Skips are named in the review summary.
  */
 const GENERATED_PATTERNS: readonly RegExp[] = [
-  /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Cargo\.lock|poetry\.lock|Pipfile\.lock|composer\.lock|Gemfile\.lock|go\.sum)$/,
   // drizzle-kit `meta/_journal.json` + `meta/NNNN_snapshot.json` (the .sql stays reviewable).
   /(^|\/)migrations\/meta\/[^/]+\.json$/,
   /\.map$/,
