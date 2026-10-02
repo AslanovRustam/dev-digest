@@ -44,6 +44,12 @@ const DEFAULT_DEADLINE_MS = 600_000;
  */
 const STALL_RETRIES = 1;
 
+/** The request body minus the streaming switches `streamCompletion` adds. */
+type CompletionBody = Omit<
+  OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+  'stream' | 'stream_options'
+>;
+
 /** What a streamed completion adds up to. */
 interface StreamedCompletion {
   content: string;
@@ -112,7 +118,7 @@ export class OpenRouterProvider implements LLMProvider {
         temperature: req.temperature ?? 0,
         ...(req.maxTokens ? { max_tokens: req.maxTokens } : {}),
         response_format: {
-          type: 'json_schema' as const,
+          type: 'json_schema',
           json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
         },
         // OpenRouter session grouping — extra body field (spread is exempt from
@@ -121,7 +127,7 @@ export class OpenRouterProvider implements LLMProvider {
         // OpenRouter usage accounting — ask it to return the REAL generation
         // cost (USD) in `usage.cost`, instead of estimating from a price book.
         ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
-      };
+      } satisfies CompletionBody;
       const res = await this.streamCompletion(body, deadlineMs, req);
 
       // OpenRouter can answer 200 with no choices (an upstream provider error /
@@ -159,7 +165,7 @@ export class OpenRouterProvider implements LLMProvider {
    * either is retried STALL_RETRIES time(s) before the call fails.
    */
   private async streamCompletion(
-    body: Record<string, unknown>,
+    body: CompletionBody,
     deadlineMs: number,
     req: { schemaName: string; model: string },
   ): Promise<StreamedCompletion> {
@@ -174,11 +180,7 @@ export class OpenRouterProvider implements LLMProvider {
       };
       try {
         const stream = await this.client.chat.completions.create(
-          {
-            ...body,
-            stream: true,
-            stream_options: { include_usage: true },
-          } as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+          { ...body, stream: true, stream_options: { include_usage: true } },
           { signal },
         );
         const out: StreamedCompletion = { content: '', gotChoice: false, usage: null, error: null };

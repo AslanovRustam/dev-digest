@@ -126,11 +126,11 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   const maxRetries = input.maxRetries ?? DEFAULT_REVIEW_MAX_RETRIES;
   const emit = (kind: RunEventKind, msg: string, data?: unknown) =>
     input.onEvent?.({ kind, msg, data });
-  // Lockfiles, migration snapshots, bundles: never sent to the model, never
-  // grounded against. One place, so every strategy sees the same diff.
+  // Large lockfiles / migration snapshots / source maps: not sent to the model,
+  // not grounded against, and named in the summary. One place, so every strategy sees the same diff.
   const { diff, excluded } = excludeGeneratedFiles(input.diff);
   if (excluded.length > 0) {
-    emit('info', `Skipped ${excluded.length} generated file(s): ${excluded.join(', ')}`, { excluded });
+    emit('info', `Skipped ${excluded.length} large generated file(s): ${excluded.join(', ')}`, { excluded });
   }
   const mode = selectMode(input.strategy ?? 'auto', diff, threshold);
 
@@ -212,7 +212,16 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   // self-reported number, and not the pre-grounding set) so the score, the
   // findings list, and the deterministic event always agree.
   return {
-    review: { ...merged, findings: ground.kept, score: scoreFromFindings(ground.kept) },
+    review: {
+      ...merged,
+      // Say what was NOT reviewed, so a reader never mistakes a skip for a pass.
+      summary:
+        excluded.length > 0
+          ? `${merged.summary}\n\nNot reviewed (large generated files): ${excluded.join(', ')}`
+          : merged.summary,
+      findings: ground.kept,
+      score: scoreFromFindings(ground.kept),
+    },
     grounding,
     dropped: ground.dropped,
     mode,
