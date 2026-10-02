@@ -10,6 +10,7 @@ import { Review as ReviewSchema } from '@devdigest/shared';
 import { assemblePrompt } from '../prompt.js';
 import { groundFindings, groundingSummary } from '../grounding.js';
 import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
+import { excludeGeneratedFiles } from './generated.js';
 
 /**
  * reviewPullRequest — the review engine entry point.
@@ -123,9 +124,15 @@ function selectMode(strategy: ReviewStrategy, diff: UnifiedDiff, threshold: numb
 export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutcome> {
   const threshold = input.mapThresholdLines ?? DEFAULT_MAP_THRESHOLD_LINES;
   const maxRetries = input.maxRetries ?? DEFAULT_REVIEW_MAX_RETRIES;
-  const mode = selectMode(input.strategy ?? 'auto', input.diff, threshold);
   const emit = (kind: RunEventKind, msg: string, data?: unknown) =>
     input.onEvent?.({ kind, msg, data });
+  // Lockfiles, migration snapshots, bundles: never sent to the model, never
+  // grounded against. One place, so every strategy sees the same diff.
+  const { diff, excluded } = excludeGeneratedFiles(input.diff);
+  if (excluded.length > 0) {
+    emit('info', `Skipped ${excluded.length} generated file(s): ${excluded.join(', ')}`, { excluded });
+  }
+  const mode = selectMode(input.strategy ?? 'auto', diff, threshold);
 
   const promptParts = {
     system: input.systemPrompt,
@@ -139,18 +146,18 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   };
 
   // Whole-diff assembly is the trace default; overwritten below for single-pass.
-  let assembly: PromptAssembly = assemblePrompt({ ...promptParts, diff: input.diff.raw }).assembly;
+  let assembly: PromptAssembly = assemblePrompt({ ...promptParts, diff: diff.raw }).assembly;
 
   const chunks =
     mode === 'map-reduce'
-      ? input.diff.files.map((f) => ({ label: f.path, diffText: sliceDiff(input.diff, f.path) }))
-      : [{ label: 'all files', diffText: input.diff.raw }];
+      ? diff.files.map((f) => ({ label: f.path, diffText: sliceDiff(diff, f.path) }))
+      : [{ label: 'all files', diffText: diff.raw }];
 
   emit(
     'info',
     mode === 'map-reduce'
-      ? `Large diff → map-reduce over ${input.diff.files.length} files`
-      : `Reviewing ${input.diff.files.length} changed file(s) in one pass`,
+      ? `Large diff → map-reduce over ${diff.files.length} files`
+      : `Reviewing ${diff.files.length} changed file(s) in one pass`,
   );
 
   const partials: Review[] = [];
@@ -194,7 +201,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   );
 
   // SHARED citation-grounding gate (the only post-step; not duplicated per strategy).
-  const ground = groundFindings(merged.findings, input.diff);
+  const ground = groundFindings(merged.findings, diff);
   const grounding = groundingSummary(ground);
   for (const d of ground.dropped) {
     emit('info', `grounding dropped "${d.finding.title}": ${d.reason}`);

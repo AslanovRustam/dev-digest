@@ -43,6 +43,39 @@ describe('reviewPullRequest (engine)', () => {
     ],
   };
 
+  it('never sends generated files to the model and says it skipped them', async () => {
+    const llm = new MockLLMProvider('openai', { structured: { ...fixture, findings: [] } });
+    const raw = [
+      'diff --git a/src/config.ts b/src/config.ts',
+      '--- a/src/config.ts',
+      '+++ b/src/config.ts',
+      '@@ -10,3 +10,4 @@',
+      '   port: 3000,',
+      '+  retries: 3,',
+      '   redisUrl: x,',
+      'diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml',
+      '--- a/pnpm-lock.yaml',
+      '+++ b/pnpm-lock.yaml',
+      '@@ -1,1 +1,2 @@',
+      ' lockfileVersion: 9',
+      '+LOCKFILE_MARKER: 1',
+    ].join('\n');
+    const diff = await new MockGitClient({ diff: raw }).diff();
+    const events: string[] = [];
+    await reviewPullRequest({
+      systemPrompt: 'reviewer',
+      model: 'm',
+      diff,
+      llm,
+      onEvent: (e) => events.push(e.msg),
+    });
+    const sent = JSON.stringify((llm.calls.find((c) => c.method === 'completeStructured')!.req as { messages: unknown }).messages);
+    expect(sent).toContain('retries: 3');
+    expect(sent).not.toContain('LOCKFILE_MARKER');
+    expect(events).toContain('Skipped 1 generated file(s): pnpm-lock.yaml');
+    expect(events).toContain('Reviewing 1 changed file(s) in one pass');
+  });
+
   it('single-pass: assembles, grounds, drops the hallucinated finding', async () => {
     const llm = new MockLLMProvider('openai', { structured: fixture });
     const diff = await new MockGitClient().diff();
