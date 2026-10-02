@@ -23,4 +23,12 @@ export const s = {
   line: (kind: DiffLine["kind"]): CSSProperties => ({ padding: "0 12px", whiteSpace: "pre", ...LINE[kind] }),
   sign: { display: "inline-block", width: 16, userSelect: "none" } satisfies CSSProperties,
   same: { fontSize: 12.5, color: "var(--text-muted)", marginTop: 8 } satisfies CSSProperties,
+  gap: {
+    padding: "2px 12px",
+    color: "var(--text-muted)",
+    background: "var(--bg-hover)",
+    fontStyle: "italic",
+    userSelect: "none",
+  } satisfies CSSProperties,
+  emptyMark: { opacity: 0.7 } satisfies CSSProperties,
 } as const;

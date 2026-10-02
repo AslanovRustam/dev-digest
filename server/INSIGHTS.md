@@ -111,6 +111,11 @@ _None yet._
   passes — the `paths` alias to `../reviewer-core/src` pulls sources outside `server/`. `rootDir: ".."` fixes
   it without changing TS 5's computed output layout. · ref: `tsconfig.json`
 
+- **2026-10-01** · When one schema change ADDS and DROPS columns of the same table, `pnpm db:generate` stops on an
+  interactive "created or renamed from another column?" prompt, which a non-interactive shell cannot answer. Split
+  it: first keep the old column and generate (adds only), then delete it and generate again (drop only).
+  · ref: `src/db/migrations/0013_ancient_nightshade.sql`, `0014_eager_human_fly.sql`
+
 ## Recurring Errors & Fixes
 
 - **2026-09-29** · **Symptom:** 6 tests in `test/indexer-pipeline.test.ts` fail on Windows with
@@ -119,6 +124,14 @@ _None yet._
   search returned -1 and `mkdir` never ran. **Fix:** `dirname(full)` from `node:path`. The same helper in
   `test/indexer-walk.test.ts` hid the bug — `slice(0, -1)` quietly created a junk directory and the test
   still passed. Never split a path by hand; `dirname`/`basename` are platform-correct.
+
+- **2026-10-01** · **Symptom:** a review of a freshly imported open PR approves with "No diff was provided"; the
+  Live log says `Diff ready — 0 changed file(s)`. **Cause:** `loadDiff` first tries `git diff base head` in the
+  depth-1 clone, which lacks the PR head commit, then falls back to `pr_files` — and those are written only by
+  `PullsService.detail` (`GET /pulls/:id`), not by the list import. **Fix:** open the PR detail page (or
+  `GET /pulls/:id`) before running a review; a run started straight from the API after `POST /repos/:id/refresh`
+  reviews nothing. · ref: `src/modules/reviews/diff-loader.ts`, `src/modules/pulls/service.ts` (`detail`)
+
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `dev.sh` logs "applying migrations" and `pnpm db:migrate` / `db:seed` exit 0,

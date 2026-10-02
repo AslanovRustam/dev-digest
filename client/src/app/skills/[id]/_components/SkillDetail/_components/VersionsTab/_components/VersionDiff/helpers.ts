@@ -6,8 +6,9 @@ export type DiffLine = { kind: "same" | "add" | "del"; text: string };
  * fine for skill bodies (≤ 50k chars).
  */
 export function lineDiff(from: string, to: string): DiffLine[] {
-  const a = from.split("\n");
-  const b = to.split("\n");
+  // An empty body has no lines (not one empty line), so v1 diffs as pure adds.
+  const a = from === "" ? [] : from.split("\n");
+  const b = to === "" ? [] : to.split("\n");
   const n = a.length;
   const m = b.length;
   const w = m + 1;
@@ -42,4 +43,37 @@ export function lineDiff(from: string, to: string): DiffLine[] {
 /** True when the diff has at least one added or removed line. */
 export function hasChanges(diff: DiffLine[]): boolean {
   return diff.some((l) => l.kind !== "same");
+}
+
+/** A rendered diff row: a line, or a run of unchanged lines folded away. */
+export type DiffRow = { kind: "line"; line: DiffLine } | { kind: "gap"; count: number };
+
+/** Unchanged lines kept around each change. */
+export const DIFF_CONTEXT = 3;
+
+/**
+ * Fold unchanged runs so the changes are visible without scrolling: keep
+ * `context` same-lines on each side of every change and replace the rest of a
+ * run with one gap row. A diff with no changes folds to nothing.
+ */
+export function foldUnchanged(diff: DiffLine[], context = DIFF_CONTEXT): DiffRow[] {
+  const keep = diff.map((_, i) => {
+    for (let k = Math.max(0, i - context); k <= Math.min(diff.length - 1, i + context); k++) {
+      if (diff[k]!.kind !== "same") return true;
+    }
+    return false;
+  });
+  const rows: DiffRow[] = [];
+  let gap = 0;
+  diff.forEach((line, i) => {
+    if (keep[i]) {
+      if (gap > 0) rows.push({ kind: "gap", count: gap });
+      gap = 0;
+      rows.push({ kind: "line", line });
+    } else {
+      gap++;
+    }
+  });
+  if (gap > 0 && rows.length > 0) rows.push({ kind: "gap", count: gap });
+  return rows;
 }

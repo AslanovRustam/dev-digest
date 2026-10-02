@@ -33,6 +33,12 @@ _None yet._
   `minmax(<floor>px, 1fr)` and let the container scroll (`overflowX: auto`).
   · ref: `src/app/repos/[repoId]/pulls/constants.ts` (`GRID`)
 
+- **2026-10-01** · Supersedes 2026-10-01 (portal + stopPropagation wrapper): a wrapper that calls
+  `e.stopPropagation()` on `onKeyDown` also hides the key from a `window` keydown listener, so an Escape
+  pressed with focus INSIDE the dialog never closed it. Handle Escape in the wrapper's own `onKeyDown`, and keep
+  the `window` listener only for focus outside the dialog. · ref: `src/app/skills/_components/DeleteSkillModal/DeleteSkillModal.tsx`,
+  `src/app/repos/[repoId]/conventions/_components/ConventionsView/_components/CreateSkillModal/CreateSkillModal.tsx`
+
 ## Codebase Patterns
 
 _None yet._
@@ -57,6 +63,19 @@ _None yet._
   `<button role="checkbox">` inside a `<label>`, so its label text is already the accessible name.
   · ref: `src/app/skills/[id]/_components/SkillDetail/_components/StatsTab/`
 
+- **2026-09-30** · Skill Versions → Diff shows what EACH version changed (vN vs the previous
+  snapshot, v1 vs an empty body), not "old vs current"; unchanged runs fold and an added/removed
+  empty line renders as `⏎`. why: the server bumps the version on ANY raw body change
+  (`isSkillContentChange`), so a stray trailing Enter in the body editor yields a version whose only
+  change is one empty line — unreadable in an unfolded diff. · ref:
+  `src/app/skills/[id]/_components/SkillDetail/_components/VersionsTab/_components/VersionDiff/helpers.ts`
+
+- **2026-10-01** · Open a kit `Modal` from inside a clickable or dimmed element (a card with `onClick`
+  or `opacity`) through `createPortal(…, document.body)` AND wrap it in a div that stops click/keydown
+  propagation. why: the kit `Modal` is not portalled, so inline it inherits the parent's opacity; and
+  React bubbles synthetic events through the COMPONENT tree even across a portal, so a click inside the
+  modal still fires the card's `onClick`. · ref: `src/app/skills/_components/DeleteSkillModal/DeleteSkillModal.tsx`
+
 ## Tool & Library Notes
 
 _None yet._
@@ -77,6 +96,21 @@ _None yet._
   escape the scroll box. **Fix:** `position: relative` on the element wrapping the sr-only text. Find it by
   listing elements whose `getBoundingClientRect().bottom > innerHeight`.
   · ref: `src/app/skills/_components/SkillsWorkspace/_components/SkillsList/_components/SkillCard/styles.ts`
+
+- **2026-10-01** · A native `<select>`'s option list was white-on-white in the dark theme. `color-scheme: dark`
+  alone did NOT fix it on Windows Chromium: the popup takes its colours from the `<select>` element, and kit
+  `SelectInput`'s select is `background: transparent` (the wrapper draws the box), so options fell back to
+  white while inheriting the light `--text-primary`. Fix: style `select option` with `--bg-elevated` /
+  `--text-primary` (kept `color-scheme` for scrollbars). Verify via `getComputedStyle(select.options[1])` —
+  the open popup can't be screenshotted. · ref: `src/vendor/ui/styles.css`
+
+- **2026-10-01** · Kit `SelectInput` renders a `<select>` with no accessible name (no `aria-label` prop), so RTL's
+  `getByRole('combobox', { name })` / `getByLabelText` can't find it — select it with `getByDisplayValue("<selected option label>")`.
+  · ref: `src/app/repos/[repoId]/conventions/_components/ConventionsView/_components/CreateSkillModal/CreateSkillModal.test.tsx`
+
+- **2026-10-01** · Kit buttons default to `type="submit"`: `Toggle` rendered a bare `<button>`, so inside a
+  `<form>` clicking a switch submitted the form (the create-skill modal saved the skill). `Toggle` now sets
+  `type="button"`; check any other kit control you put inside a `<form>` the same way. · ref: `src/vendor/ui/primitives/Toggle.tsx`
 
 ## Recurring Errors & Fixes
 

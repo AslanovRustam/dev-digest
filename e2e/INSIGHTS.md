@@ -51,6 +51,12 @@ _None yet._
   `GITHUB_TOKEN`/`*_API_KEY` env vars and `USERPROFILE` pointing at an empty dir (secrets.json lives in `~/.devdigest`).
   · ref: `run.ts`
 
+- **2026-10-01** · `npx agent-browser fill <sel> "<multi-line text>"` on Windows keeps only the FIRST line (the npm `.cmd`
+  shim drops the rest), and the UI saves the truncated value silently. Set long textarea values with
+  `agent-browser eval` instead: base64-encode the text, decode with `new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)))`,
+  assign through `Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set` and dispatch an
+  `input` event so React sees it. Kit `Toggle`s are hit with `find role switch click --name "<label>"`, not `find label`.
+
 ## Recurring Errors & Fixes
 
 _None yet._

@@ -110,7 +110,7 @@ and at least one skill goes through the import flow.
 | Agent | Finds | Skills (`docs/skills/…`) |
 |---|---|---|
 | **Test Quality Reviewer** | untested branches, missed corner cases, over-mocking, flaky tests | `untested-branches`, `corner-cases`, `over-mocking`, `flaky-tests` (a folder with `SKILL.md` + `scripts/` — the import demo) |
-| **API Contract Reviewer** | breaking changes in route signatures, response shapes, status/error contracts | `route-signature-breaking-change`, `response-shape-compat`, `status-and-error-contract` |
+| **API Contract Reviewer** | breaking changes in route signatures, response shapes, status/error contracts | `route-signature-breaking-change`, `response-shape-compat`, `status-and-error-contract` — superseded by `breaking-change`, `response-schema`, `semver-discipline`, `deprecation-policy` ([spec 04](./04-conventions-extractor.md)) |
 
 Their system prompts (`docs/agent-prompts/*.md`) state the role only. The concrete checks live in
 the skills, which is what makes the control experiment show a difference.

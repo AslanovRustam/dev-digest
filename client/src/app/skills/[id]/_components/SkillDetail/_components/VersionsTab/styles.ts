@@ -30,5 +30,15 @@ export const s = {
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
   date: { fontSize: 12, color: "var(--text-muted)", marginTop: 2 } satisfies CSSProperties,
-  actions: { display: "flex", gap: 6 } satisfies CSSProperties,
+  actions: { display: "flex", alignItems: "center", gap: 6 } satisfies CSSProperties,
+  trailing: { display: "grid" } satisfies CSSProperties,
+  trailingItem: { gridArea: "1 / 1", display: "flex", alignItems: "center" } satisfies CSSProperties,
+  trailingSizer: {
+    gridArea: "1 / 1",
+    display: "flex",
+    alignItems: "center",
+    visibility: "hidden",
+    pointerEvents: "none",
+  } satisfies CSSProperties,
+  diffCaption: { fontSize: 12, color: "var(--text-muted)", margin: "10px 0 0" } satisfies CSSProperties,
 } as const;

@@ -102,3 +102,4 @@ a CI artifact by `.github/workflows/e2e-web.yml`).
 | `07-settings` | `/settings/api-keys` + `/settings/models` → section titles render |
 | `08-findings-severity` | PR list FINDINGS column → PR #482 Agent runs → click `1 CRITICAL` / `1 WARNING` → `?severity=` + that level's finding |
 | `09-skills` | `/skills` → "Skills" title + "Add Skill" control render (read-only; no create/import) |
+| `10-conventions` | sidebar → Skills Lab › Conventions → heading + empty state with "Run extraction" (read-only; no model call) |
