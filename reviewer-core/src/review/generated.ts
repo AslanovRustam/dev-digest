@@ -7,14 +7,16 @@ import type { UnifiedDiff } from '@devdigest/shared';
  * `migrations/meta/*_snapshot.json`, which a `git diff` would put into the
  * prompt in full.
  *
- * Paths are author-controlled, so the list is deliberately narrow: no
+ * Paths are author-controlled, so the list is deliberately narrow — nothing the
+ * system reads at runtime or install time: no
  * lockfiles (a swapped `resolved` URL / `integrity` hash is a supply-chain
  * attack the reviewer must see, and line-count padding could hide it) and no
  * executables (`*.min.js` runs). Skips are named in the review summary.
  */
 const GENERATED_PATTERNS: readonly RegExp[] = [
-  // drizzle-kit `meta/_journal.json` + `meta/NNNN_snapshot.json` (the .sql stays reviewable).
-  /(^|\/)migrations\/meta\/[^/]+\.json$/,
+  // drizzle-kit `meta/NNNN_snapshot.json` — read only by `drizzle-kit generate`. NOT
+  // `meta/_journal.json`: the migrator reads it at runtime to pick and order the .sql files.
+  /(^|\/)migrations\/meta\/\d+_snapshot\.json$/,
   /\.map$/,
 ];
 

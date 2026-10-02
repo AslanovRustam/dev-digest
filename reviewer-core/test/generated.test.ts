@@ -16,7 +16,6 @@ describe('isGeneratedPath', () => {
   it('matches migration snapshots and source maps', () => {
     for (const p of [
       'server/src/db/migrations/meta/0013_snapshot.json',
-      'server/src/db/migrations/meta/_journal.json',
       'dist/app.js.map',
     ]) {
       expect(isGeneratedPath(p), p).toBe(true);
@@ -29,6 +28,8 @@ describe('isGeneratedPath', () => {
       'pnpm-lock.yaml',
       'client/package-lock.json',
       'go.sum',
+      // the migrator reads the journal at runtime to choose and order migrations
+      'server/src/db/migrations/meta/_journal.json',
       'server/src/db/migrations/0013_ancient_nightshade.sql',
       'server/src/db/schema/knowledge.ts',
       'package.json',
@@ -66,8 +67,8 @@ describe('excludeGeneratedFiles', () => {
 
   it('keeps a small change to a generated file in the review', () => {
     const small: UnifiedDiff = {
-      raw: block('src/a.ts', 'x') + block('server/src/db/migrations/meta/_journal.json', '"idx": 14'),
-      files: [file('src/a.ts'), file('server/src/db/migrations/meta/_journal.json', 7)],
+      raw: block('src/a.ts', 'x') + block('server/src/db/migrations/meta/0014_snapshot.json', '"id": "x"'),
+      files: [file('src/a.ts'), file('server/src/db/migrations/meta/0014_snapshot.json', 7)],
     };
     const res = excludeGeneratedFiles(small);
     expect(res.excluded).toEqual([]);
