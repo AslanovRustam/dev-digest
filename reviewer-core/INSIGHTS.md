@@ -38,6 +38,12 @@ _None yet._
   for `deepseek-v4-flash`), and one stalled. Hence the retry: it is usually routed elsewhere.
   · ref: `src/llm/openrouter.ts`, `test/openrouter-deadline.test.ts`
 
+- **2026-10-02** · openai SDK v4 streaming quirks (verified against local SSE servers): when the request `signal`
+  aborts, `for await (const chunk of stream)` just ENDS — no throw — so check `signal.aborted` after the loop or a
+  timeout looks like an empty answer; and a chunk carrying `{ error: { message } }` makes the SDK throw an `APIError`
+  with that message itself. OpenRouter's `: OPENROUTER PROCESSING` SSE comments are skipped by the SDK, so they do not
+  reset an idle timer — only real chunks (content or `delta.reasoning`) do. · ref: `src/llm/openrouter.ts` (`streamCompletion`)
+
 ## Recurring Errors & Fixes
 
 _None yet._
