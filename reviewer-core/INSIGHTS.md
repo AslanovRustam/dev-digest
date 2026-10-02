@@ -44,6 +44,11 @@ _None yet._
   with that message itself. OpenRouter's `: OPENROUTER PROCESSING` SSE comments are skipped by the SDK, so they do not
   reset an idle timer — only real chunks (content or `delta.reasoning`) do. · ref: `src/llm/openrouter.ts` (`streamCompletion`)
 
+- **2026-10-02** · Supersedes 2026-10-02 (deadline 240 s, one retry): a wall-clock deadline alone was not enough —
+  both non-streaming retries of the PR #6 review stalled. `OpenRouterProvider` now always STREAMS, with an idle timeout
+  (120 s without any chunk) plus a 600 s hard deadline, each retried once; the same review then finished in 2m20s.
+  · ref: `src/llm/openrouter.ts`
+
 ## Recurring Errors & Fixes
 
 _None yet._
