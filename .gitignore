@@ -26,3 +26,6 @@ test-results/
 
 # pr-self-review run artefacts (report, diff snapshot, findings cache)
 .devdigest/pr-self-review/
+
+# planner → implementer hand-off: Development Plans saved by the main session
+.devdigest/plans/

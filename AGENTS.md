@@ -51,6 +51,21 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
   for content with escapes, or verify with `cat -A` afterwards; the terminal renders the damage as
   nothing.
 
+## Agents (`.claude/agents/`)
+- Pipeline: `researcher` (facts) → `planner` (Development Plan, read-only) → `implementer` (code +
+  package tests) → optional `test-writer` (test files only) → `plan-verifier` (every plan item traced to
+  code + evidence) and `architecture-reviewer` (boundary rules), both read-only → `doc-writer` (docs for
+  what shipped) → the user runs `/pr-self-review`.
+- Subagents do not see the conversation: save the planner's output to `.devdigest/plans/<NN-slug>.md`
+  (git-ignored) and give every later agent that path, never "the plan above". Save a report there too
+  when another agent needs it (e.g. the implementer's report for `plan-verifier`).
+- `planner`, `implementer` and `test-writer` map files to skills through
+  `.claude/skills/pr-self-review/references/routing.md` — the same table the self-review uses. Change it
+  there, not in the agent prompts.
+- Guards: `.claude/hooks/implementer-guard.mjs` and `.claude/hooks/agent-guard.mjs <profile>`. After
+  editing one, run its `node --test`, then start a new session (agent definitions are cached).
+- Subagents only propose INSIGHTS entries; the main session records them via `engineering-insights`.
+
 ## Engineering insights (mandatory)
 - After a non-obvious finding (root cause, dead end, tool quirk, decision) and at the end of every
   task, invoke the `engineering-insights` skill — it appends to the owning module's `INSIGHTS.md`.

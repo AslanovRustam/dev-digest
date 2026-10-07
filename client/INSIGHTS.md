@@ -111,6 +111,9 @@ _None yet._
 - **2026-10-01** · Kit buttons default to `type="submit"`: `Toggle` rendered a bare `<button>`, so inside a
   `<form>` clicking a switch submitted the form (the create-skill modal saved the skill). `Toggle` now sets
   `type="button"`; check any other kit control you put inside a `<form>` the same way. · ref: `src/vendor/ui/primitives/Toggle.tsx`
+- **2026-10-07** · `import/no-restricted-paths` (the client's layer boundaries) is configured as `"warn"`. So
+  `pnpm lint` exits 0 even when boundary violations exist. Read the output and grep for `no-restricted-paths`;
+  never trust the exit code. · ref: `eslint.config.mjs:45-46`
 
 ## Recurring Errors & Fixes
 

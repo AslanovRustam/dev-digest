@@ -23,8 +23,10 @@ const CANNOT_INVOKE = `${RUN} has auto-invocation disabled, so you cannot invoke
  * Matching the bare substring anywhere is wrong: it denies `echo "gh pr create"` and any command
  * that merely writes documentation mentioning the command. Only a statement that BEGINS with the
  * invocation counts.
+ *
+ * Also used by `.claude/hooks/implementer-guard.mjs` — keep the signature stable.
  */
-function statements(command) {
+export function statements(command) {
   const masked = String(command ?? '').replace(/'[^']*'|"[^"]*"|`[^`]*`/g, (m) => ' '.repeat(m.length));
   return masked.split(/&&|\|\||[;\n|]/);
 }
