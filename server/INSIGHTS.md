@@ -132,6 +132,11 @@ _None yet._
   `GET /pulls/:id`) before running a review; a run started straight from the API after `POST /repos/:id/refresh`
   reviews nothing. · ref: `src/modules/reviews/diff-loader.ts`, `src/modules/pulls/service.ts` (`detail`)
 
+- **2026-10-02** · **Symptom:** a review run ends within seconds as `failed` with `error: null`, and
+  `GET /runs/:id/trace` returns 404. **Cause:** `pnpm dev` is `tsx watch`, so saving any server or reviewer-core file
+  (or `git switch`) restarts the API mid-run, and `reapStaleRuns` marks the orphaned run failed on boot. **Fix:** don't
+  edit sources or switch branches while a live run is in flight; re-run it afterwards. · ref: `src/modules/reviews/service.ts` (`reapStaleRuns`)
+
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `dev.sh` logs "applying migrations" and `pnpm db:migrate` / `db:seed` exit 0,

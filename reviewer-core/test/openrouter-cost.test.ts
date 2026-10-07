@@ -9,17 +9,19 @@ import { OpenRouterProvider } from '../src/llm/openrouter.js';
 
 const Schema = z.object({ ok: z.boolean() });
 
-/** Provider whose OpenAI client returns one canned completion (no network). */
+/** Provider whose OpenAI client streams one canned completion (no network). */
 function providerWith(usage: Record<string, number>, estimate?: number | null) {
   const p = new OpenRouterProvider('test-key', {
     ...(estimate !== undefined ? { estimateCost: () => estimate } : {}),
   });
+  async function* chunks() {
+    yield { choices: [{ delta: { content: '{"ok":' } }] };
+    yield { choices: [{ delta: { content: 'true}' } }] };
+    // OpenRouter sends usage (incl. `cost`) on a final chunk with no choices.
+    yield { choices: [], usage };
+  }
   (p as unknown as { client: unknown }).client = {
-    chat: {
-      completions: {
-        create: async () => ({ choices: [{ message: { content: '{"ok":true}' } }], usage }),
-      },
-    },
+    chat: { completions: { create: async () => chunks() } },
   };
   return p;
 }
