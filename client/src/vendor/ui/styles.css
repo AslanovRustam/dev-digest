@@ -8,6 +8,10 @@
 
 :root,
 [data-theme="dark"] {
+  /* Native widgets (a <select>'s option list, scrollbars, date pickers) follow
+     the theme; without it the option popup is light while option text inherits
+     the dark theme's light text colour — unreadable. */
+  color-scheme: dark;
   --bg-primary: #0a0a0a;
   --bg-surface: #141414;
   --bg-elevated: #1c1c1c;
@@ -47,6 +51,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --bg-primary: #ffffff;
   --bg-surface: #fafafa;
   --bg-elevated: #ffffff;
@@ -195,6 +200,17 @@ input,
 select,
 textarea {
   font-family: inherit;
+}
+
+/* A <select>'s option popup takes its colours from the <select> itself in
+   Chromium on Windows. SelectInput's <select> is `background: transparent`
+   (the wrapper draws the box), so the popup fell back to white while option
+   text inherited the light --text-primary: white on white in the dark theme.
+   `color-scheme` alone does not fix that — paint the options explicitly. */
+select option,
+select optgroup {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 a {

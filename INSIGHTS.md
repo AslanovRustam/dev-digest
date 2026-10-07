@@ -127,6 +127,18 @@ _None yet._
   backslashes via chr(92). Verify afterwards with `cat -A` or a codepoint scan, not by eyeballing.
   · ref: this file, the sed-delimiter entry above
 
+- **2026-10-01** · Piping API JSON into Python on this Windows machine (`curl … | python -c "json.load(sys.stdin)"`) decodes
+  stdin as cp1251: non-ASCII text (—, →) is mangled and string lengths differ from the stored value, which looks
+  like data corruption but isn't. Prefix `PYTHONIOENCODING=utf8` (or wrap `sys.stdin.buffer` in a utf-8
+  `TextIOWrapper`) before comparing API data with files.
+
+- **2026-10-01** · `/pr-self-review`: `INV-MIGRATION` fires on `server/src/db/migrations/meta/_journal.json` for
+  EVERY new generated migration (it is status `M`, not `A`), and `INV-RUNTIME-DATA` on any `client/src/vendor/ui/**`
+  edit. Both are file-level findings (`start_line: 0`), so `// pr-self-review-ignore` can never match them — the only
+  exit is `report.mjs --override "<reason>"`. Also: run `cache.mjs store` after EVERY fan-out pass, or the next
+  `cache.mjs plan` re-reviews everything since the last store; and tell reviewers `start_line` is a SOURCE-file line —
+  they otherwise cite `diff.patch` line numbers and grounding drops the finding. · ref: `.claude/skills/pr-self-review/scripts/invariants.mjs`, `report.mjs` (`applySuppression`)
+
 - **2026-10-02** · `/pr-self-review`: run `cache.mjs store` only AFTER `agent-findings.json` holds this pass's
   findings and BEFORE editing the reviewed files. `store` hashes the files in the current `plan.json` and marks them
   reviewed with whatever the findings file contains — run it after a fix commit and the NEW, unreviewed version is

@@ -1,0 +1,158 @@
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import type { ConventionCandidate, ConventionSkillDraft } from "@devdigest/shared";
+import conventions from "@/../messages/en/conventions.json";
+import skills from "@/../messages/en/skills.json";
+
+const DRAFT: ConventionSkillDraft = {
+  name: "payments-api-conventions",
+  description: "Use when reviewing changes in payments-api. Flag code that breaks one of its 2 house conventions.",
+  type: "convention",
+  body: "House conventions for `payments-api`.\n\n## async\nUse async/await.",
+  evidence_files: ["src/a.ts:1-2", "src/b.ts:3"],
+};
+
+const createMutate = vi.fn();
+const draftHook = vi.fn();
+let createError: Error | null = null;
+vi.mock("@/lib/hooks", () => ({
+  useConventionSkillDraft: (...args: unknown[]) => draftHook(...args),
+  useAgents: () => ({ data: [{ id: "ag1", name: "API Contract Reviewer" }] }),
+  useCreateSkillFromConventions: () => ({ mutate: createMutate, isPending: false, error: createError }),
+}));
+
+import { ToastProvider } from "@/lib/toast";
+import { CreateSkillModal } from "./CreateSkillModal";
+
+const cand = (id: string): ConventionCandidate => ({
+  id,
+  repo_id: "r1",
+  scan_id: "s1",
+  source_sha: "abc",
+  category: "async",
+  rule: `rule ${id}`,
+  evidence_path: "src/a.ts",
+  evidence_start_line: 1,
+  evidence_end_line: 2,
+  evidence_snippet: "x",
+  confidence: 0.9,
+  status: "accepted",
+  skill_id: null,
+  skill_name: null,
+  created_at: "2026-10-01T10:00:00.000Z",
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  createError = null;
+  draftHook.mockReturnValue({ data: DRAFT, isError: false, error: null });
+  createMutate.mockImplementation((_input, opts) =>
+    opts?.onSuccess?.({ skill_id: "sk1", name: _input.name, version: 1, convention_ids: [], linked_agent_ids: [] }),
+  );
+});
+afterEach(cleanup);
+
+function renderModal() {
+  const onClose = vi.fn();
+  render(
+    <NextIntlClientProvider locale="en" messages={{ conventions, skills }}>
+      <ToastProvider>
+        <CreateSkillModal repoId="r1" repoName="payments-api" candidates={[cand("c1"), cand("c2")]} onClose={onClose} />
+      </ToastProvider>
+    </NextIntlClientProvider>,
+  );
+  return onClose;
+}
+
+describe("CreateSkillModal", () => {
+  it("pre-fills every field from the draft and saves the edited values", () => {
+    const onClose = renderModal();
+    expect(screen.getByText(/2 accepted conventions/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toHaveValue("payments-api-conventions");
+    expect(screen.getByLabelText("Skill body (markdown)")).toHaveValue(DRAFT.body);
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "payments-house-rules" } });
+    fireEvent.change(screen.getByLabelText("Attach to agent"), { target: { value: "ag1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
+
+    expect(createMutate).toHaveBeenCalledWith(
+      {
+        convention_ids: ["c1", "c2"],
+        name: "payments-house-rules",
+        description: DRAFT.description,
+        type: "convention",
+        enabled: true,
+        body: DRAFT.body,
+        agent_ids: ["ag1"],
+      },
+      expect.anything(),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("shows the server error and stays open when saving fails", () => {
+    // The mutation fails on submit: only then does the hook report an error.
+    createMutate.mockImplementation(() => {
+      createError = new Error("Convention c2 is no longer accepted");
+    });
+    const onClose = vi.fn();
+    const tree = () => (
+      <NextIntlClientProvider locale="en" messages={{ conventions, skills }}>
+        <ToastProvider>
+          <CreateSkillModal repoId="r1" repoName="payments-api" candidates={[cand("c1"), cand("c2")]} onClose={onClose} />
+        </ToastProvider>
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(tree());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
+    rerender(tree());
+    expect(screen.getByRole("alert")).toHaveTextContent("Convention c2 is no longer accepted");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("flipping Enabled does not submit the form", () => {
+    renderModal();
+    const toggle = screen.getByRole("switch", { name: "Enabled" });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(createMutate).not.toHaveBeenCalled();
+  });
+
+  it("does not save without a name and says why", () => {
+    renderModal();
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Create skill" }));
+    expect(createMutate).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Name and skill body are required.");
+  });
+
+  it("closes on Escape pressed inside the dialog", () => {
+    const onClose = renderModal();
+    fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("shows the draft error and keeps Create disabled when the draft fails", () => {
+    draftHook.mockReturnValue({ data: undefined, isError: true, error: new Error("boom") });
+    renderModal();
+    expect(screen.getByRole("alert")).toHaveTextContent("boom");
+    expect(screen.getByRole("button", { name: "Create skill" })).toBeDisabled();
+  });
+
+  it("closes on Escape while the draft is still loading (focus outside the dialog)", () => {
+    draftHook.mockReturnValue({ data: undefined, isError: false, error: null });
+    const onClose = renderModal();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows skeletons until the draft arrives", () => {
+    draftHook.mockReturnValue({ data: undefined, isError: false, error: null });
+    renderModal();
+    expect(screen.getByLabelText("Merging conventions…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create skill" })).toBeDisabled();
+  });
+});

@@ -21,6 +21,8 @@ export interface InsertSkill {
   source: SkillSource;
   body: string;
   enabled: boolean;
+  /** `path:start-end` citations a skill was extracted from (Conventions Extractor). */
+  evidenceFiles?: string[] | null;
 }
 
 export interface UpdateSkill {

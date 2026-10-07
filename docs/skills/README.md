@@ -6,7 +6,7 @@ experiment. Scope and business rules: [`specs/03-skills.md`](../../specs/03-skil
 | Folder | Agent | Skills |
 |---|---|---|
 | [`test-quality/`](./test-quality/) | Test Quality Reviewer — [prompt](../agent-prompts/test-quality-reviewer.md) | `untested-branches`, `corner-cases`, `over-mocking`, `flaky-tests/` (import demo) |
-| [`api-contract/`](./api-contract/) | API Contract Reviewer — [prompt](../agent-prompts/api-contract-reviewer.md) | `route-signature-breaking-change`, `response-shape-compat`, `status-and-error-contract` |
+| [`api-contract/`](./api-contract/) | API Contract Reviewer — [prompt](../agent-prompts/api-contract-reviewer.md) | `breaking-change`, `response-schema`, `semver-discipline`, `deprecation-policy` (import demo) |
 
 These files are the reviewable originals. Nothing is seeded: the skills and agents are created by
 hand in the UI, and the DB is the source of truth at run time. When you change a skill, edit the
@@ -69,8 +69,10 @@ type: rubric          # rubric | convention | security | custom
    changed?** note is optional; an empty one gets an automatic note). Toggling *enabled* does not
    bump. **Versions** shows the history with **Diff** and **Restore**.
 
-Create this way: `untested-branches`, `corner-cases`, `over-mocking` and the three `api-contract`
-skills.
+Create this way: `untested-branches`, `corner-cases`, `over-mocking`, and `breaking-change`,
+`response-schema`, `semver-discipline` from `api-contract/`. `deprecation-policy.md` goes through
+**Import from file** instead (a single `.md` is enough — no zip needed), so the API Contract Reviewer
+also has a skill that came in through the import path.
 
 ## Import a skill from a file
 
@@ -122,14 +124,15 @@ For each agent:
 
    | Test Quality Reviewer | API Contract Reviewer |
    |---|---|
-   | 1. `untested-branches` | 1. `route-signature-breaking-change` |
-   | 2. `corner-cases` | 2. `response-shape-compat` |
-   | 3. `over-mocking` | 3. `status-and-error-contract` |
-   | 4. `flaky-tests` | |
+   | 1. `untested-branches` | 1. `breaking-change` |
+   | 2. `corner-cases` | 2. `response-schema` |
+   | 3. `over-mocking` | 3. `deprecation-policy` |
+   | 4. `flaky-tests` | 4. `semver-discipline` |
 
    The most important check goes first. Each check or drop saves immediately; the badge shows
    `N of M enabled`, and the agent card shows `N skills` — the count that reaches the prompt.
-3. Make sure `flaky-tests` is enabled globally once you have read it (it was imported disabled).
+3. Make sure `flaky-tests` and `deprecation-policy` are enabled globally once you have read them
+   (imports are saved disabled).
 
 ## Control experiment
 

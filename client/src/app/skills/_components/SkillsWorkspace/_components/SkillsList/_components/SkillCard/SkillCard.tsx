@@ -1,6 +1,7 @@
 /* SkillCard — one skill in the list: type-tinted tile, mono name, global
-   enable toggle, one-line description, type badge + source, and the
-   "N agents · X% pull · Y% accept" footer. */
+   enable toggle, a trash button (opens DeleteSkillModal), one-line
+   description, type badge + source, and the "N agents · X% pull · Y% accept"
+   footer. */
 "use client";
 
 import React from "react";
@@ -9,6 +10,7 @@ import { Icon, Toggle } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { SkillTypeBadge } from "@/components/skill-type-badge";
 import { SkillIconTile } from "@/app/skills/_components/SkillIconTile";
+import { DeleteSkillModal } from "@/app/skills/_components/DeleteSkillModal";
 import { acceptRateColor, formatPct } from "@/app/skills/rates";
 import { SOURCE_ICON } from "./constants";
 import { s } from "./styles";
@@ -26,6 +28,7 @@ export function SkillCard({
 }) {
   const t = useTranslations("skills");
   const SourceIcon = Icon[SOURCE_ICON[skill.source]];
+  const [confirmingDelete, setConfirmingDelete] = React.useState(false);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.target !== e.currentTarget) return;
@@ -56,7 +59,21 @@ export function SkillCard({
             <Toggle on={skill.enabled} onChange={onToggle} size={14} />
           </label>
         )}
+        <button
+          type="button"
+          title={t("card.delete", { name: skill.name })}
+          aria-label={t("card.delete", { name: skill.name })}
+          onClick={(e) => {
+            e.stopPropagation();
+            setConfirmingDelete(true);
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+          style={s.deleteBtn}
+        >
+          <Icon.Trash size={14} />
+        </button>
       </div>
+      {confirmingDelete && <DeleteSkillModal skill={skill} onClose={() => setConfirmingDelete(false)} />}
       <div style={s.description} title={skill.description || undefined}>
         {skill.description || t("card.noDescription")}
       </div>

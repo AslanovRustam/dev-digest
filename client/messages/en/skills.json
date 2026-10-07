@@ -15,8 +15,16 @@
     "loadError": "Could not load skills.",
     "noMatch": "No skills match “{query}”."
   },
+  "deleteModal": {
+    "title": "Delete skill?",
+    "body": "<b>{name}</b> and its version history will be deleted. This cannot be undone.",
+    "linked": "{count, plural, one {# agent links} other {# agents link}} this skill — it will be removed from {count, plural, one {its} other {their}} prompt.",
+    "cancel": "Cancel",
+    "confirm": "Delete skill"
+  },
   "card": {
     "toggleLabel": "Enable {name}",
+    "delete": "Delete {name}",
     "noDescription": "No description",
     "agents": "{count, plural, one {# agent} other {# agents}}",
     "pull": "{value} pull",
@@ -79,7 +87,6 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "delete": "Delete",
-    "deleteConfirm": "Delete skill \"{name}\"? Agents that link it lose it. This cannot be undone.",
     "savedToast": "Saved as v{version}",
     "createdToast": "Skill created",
     "deletedToast": "Skill deleted"
@@ -112,10 +119,14 @@
     "current": "Current",
     "diff": "Diff",
     "hideDiff": "Hide diff",
+    "diffAgainst": "Changes in v{version} vs v{previous}",
+    "diffInitial": "v{version} — initial content",
+    "unchangedLines": "⋯ {count, plural, one {# unchanged line} other {# unchanged lines}}",
+    "emptyLine": "empty line",
     "restore": "Restore",
     "restoreConfirm": "Restore v{version}? This writes a new version with its content; history is kept.",
     "restoredToast": "Restored v{version} as v{current}",
-    "noChanges": "Identical to the current body.",
+    "noChanges": "The body did not change in this version (only name, description or type).",
     "empty": "No versions yet.",
     "loadError": "Could not load the version history."
   },

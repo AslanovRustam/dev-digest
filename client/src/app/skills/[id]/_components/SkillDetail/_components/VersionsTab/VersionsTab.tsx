@@ -1,6 +1,7 @@
-/* VersionsTab — every content save is a snapshot. The current version shows
-   "Current"; older ones can be diffed against the current body inline, or
-   restored (which writes a NEW version — history is never rewritten). */
+/* VersionsTab — every content save is a snapshot. Each version's Diff shows
+   what THAT version changed: its body against the previous version's (v1
+   against an empty body). The current version is marked "Current"; older ones
+   can be restored, which writes a NEW version — history is never rewritten. */
 "use client";
 
 import React from "react";
@@ -10,7 +11,7 @@ import type { Skill } from "@devdigest/shared";
 import { useRestoreSkillVersion, useSkillVersions } from "@/lib/hooks";
 import { useToast } from "@/lib/toast";
 import { VersionDiff } from "./_components/VersionDiff";
-import { formatVersionDate, newestFirst } from "./helpers";
+import { formatVersionDate, newestFirst, previousVersion } from "./helpers";
 import { s } from "./styles";
 
 export function VersionsTab({ skill }: { skill: Skill }) {
@@ -57,6 +58,7 @@ export function VersionsTab({ skill }: { skill: Skill }) {
           {versions.map((v) => {
             const current = v.version === skill.version;
             const diffOpen = openDiff === v.version;
+            const prev = previousVersion(versions, v.version);
             return (
               <li key={v.version} style={s.row}>
                 <div style={s.rowMain}>
@@ -74,34 +76,49 @@ export function VersionsTab({ skill }: { skill: Skill }) {
                       {formatVersionDate(v.created_at)}
                     </div>
                   </div>
-                  {current ? (
-                    <Badge color="var(--ok)" bg="var(--ok-bg)" dot>
-                      {t("versions.current")}
-                    </Badge>
-                  ) : (
-                    <div style={s.actions}>
-                      <Button
-                        kind="ghost"
-                        size="sm"
-                        icon="Eye"
-                        aria-expanded={diffOpen}
-                        onClick={() => setOpenDiff(diffOpen ? null : v.version)}
-                      >
-                        {diffOpen ? t("versions.hideDiff") : t("versions.diff")}
-                      </Button>
-                      <Button
-                        kind="ghost"
-                        size="sm"
-                        icon="RotateCcw"
-                        onClick={() => onRestore(v.version)}
-                        disabled={restore.isPending}
-                      >
-                        {t("versions.restore")}
-                      </Button>
+                  <div style={s.actions}>
+                    <Button
+                      kind="ghost"
+                      size="sm"
+                      icon="Eye"
+                      aria-expanded={diffOpen}
+                      onClick={() => setOpenDiff(diffOpen ? null : v.version)}
+                    >
+                      {diffOpen ? t("versions.hideDiff") : t("versions.diff")}
+                    </Button>
+                    {/* Current and Restore share one grid cell; the other one is an
+                        invisible, inert sizer, so the slot is as wide as the wider
+                        of the two on every row — Diff stays in one column. */}
+                    <div style={s.trailing}>
+                      <div style={current ? s.trailingItem : s.trailingSizer} aria-hidden={!current} inert={!current}>
+                        <Badge color="var(--ok)" bg="var(--ok-bg)" dot>
+                          {t("versions.current")}
+                        </Badge>
+                      </div>
+                      <div style={current ? s.trailingSizer : s.trailingItem} aria-hidden={current} inert={current}>
+                        <Button
+                          kind="ghost"
+                          size="sm"
+                          icon="RotateCcw"
+                          onClick={() => onRestore(v.version)}
+                          disabled={restore.isPending}
+                        >
+                          {t("versions.restore")}
+                        </Button>
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
-                {diffOpen && <VersionDiff from={v.body} to={skill.body} />}
+                {diffOpen && (
+                  <>
+                    <div style={s.diffCaption}>
+                      {prev
+                        ? t("versions.diffAgainst", { version: v.version, previous: prev.version })
+                        : t("versions.diffInitial", { version: v.version })}
+                    </div>
+                    <VersionDiff from={prev?.body ?? ""} to={v.body} />
+                  </>
+                )}
               </li>
             );
           })}
