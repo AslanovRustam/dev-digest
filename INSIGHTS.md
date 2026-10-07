@@ -31,6 +31,12 @@ _None yet._
   fan-out, silently disabling the whole review. Shared helper: `decideEarlyExit()`.
   · ref: `.claude/skills/pr-self-review/scripts/checks.mjs`
 
+- **2026-10-07** · Do NOT build the PR body file and run `gh pr create --body-file <f>` in ONE Bash call
+  (`node -e '…write f…' && gh pr create --body-file f`). Why: the PreToolUse gate reads `--body-file` BEFORE
+  the command runs, sees the old or missing file, and denies with "must carry the self-review section".
+  Write the body file in one call, then run `gh pr create` in a separate call.
+  · ref: `.claude/skills/pr-self-review/scripts/gate.mjs:45-49`
+
 ## Codebase Patterns
 
 - **2026-09-29** · Agent instructions live in `AGENTS.md`; the `CLAUDE.md` beside it is a one-line
