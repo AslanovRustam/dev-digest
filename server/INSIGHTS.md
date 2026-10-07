@@ -116,6 +116,10 @@ _None yet._
   it: first keep the old column and generate (adds only), then delete it and generate again (drop only).
   · ref: `src/db/migrations/0013_ancient_nightshade.sql`, `0014_eager_human_fly.sql`
 
+- **2026-10-07** · `*.it.test.ts` files guard themselves with `dockerAvailable() ? describe : describe.skip`, so with
+  Docker Desktop stopped `pnpm exec vitest run .it.test` still EXITS 0 — the only sign is `N skipped` in the summary.
+  Read the skipped count (or `docker info`) before calling the integration lane green. · ref: `test/helpers/pg.ts`, `test/conventions.it.test.ts`
+
 ## Recurring Errors & Fixes
 
 - **2026-09-29** · **Symptom:** 6 tests in `test/indexer-pipeline.test.ts` fail on Windows with
