@@ -3,6 +3,9 @@ import {
   Review,
   Finding,
   Intent,
+  PrIntentRecord,
+  PrIntentResponse,
+  PrBrief,
   BlastRadius,
   Risks,
   PrHistory,
@@ -22,6 +25,68 @@ import {
  * Contract tests — parse/round-trip the fixtures from data.jsx/data2.jsx
  * so feature agents can rely on the schemas matching the prototype data.
  */
+describe('Intent layer contracts', () => {
+  const record = {
+    pr_id: 'p1',
+    intent: 'Adds rate limiting',
+    in_scope: ['limiter'],
+    out_of_scope: [],
+    confidence: 'medium',
+    sources: [
+      { kind: 'issue', ref: '#12', status: 'used', reason: null, chars: 120, truncated: false },
+    ],
+    missing_context: ['PR description is empty'],
+    risk_areas: [{ kind: 'dependency', label: 'New dependency: ioredis', origin: 'code' }],
+    head_sha: 'abc1234',
+    provider: 'openrouter',
+    model: 'deepseek/deepseek-v4-flash',
+    tokens_in: 10,
+    tokens_out: 5,
+    cost_usd: null,
+    duration_ms: 100,
+    derived_at: '2026-01-01T00:00:00.000Z',
+  };
+
+  it('parses PrIntentRecord / PrIntentResponse with risk_areas', () => {
+    expect(PrIntentRecord.parse(record).risk_areas[0]!.origin).toBe('code');
+    expect(
+      PrIntentResponse.parse({ intent: record, pr_head_sha: 'abc1234', stale: false }).stale,
+    ).toBe(false);
+    expect(PrIntentResponse.parse({ intent: null, pr_head_sha: 'x', stale: false }).intent).toBeNull();
+  });
+
+  it('rejects an unknown risk kind and a missing risk_areas on the record', () => {
+    expect(() =>
+      PrIntentRecord.parse({ ...record, risk_areas: [{ kind: 'nope', label: 'x', origin: 'code' }] }),
+    ).toThrow();
+    const { risk_areas: _omit, ...rest } = record;
+    expect(() => PrIntentRecord.parse(rest)).toThrow();
+  });
+
+  it('keeps the old-shape Intent (and PrBrief intent) valid', () => {
+    expect(Intent.parse({ intent: 'x', in_scope: [], out_of_scope: [] }).risk_areas).toBeUndefined();
+    const old = { intent: 'x', in_scope: ['a'], out_of_scope: [] };
+    expect(PrBrief.shape.intent.parse(old)).toEqual(old);
+  });
+
+  it('Finding.scope is optional and limited to in/out', () => {
+    const base = {
+      id: 'f',
+      severity: 'WARNING',
+      category: 'bug',
+      title: 't',
+      file: 'a.ts',
+      start_line: 1,
+      end_line: 1,
+      rationale: 'r',
+      confidence: 0.5,
+    };
+    expect(Finding.parse(base).scope).toBeUndefined();
+    expect(Finding.parse({ ...base, scope: 'out' }).scope).toBe('out');
+    expect(() => Finding.parse({ ...base, scope: 'maybe' })).toThrow();
+  });
+});
+
 describe('AI contracts parse fixtures', () => {
   it('Review + Finding (data.jsx VERDICT/FINDINGS)', () => {
     const review = Review.parse({

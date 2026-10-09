@@ -1,11 +1,12 @@
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
+import type { PrIntentRecord, Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
+import { buildLlmCallLog, formatCallLine } from '../../platform/llm-call-log.js';
 import type { AgentRow, RepoRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { buildSkillBlocks, taskLine } from './helpers.js';
+import { buildSkillBlocks, reviewPromptSections, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -104,6 +105,18 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // L03 — the PR's intent: reused when stored (even if stale), else derived ONCE here
+    // with the cheap `review_intent` model. Never throws: on failure the review runs
+    // without intent (prompt byte-identical to the intent-off shape). Its log lines are
+    // fanned out to every queued run, like the diff load above.
+    const intent = await this.container.intent.forReview(
+      workspaceId,
+      pull,
+      repo,
+      diff,
+      (kind, msg, data) => runLog.event(kind, msg, data),
+    );
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
@@ -111,7 +124,7 @@ export class ReviewRunExecutor {
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, intent, agent, runId, runLog);
         logger?.info(
           {
             runId,
@@ -140,6 +153,7 @@ export class ReviewRunExecutor {
     pull: PullRow,
     repo: RepoRow,
     diff: UnifiedDiff,
+    intent: PrIntentRecord | null,
     agent: AgentRow,
     runId: string,
     parentLog: RunLogger,
@@ -199,6 +213,7 @@ export class ReviewRunExecutor {
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
       // above, and persistence + observability below.
+      const reviewStart = Date.now();
       const outcome = await reviewPullRequest({
         systemPrompt: agent.systemPrompt,
         model: agent.model,
@@ -217,6 +232,19 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // L03 — derived intent: rendered after the PR description; its presence also
+        // enables the out-of-scope filter. Omitted when none (identical prompt).
+        ...(intent
+          ? {
+              intent: {
+                intent: intent.intent,
+                in_scope: intent.in_scope,
+                out_of_scope: intent.out_of_scope,
+                confidence: intent.confidence,
+                risk_areas: intent.risk_areas.map((r) => ({ kind: r.kind, label: r.label })),
+              },
+            }
+          : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
@@ -227,6 +255,25 @@ export class ReviewRunExecutor {
       // costUsd: OpenRouter's usage.cost, else the price-book estimate; null
       // when any call was unpriced (unknown ≠ $0).
       const { tokensIn, tokensOut, costUsd, grounding } = outcome;
+
+      // R6 — one allowlisted line per LLM call: section sizes, tokens, cost, latency.
+      // The diff appears as chars/tokens only, never as content.
+      const callLog = buildLlmCallLog({
+        call: 'review',
+        runId,
+        prId: pull.id,
+        provider: agent.provider,
+        model: agent.model,
+        sections: reviewPromptSections(outcome.assembly, task, diff.raw, (t) =>
+          this.container.tokenizer.count(t),
+        ),
+        latency_ms: Date.now() - reviewStart,
+        tokens_in: tokensIn,
+        tokens_out: tokensOut,
+        cost_usd: costUsd,
+        outcome: `findings=${outcome.review.findings.length} grounding=${grounding} scope_dropped=${outcome.scopeDropped.length}`,
+      });
+      runLog.event('result', formatCallLine(callLog), { ...callLog });
 
       const keptFindings = outcome.review.findings;
 

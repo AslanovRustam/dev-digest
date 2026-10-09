@@ -11,10 +11,25 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  RepoFileContent,
 } from '@devdigest/shared';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
 
 const TIMEOUT = 30_000;
+/** Contents-API reads are tiny; fail fast so a stalled doc fetch never blocks a review. */
+const FILE_TIMEOUT = 10_000;
+
+/** Error carrying a machine-readable `code` (and optional HTTP `status`) for callers to map. */
+class FileReadError extends Error {
+  constructor(
+    readonly code: 'not_a_file' | 'too_large',
+    message: string,
+    readonly status = 422,
+  ) {
+    super(message);
+    this.name = 'FileReadError';
+  }
+}
 
 function mapStatus(state: string, merged: boolean | undefined): PrStatus {
   if (merged) return 'merged';
@@ -360,6 +375,38 @@ export class OctokitGitHubClient implements GitHubClient {
       title: res.data.title,
       body: res.data.body,
       state: res.data.state,
+    };
+  }
+
+  async getFileAtRef(
+    repo: RepoRef,
+    path: string,
+    ref: string,
+    maxBytes: number,
+  ): Promise<RepoFileContent> {
+    const res = await withRetry(() =>
+      withTimeout(
+        this.octokit.rest.repos.getContent({ owner: repo.owner, repo: repo.name, path, ref }),
+        FILE_TIMEOUT,
+      ),
+    );
+    const data = res.data;
+    // Directory listing, symlink, submodule → not a plain file. Never follow download_url.
+    if (Array.isArray(data) || data.type !== 'file') {
+      throw new FileReadError('not_a_file', `${path} is not a regular file`);
+    }
+    if (data.size > maxBytes) {
+      throw new FileReadError('too_large', `${path} is ${data.size} bytes (limit ${maxBytes})`);
+    }
+    // Files over 1 MB come back with encoding "none" and empty content.
+    if (data.encoding !== 'base64') {
+      throw new FileReadError('too_large', `${path} content is not inlined by the contents API`);
+    }
+    return {
+      path,
+      ref,
+      size: data.size,
+      content: Buffer.from(data.content, 'base64').toString('utf8'),
     };
   }
 

@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, text, integer, jsonb, timestamp, doublePrecision } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  jsonb,
+  timestamp,
+  doublePrecision,
+  check,
+} from 'drizzle-orm/pg-core';
+import type { IntentRiskArea, IntentSource } from '@devdigest/shared';
 import { now } from './_shared';
 import { workspaces } from './core';
 import { pullRequests } from './pulls';
@@ -45,14 +55,38 @@ export const findings = pgTable('findings', {
   dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
 });
 
-export const prIntent = pgTable('pr_intent', {
-  prId: uuid('pr_id')
-    .primaryKey()
-    .references(() => pullRequests.id, { onDelete: 'cascade' }),
-  intent: text('intent').notNull(),
-  inScope: jsonb('in_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-  outOfScope: jsonb('out_of_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-});
+/**
+ * Derived intent per PR (one row, upserted on re-derive). Owned by the intent module.
+ * Workspace scoping goes through `pull_requests.workspace_id` (no own workspace column).
+ * Tokens/cost mirror `agent_runs` (integer / double precision, null cost = unknown).
+ */
+export const prIntent = pgTable(
+  'pr_intent',
+  {
+    prId: uuid('pr_id')
+      .primaryKey()
+      .references(() => pullRequests.id, { onDelete: 'cascade' }),
+    intent: text('intent').notNull(),
+    inScope: jsonb('in_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    outOfScope: jsonb('out_of_scope').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    /** PR head sha the intent was derived from — drives the `stale` flag. */
+    headSha: text('head_sha').notNull(),
+    confidence: text('confidence', { enum: ['high', 'medium', 'low'] }).notNull().default('low'),
+    sources: jsonb('sources').$type<IntentSource[]>().notNull().default(sql`'[]'::jsonb`),
+    missingContext: jsonb('missing_context').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    riskAreas: jsonb('risk_areas').$type<IntentRiskArea[]>().notNull().default(sql`'[]'::jsonb`),
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    tokensIn: integer('tokens_in').notNull().default(0),
+    tokensOut: integer('tokens_out').notNull().default(0),
+    costUsd: doublePrecision('cost_usd'),
+    durationMs: integer('duration_ms').notNull().default(0),
+    derivedAt: timestamp('derived_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    confidenceChk: check('pr_intent_confidence_chk', sql`${t.confidence} in ('high', 'medium', 'low')`),
+  }),
+);
 
 export const prBrief = pgTable('pr_brief', {
   prId: uuid('pr_id')

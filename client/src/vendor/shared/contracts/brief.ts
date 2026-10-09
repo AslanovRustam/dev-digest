@@ -6,10 +6,60 @@ import { z } from 'zod';
  */
 
 // ---- Intent ----
+export const IntentConfidence = z.enum(['high', 'medium', 'low']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+export const IntentSourceKind = z.enum(['title', 'description', 'issue', 'plan', 'ticket', 'file_list']);
+export type IntentSourceKind = z.infer<typeof IntentSourceKind>;
+
+export const IntentSourceStatus = z.enum([
+  'used',
+  'unreachable',
+  'unsupported',
+  'no_credentials',
+  'skipped',
+]);
+export type IntentSourceStatus = z.infer<typeof IntentSourceStatus>;
+
+/** One input the classifier saw (or could not see) — recorded by code, never by the model. */
+export const IntentSource = z.object({
+  kind: IntentSourceKind,
+  ref: z.string(),
+  status: IntentSourceStatus,
+  reason: z.string().nullable(),
+  chars: z.number().int().nullable(),
+  truncated: z.boolean(),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
+export const IntentRiskKind = z.enum([
+  'security',
+  'auth',
+  'dependency',
+  'performance',
+  'data',
+  'api',
+  'other',
+]);
+export type IntentRiskKind = z.infer<typeof IntentRiskKind>;
+
+/** A risk area the change touches; `origin` says whether code or the model derived it. */
+export const IntentRiskArea = z.object({
+  kind: IntentRiskKind,
+  label: z.string(),
+  origin: z.enum(['model', 'code']),
+});
+export type IntentRiskArea = z.infer<typeof IntentRiskArea>;
+
 export const Intent = z.object({
+  /** The R1 "summary" (key kept for PrBrief compatibility). */
   intent: z.string(),
   in_scope: z.array(z.string()),
   out_of_scope: z.array(z.string()),
+  confidence: IntentConfidence.nullish(),
+  sources: z.array(IntentSource).nullish(),
+  missing_context: z.array(z.string()).nullish(),
+  risk_areas: z.array(IntentRiskArea).nullish(),
 });
 export type Intent = z.infer<typeof Intent>;
 

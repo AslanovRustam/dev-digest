@@ -31,6 +31,8 @@ import { SkillsRepository } from '../modules/skills/repository.js';
 import { resolveFeatureModel } from '../modules/settings/feature-models.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
+import type { IntentFacade } from '../modules/intent/types.js';
+import { IntentService } from '../modules/intent/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
 import { type ArchiveReader, NodeZipReader } from '../adapters/archive/index.js';
@@ -81,6 +83,7 @@ export class Container {
   private _reviewRepo?: ReviewRepository;
   private _skillsRepo?: SkillsRepository;
   private _repoIntel?: RepoIntel;
+  private _intent?: IntentFacade;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _archive?: ArchiveReader;
@@ -138,6 +141,14 @@ export class Container {
     if (this.overrides.repoIntel) return this.overrides.repoIntel;
     this._repoIntel ??= new RepoIntelService(this);
     return this._repoIntel;
+  }
+
+  /**
+   * The intent-layer facade (L03). `reviews` derives / reuses a PR's intent through
+   * this interface, never by importing the intent service.
+   */
+  get intent(): IntentFacade {
+    return (this._intent ??= new IntentService(this));
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */

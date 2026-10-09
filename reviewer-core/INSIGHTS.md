@@ -30,6 +30,12 @@ _None yet._
   says `Skipped N generated file(s): …`. Extend `GENERATED_PATTERNS` rather than filtering in the server, so the CI
   runner gets the same behaviour. · ref: `src/review/generated.ts`
 
+- **2026-10-07** · Don't build an "out of scope" filter on diff membership — grounding already drops findings
+  whose file/lines miss the diff, so every surviving finding is "in the diff". The deterministic scope signal is
+  added lines vs context lines: a finding touching `DiffHunk.addedLineNumbers` is always in scope, and only the
+  model's `scope:"out"` tag on the rest is filterable (one CRITICAL kept as a signal). · ref:
+  `src/review/scope.ts` (`applyIntentScope`)
+
 ## Tool & Library Notes
 
 _None yet._

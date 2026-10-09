@@ -1,0 +1,42 @@
+{
+  "title": "Intent",
+  "summaryLabel": "Summary",
+  "derivedFrom": "derived from {sha} · {model}",
+  "stale": "Stale — PR head moved",
+  "confidence": { "high": "high confidence", "medium": "medium confidence", "low": "low confidence" },
+  "inScope": "In scope",
+  "outOfScope": "Out of scope",
+  "none": "Nothing stated",
+  "riskAreas": "Risk areas",
+  "sources": "Sources",
+  "missingContext": "Missing context",
+  "sourceKind": {
+    "title": "title",
+    "description": "description",
+    "issue": "issue",
+    "plan": "plan",
+    "ticket": "ticket",
+    "file_list": "files"
+  },
+  "sourceStatus": {
+    "used": "used",
+    "unreachable": "unreachable",
+    "unsupported": "unsupported",
+    "no_credentials": "no credentials",
+    "skipped": "skipped"
+  },
+  "truncated": "truncated",
+  "empty": {
+    "title": "No intent derived yet",
+    "body": "Derive the purpose of this PR from its title, description and linked docs. One cheap model call; reviews use it to skip out-of-scope noise."
+  },
+  "derive": "Derive intent",
+  "rederive": "Re-derive intent",
+  "loading": "Loading intent…",
+  "errors": {
+    "unreachable": "Cannot reach the API.",
+    "config": "Add an OpenRouter key in Settings to derive intent.",
+    "generic": "Could not derive intent: {message}",
+    "load": "Could not load intent."
+  }
+}

@@ -9,6 +9,7 @@ import {
 } from '../src/adapters/mocks.js';
 import { assemblePrompt } from '../src/platform/prompt.js';
 import { groundFindings } from '../src/platform/grounding.js';
+import { parseUnifiedDiff } from '../src/adapters/git/diff-parser.js';
 import { estimateCost } from '../src/adapters/llm/pricing.js';
 
 describe('mock adapters (no network)', () => {
@@ -17,6 +18,52 @@ describe('mock adapters (no network)', () => {
     const diff = await git.diff();
     expect(diff.files[0]!.path).toBe('src/config.ts');
     expect(diff.files[0]!.hunks[0]!.newLineNumbers.length).toBeGreaterThan(0);
+  });
+
+  it('parseUnifiedDiff records added lines and the hunk heading', () => {
+    const raw = [
+      'diff --git a/src/a.ts b/src/a.ts',
+      '--- a/src/a.ts',
+      '+++ b/src/a.ts',
+      '@@ -10,3 +10,4 @@ export function limiter() {',
+      '   keep',
+      '+  added',
+      '   keep2',
+      '-  removed',
+      '@@ -40,1 +41,1 @@',
+      '+x',
+    ].join('\n');
+    const diff = parseUnifiedDiff(raw);
+    const [h1, h2] = diff.files[0]!.hunks;
+    expect(h1!.heading).toBe('export function limiter() {');
+    expect(h1!.addedLineNumbers).toEqual([11]);
+    expect(h1!.newLineNumbers).toEqual([10, 11, 12]);
+    expect(h2!.heading).toBeUndefined();
+    expect(h2!.addedLineNumbers).toEqual([41]);
+  });
+
+  it('parseUnifiedDiff caps a long heading at 120 chars', () => {
+    const raw = `+++ b/a.ts\n@@ -1,1 +1,1 @@ ${'x'.repeat(300)}\n+y`;
+    expect(parseUnifiedDiff(raw).files[0]!.hunks[0]!.heading).toHaveLength(120);
+  });
+
+  it('MockGitHubClient.getFileAtRef serves files, 404s on missing, honours fileErrors', async () => {
+    const gh = new MockGitHubClient({
+      files: { 'docs/a.md': '# A' },
+      fileErrors: { 'docs/b.md': 403 },
+    });
+    const repo = { owner: 'a', name: 'b' };
+    expect((await gh.getFileAtRef(repo, 'docs/a.md', 'abc', 1000)).content).toBe('# A');
+    await expect(gh.getFileAtRef(repo, 'docs/none.md', 'abc', 1000)).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(gh.getFileAtRef(repo, 'docs/b.md', 'abc', 1000)).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(gh.getFileAtRef(repo, 'docs/a.md', 'abc', 1)).rejects.toMatchObject({
+      code: 'too_large',
+    });
+    expect(gh.fileReads[0]).toEqual({ path: 'docs/a.md', ref: 'abc' });
   });
 
   it('MockGitHubClient records posted reviews and opened PRs', async () => {

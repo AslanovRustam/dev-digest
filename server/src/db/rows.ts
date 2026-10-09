@@ -21,5 +21,6 @@ export type RepoRow = typeof t.repos.$inferSelect;
 export type ReviewRow = typeof t.reviews.$inferSelect;
 export type PrFileRow = typeof t.prFiles.$inferSelect;
 export type PrCommitRow = typeof t.prCommits.$inferSelect;
+export type PrIntentRow = typeof t.prIntent.$inferSelect;
 export type ConventionRow = typeof t.conventions.$inferSelect;
 export type ConventionScanRow = typeof t.conventionScans.$inferSelect;

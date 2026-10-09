@@ -31,6 +31,12 @@ _None yet._
   self-declared. `NodeZipReader.readZip` also sums the bytes inflation actually produced (plus
   `inflateRawSync({ maxOutputLength })` per entry); without it, headers that under-report passed the 2 MB
   total and decoded ~50 MB. · ref: `src/adapters/archive/index.ts`, `test/archive-adapter.test.ts`
+- **2026-10-07** · Don't use `GitClient.readFile(repo, path)` to read a file "as of a PR" (a spec or plan
+  linked from the PR body) — it reads `join(clonePath, path)` from the clone's WORKING TREE, i.e. the
+  shallow (CLONE_DEPTH=1) default-branch checkout, with no ref parameter and no traversal guard. A file
+  added or changed by the PR is missing or stale there. Read it at `pull.headSha` through a ref-aware
+  method instead (GitHub contents API `?ref=`), and normalise the path first. · ref:
+  `src/adapters/git/simple-git.ts:129`
 
 ## Codebase Patterns
 
@@ -83,6 +89,15 @@ _None yet._
   jsonb_build_array(jsonb_build_object('skill_id', <uuid col>::text))))` — why: `skill_blocks[].skill_id` is
   a JSON string, so without `::text` the uuid never matches; a run with no trace yields NULL, which
   `count(*) filter (where …)` treats as false, so a LEFT JOIN is safe. · ref: `src/modules/skills/repository.ts`
+- **2026-10-07** · Any test that runs a review (`POST /pulls/:id/review`) must inject an `llm.openrouter`
+  mock (`MockLLMProvider` with `structuredBySchema: { PrIntentClassification: … }`) even if the agent under
+  test uses openai — why: the run first derives intent with the `review_intent` feature model (OpenRouter),
+  and without an override the container reads the dev's real `~/.devdigest/secrets.json`, so the test makes
+  a paid, non-deterministic call. · ref: `test/reviews.it.test.ts`, `src/modules/intent/service.ts`
+- **2026-10-07** · Keep a module's pure logic in `helpers.ts` / `constants.ts` only — `DOMAIN_FILES` in
+  `.dependency-cruiser.cjs` admits just those two names (plus three `pulls` files), so a pure sibling such as
+  `intent/references.ts` imported from `helpers.ts` breaks `domain-files-are-pure`. Extend the regex
+  deliberately if a split is really needed. · ref: `.dependency-cruiser.cjs:36`
 
 ## Tool & Library Notes
 
