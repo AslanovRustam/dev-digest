@@ -61,6 +61,20 @@ const REVIEW_FIXTURE: Review = {
   ],
 };
 
+/**
+ * Intent classifier fixture. EVERY test that runs a review must inject an
+ * `openrouter` mock: the review path derives intent first with the cheap
+ * `review_intent` model (openrouter), and without an override the container would
+ * resolve the developer's REAL key from ~/.devdigest/secrets.json and spend money.
+ */
+const INTENT_FIXTURE = {
+  summary: 'Adds rate limiting to the public API.',
+  in_scope: ['rate limiting'],
+  out_of_scope: [],
+  confidence: 'medium',
+  risk_areas: [],
+};
+
 let repoSeq = 0;
 async function setupRepoAndPr(db: PgFixture['handle']['db'], workspaceId: string) {
   const name = `payments-api-${repoSeq++}`;
@@ -122,6 +136,9 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
         github: new MockGitHubClient(),
         llm: {
           [provider]: new MockLLMProvider(provider, { structured }),
+          openrouter: new MockLLMProvider('openai', {
+            structuredBySchema: { PrIntentClassification: INTENT_FIXTURE },
+          }),
         },
       },
     });

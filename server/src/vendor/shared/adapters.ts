@@ -140,6 +140,14 @@ export interface CommitFilesPayload {
   files: CommitFile[];
 }
 
+/** A file read from GitHub at a ref (UTF-8 decoded). */
+export interface RepoFileContent {
+  path: string;
+  ref: string;
+  size: number;
+  content: string;
+}
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;
@@ -162,6 +170,11 @@ export interface GitHubClient {
   /** The open PR whose head is `branch`, if any (so re-publish reuses it). */
   findOpenPr(repo: RepoRef, branch: string): Promise<{ url: string } | null>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
+  /**
+   * Read ONE text file at `ref` through the contents API (never a raw host / download_url).
+   * Rejects with an error carrying `status` and/or `code` ('not_a_file' | 'too_large') on failure.
+   */
+  getFileAtRef(repo: RepoRef, path: string, ref: string, maxBytes: number): Promise<RepoFileContent>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
 }
@@ -180,6 +193,10 @@ export interface DiffHunk {
   newLines: number;
   /** Lines present in the *new* file covered by this hunk (for grounding). */
   newLineNumbers: number[];
+  /** New-side line numbers of '+' lines only (subset of newLineNumbers). Optional so hand-built hunks compile. */
+  addedLineNumbers?: number[];
+  /** Text after the closing '@@' (usually the enclosing function/class), trimmed and capped. */
+  heading?: string;
 }
 
 export interface UnifiedDiff {

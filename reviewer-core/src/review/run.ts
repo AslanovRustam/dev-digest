@@ -7,8 +7,9 @@ import type {
   UnifiedDiff,
 } from '@devdigest/shared';
 import { Review as ReviewSchema } from '@devdigest/shared';
-import { assemblePrompt } from '../prompt.js';
+import { assemblePrompt, type PromptIntent } from '../prompt.js';
 import { groundFindings, groundingSummary } from '../grounding.js';
+import { applyIntentScope } from './scope.js';
 import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
 import { excludeGeneratedFiles } from './generated.js';
 
@@ -72,6 +73,12 @@ export interface ReviewInput {
   /** PR author's description/body (untrusted; truncated + delimiter-wrapped in
       the prompt). Empty/undefined → section omitted. */
   prDescription?: string;
+  /**
+   * Derived PR intent (intent layer). Rendered after the PR description; when
+   * present the out-of-scope filter runs between grounding and scoring.
+   * Undefined / blank → no slot and no filter (output identical to today).
+   */
+  intent?: PromptIntent;
   /** Task framing line, e.g. "Review PR #482 …". */
   task?: string;
   /** Override the structured-output retry budget. */
@@ -100,6 +107,8 @@ export interface ReviewOutcome {
   grounding: string;
   /** Findings dropped by grounding, with reasons (for logs / "never go silent"). */
   dropped: { finding: Finding; reason: string }[];
+  /** Findings dropped by the intent scope filter (empty without intent). */
+  scopeDropped: { finding: Finding; reason: string }[];
   /** Which path ran. */
   mode: ReviewMode;
   /** Prompt assembly (for the run trace). Single-pass: the one call; map-reduce: the whole-diff assembly. */
@@ -142,6 +151,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     callers: input.callers,
     repoMap: input.repoMap,
     prDescription: input.prDescription,
+    ...(input.intent ? { intent: input.intent } : {}),
     task: input.task,
   };
 
@@ -208,9 +218,26 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   }
   emit('result', `Citation grounding: ${grounding}`);
 
-  // Score is derived from the findings that SURVIVED grounding (not the model's
-  // self-reported number, and not the pre-grounding set) so the score, the
-  // findings list, and the deterministic event always agree.
+  // Intent scope filter (only when an intent was rendered): deterministic
+  // exemptions first, then the model's tag, keeping one serious out-of-scope signal.
+  let survivors = ground.kept;
+  let scopeDropped: ReviewOutcome['scopeDropped'] = [];
+  if (assembly.intent) {
+    const scoped = applyIntentScope(ground.kept, diff);
+    survivors = scoped.kept;
+    scopeDropped = scoped.dropped;
+    emit(
+      'info',
+      `Intent scope filter: kept ${scoped.kept.length}, dropped ${scoped.dropped.length} out-of-scope finding(s)${scoped.signal ? '; 1 kept as out-of-scope signal' : ''}`,
+    );
+    for (const d of scoped.dropped) {
+      emit('info', `scope dropped "${d.finding.title}": ${d.reason}`);
+    }
+  }
+
+  // Score is derived from the findings that SURVIVED grounding and the scope
+  // filter (not the model's self-reported number, and not the pre-filter set)
+  // so the score, the findings list, and the deterministic event always agree.
   return {
     review: {
       ...merged,
@@ -219,11 +246,12 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
         excluded.length > 0
           ? `${merged.summary}\n\nNot reviewed (large generated files): ${excluded.join(', ')}`
           : merged.summary,
-      findings: ground.kept,
-      score: scoreFromFindings(ground.kept),
+      findings: survivors,
+      score: scoreFromFindings(survivors),
     },
     grounding,
     dropped: ground.dropped,
+    scopeDropped,
     mode,
     assembly,
     chunks: chunks.map((c) => ({ label: c.label })),

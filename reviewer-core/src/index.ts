@@ -16,11 +16,20 @@ export {
   assemblePrompt,
   wrapUntrusted,
   type PromptParts,
+  type PromptIntent,
   type AssembledPrompt,
 } from './prompt.js';
 
 // Citation grounding — the mandatory mechanical gate for diff findings.
-export { groundFindings, groundingSummary, type GroundingResult } from './grounding.js';
+export {
+  groundFindings,
+  groundingSummary,
+  FULL_FILE_KINDS,
+  type GroundingResult,
+} from './grounding.js';
+
+// Intent scope filter — deterministic-first out-of-scope gate (runs after grounding).
+export { applyIntentScope, OUT_OF_SCOPE_PREFIX, type ScopeResult } from './review/scope.js';
 
 // Structured-output helpers (Zod → JSON Schema + parse-with-repair).
 export {

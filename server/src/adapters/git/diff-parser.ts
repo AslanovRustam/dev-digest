@@ -11,6 +11,8 @@ import type { UnifiedDiff, DiffHunk } from '@devdigest/shared';
  *   +++ b/path
  *   @@ -oldStart,oldLines +newStart,newLines @@
  */
+const HEADING_MAX_CHARS = 120;
+
 export function parseUnifiedDiff(raw: string): UnifiedDiff {
   const files: UnifiedDiff['files'] = [];
   const lines = raw.split('\n');
@@ -43,11 +45,12 @@ export function parseUnifiedDiff(raw: string): UnifiedDiff {
       continue;
     }
     if (line.startsWith('--- ')) continue;
-    const hh = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+    const hh = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ ?(.*)$/);
     if (hh) {
       flushHunk();
       const newStart = Number(hh[3]);
       const newLines = hh[4] ? Number(hh[4]) : 1;
+      const heading = (hh[5] ?? '').trim().slice(0, HEADING_MAX_CHARS) || undefined;
       hunk = {
         file: current?.path ?? '',
         oldStart: Number(hh[1]),
@@ -55,6 +58,8 @@ export function parseUnifiedDiff(raw: string): UnifiedDiff {
         newStart,
         newLines,
         newLineNumbers: [],
+        addedLineNumbers: [],
+        ...(heading ? { heading } : {}),
       };
       newLineCursor = newStart;
       continue;
@@ -63,6 +68,7 @@ export function parseUnifiedDiff(raw: string): UnifiedDiff {
     if (line.startsWith('+') && !line.startsWith('+++')) {
       current.additions++;
       hunk.newLineNumbers.push(newLineCursor);
+      hunk.addedLineNumbers?.push(newLineCursor);
       newLineCursor++;
     } else if (line.startsWith('-') && !line.startsWith('---')) {
       current.deletions++;

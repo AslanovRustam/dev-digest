@@ -1,4 +1,4 @@
-import type { ChatMessage, PromptAssembly } from '@devdigest/shared';
+import type { ChatMessage, IntentConfidence, Intent, IntentRiskArea, PromptAssembly } from '@devdigest/shared';
 
 /**
  * Prompt assembly + prompt-injection hardening.
@@ -36,6 +36,38 @@ export function wrapUntrusted(label: string, content: string): string {
 /** Cap the PR description so a huge author body can't blow the token budget. */
 const MAX_PR_DESCRIPTION_CHARS = 4000;
 
+/**
+ * Derived PR intent (intent layer). The SHAPE only — the engine never derives
+ * it; the caller resolves it (classifier call + code-computed confidence).
+ */
+export type PromptIntent = Pick<Intent, 'intent' | 'in_scope' | 'out_of_scope'> & {
+  confidence?: IntentConfidence | null;
+  risk_areas?: Pick<IntentRiskArea, 'kind' | 'label'>[];
+};
+
+/**
+ * Trusted instruction rendered OUTSIDE the untrusted intent block. Scope is a
+ * tag only: it never changes severity, and the engine's scope filter keeps
+ * added-line, full-file and the strongest out-of-scope findings.
+ */
+const INTENT_SCOPE_RULE =
+  'Set each finding’s `scope` to "out" only when it concerns pre-existing code this PR ' +
+  'did not set out to change according to the intent above; otherwise "in". Scope never ' +
+  'changes severity, and a real defect is always reported.';
+
+function renderIntent(intent: PromptIntent): string {
+  const lines = [`Summary: ${intent.intent.trim()}`];
+  if (intent.in_scope.length > 0) lines.push('In scope:', ...intent.in_scope.map((s) => `- ${s}`));
+  if (intent.out_of_scope.length > 0) {
+    lines.push('Out of scope:', ...intent.out_of_scope.map((s) => `- ${s}`));
+  }
+  if (intent.risk_areas && intent.risk_areas.length > 0) {
+    lines.push('Risk areas:', ...intent.risk_areas.map((r) => `- [${r.kind}] ${r.label}`));
+  }
+  if (intent.confidence) lines.push(`Confidence: ${intent.confidence}`);
+  return lines.join('\n');
+}
+
 export interface PromptParts {
   /** Agent's system prompt (trusted). */
   system: string;
@@ -66,6 +98,13 @@ export interface PromptParts {
    * undefined → section omitted.
    */
   prDescription?: string;
+  /**
+   * Derived PR intent (untrusted-derived: built from the author's text).
+   * Rendered after the PR description, delimiter-wrapped, followed by the
+   * trusted scope rule. Undefined / blank summary → section omitted
+   * (byte-identical prompt with the feature off).
+   */
+  intent?: PromptIntent;
   /** The unified diff / user task (untrusted content). */
   diff: string;
   /** Optional task framing line, e.g. "Review PR #482 '…'". */
@@ -106,6 +145,15 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
   if (prDescription) {
     userSections.push(`## PR description\n${wrapUntrusted('pr-description', prDescription)}`);
   }
+  const intentBlock =
+    parts.intent && parts.intent.intent.trim().length > 0
+      ? renderIntent(parts.intent)
+      : undefined;
+  if (intentBlock) {
+    userSections.push(
+      `## PR intent (derived from the PR’s title, description and linked docs)\n${wrapUntrusted('intent', intentBlock)}\n\n${INTENT_SCOPE_RULE}`,
+    );
+  }
   if (skillsBlock) userSections.push(`## Skills / rules\n${skillsBlock}`);
   if (memoryBlock) userSections.push(`## Relevant memory\n${memoryBlock}`);
   if (parts.repoMap && parts.repoMap.trim().length > 0) {
@@ -134,6 +182,7 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
     callers: parts.callers ?? null,
     repo_map: parts.repoMap ?? null,
     pr_description: prDescription ?? null,
+    intent: intentBlock ?? null,
     user,
   };
 

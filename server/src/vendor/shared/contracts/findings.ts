@@ -40,6 +40,10 @@ export const TrifectaEvidence = z.object({
 });
 export type TrifectaEvidence = z.infer<typeof TrifectaEvidence>;
 
+/** Whether a finding concerns code the PR set out to change ('in') or pre-existing code ('out'). */
+export const FindingScope = z.enum(['in', 'out']);
+export type FindingScope = z.infer<typeof FindingScope>;
+
 /**
  * Finding — the atomic review unit. `start_line`/`end_line` are used by the
  * citation-grounding gate (must intersect a real diff hunk for diff-findings).
@@ -59,6 +63,9 @@ export const Finding = z.object({
   // Lethal-trifecta variant fields (present only when kind === 'lethal_trifecta')
   trifecta_components: z.array(TrifectaComponent).nullish(),
   evidence: z.array(TrifectaEvidence).nullish(),
+  scope: FindingScope.nullish().describe(
+    '"out" only for pre-existing code the PR did not set out to change per the stated intent; otherwise "in".',
+  ),
 });
 export type Finding = z.infer<typeof Finding>;
 

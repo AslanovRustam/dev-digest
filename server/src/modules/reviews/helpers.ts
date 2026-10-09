@@ -2,7 +2,7 @@
  * Pure helpers for the review service (side-effect free; operate purely on
  * their arguments — no DB / network / `this`).
  */
-import type { Finding, SkillBlock } from '@devdigest/shared';
+import type { Finding, PromptAssembly, SkillBlock } from '@devdigest/shared';
 import type { FindingRow, PullRow, ReviewRow, SkillRow } from '../../db/rows.js';
 
 // reduceReviews + sliceDiff live in @devdigest/reviewer-core (pure engine logic
@@ -125,4 +125,38 @@ export function buildSkillBlocks(
       text,
     };
   });
+}
+
+/**
+ * Section sizes of the assembled review prompt for the allowlisted LLM-call log.
+ * Sizes only — no section text ever leaves this function. The diff is counted
+ * from the raw diff (it is wrapped inside `user`, which is not a section itself).
+ */
+export function reviewPromptSections(
+  assembly: PromptAssembly,
+  task: string | undefined,
+  diffRaw: string,
+  count: (text: string) => number,
+): { name: string; chars: number; tokens: number; truncated: boolean; original_chars: number }[] {
+  const slots: [string, string | null | undefined][] = [
+    ['system', assembly.system],
+    ['task', task],
+    ['pr_description', assembly.pr_description],
+    ['intent', assembly.intent],
+    ['skills', assembly.skills],
+    ['memory', assembly.memory],
+    ['repo_map', assembly.repo_map],
+    ['specs', assembly.specs],
+    ['callers', assembly.callers],
+    ['diff', diffRaw],
+  ];
+  return slots
+    .filter((s): s is [string, string] => typeof s[1] === 'string' && s[1].length > 0)
+    .map(([name, text]) => ({
+      name,
+      chars: text.length,
+      tokens: count(text),
+      truncated: false,
+      original_chars: text.length,
+    }));
 }

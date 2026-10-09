@@ -17,6 +17,7 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  RepoFileContent,
   GitClient,
   CloneOptions,
   UnifiedDiff,
@@ -125,6 +126,10 @@ export interface MockGitHubOptions {
   login?: string;
   /** Existing inline review comments returned by listReviewComments. */
   comments?: PrReviewComment[];
+  /** path → UTF-8 content returned by getFileAtRef. A missing path throws `{ status: 404 }`. */
+  files?: Record<string, string>;
+  /** path → HTTP status getFileAtRef throws (e.g. 403/404). Wins over `files`. */
+  fileErrors?: Record<string, number>;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -132,6 +137,8 @@ export class MockGitHubClient implements GitHubClient {
   public openedPrs: OpenPrPayload[] = [];
   public committed: CommitFilesPayload[] = [];
   public createdComments: CreateReviewCommentInput[] = [];
+  /** Every getFileAtRef call, for assertions (head-sha reads, no URL refs). */
+  public fileReads: { path: string; ref: string }[] = [];
 
   constructor(private opts: MockGitHubOptions = {}) {}
 
@@ -232,6 +239,24 @@ export class MockGitHubClient implements GitHubClient {
 
   async getIssue(_repo: RepoRef, n: number): Promise<IssueMeta> {
     return { number: n, title: `Issue #${n}`, body: 'mock issue', state: 'open' };
+  }
+
+  async getFileAtRef(
+    _repo: RepoRef,
+    path: string,
+    ref: string,
+    maxBytes: number,
+  ): Promise<RepoFileContent> {
+    this.fileReads.push({ path, ref });
+    const status = this.opts.fileErrors?.[path];
+    if (status) throw Object.assign(new Error(`mock getFileAtRef ${status}`), { status });
+    const content = this.opts.files?.[path];
+    if (content === undefined) throw Object.assign(new Error('Not Found'), { status: 404 });
+    const size = Buffer.byteLength(content, 'utf8');
+    if (size > maxBytes) {
+      throw Object.assign(new Error('too large'), { status: 422, code: 'too_large' });
+    }
+    return { path, ref, size, content };
   }
 
   async currentLogin(): Promise<string> {
