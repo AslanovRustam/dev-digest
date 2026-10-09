@@ -213,6 +213,11 @@ _None yet._
   s=open(sys.argv[1],encoding='utf8').read().replace('\r\n','\n');
   yaml.safe_load(re.match(r'---\n(.*?)\n---\n',s,re.S).group(1))" .claude/agents/<name>.md`.
   · ref: `.claude/agents/implementer.md:3`
+- **2026-10-09** · `/pr-self-review`: `INV-SHARED-DRIFT` is also a file-level finding (`start_line: 0`), so the
+  inline `// pr-self-review-ignore: INV-SHARED-DRIFT — …` that `references/invariants.md` recommends never matches
+  it — a server-only port change (e.g. `vendor/shared/adapters.ts`) can only pass via `report.mjs --override`.
+  `INV-SECRET` IS line-level: a trailing ignore on each fixture line works. · ref:
+  `.claude/skills/pr-self-review/references/invariants.md` ("Known limits")
 
 ## Recurring Errors & Fixes
 
