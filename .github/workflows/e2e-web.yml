@@ -39,6 +39,7 @@ jobs:
   e2e:
     name: browser flows
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # a normal run takes ~2-3 min; a hang must not burn the 6 h default
     steps:
       - uses: actions/checkout@v4
 
@@ -109,6 +110,7 @@ jobs:
 
       # --- agent-browser CLI (Rust + CDP) + Chrome for Testing ---
       - name: Install agent-browser
+        timeout-minutes: 10   # downloads Chrome + apt deps; hung 6 h once (run 37668993870)
         run: |
           npm i -g agent-browser
           agent-browser install --with-deps

@@ -31,6 +31,12 @@ _None yet._
   fan-out, silently disabling the whole review. Shared helper: `decideEarlyExit()`.
   · ref: `.claude/skills/pr-self-review/scripts/checks.mjs`
 
+- **2026-10-07** · Do NOT build the PR body file and run `gh pr create --body-file <f>` in ONE Bash call
+  (`node -e '…write f…' && gh pr create --body-file f`). Why: the PreToolUse gate reads `--body-file` BEFORE
+  the command runs, sees the old or missing file, and denies with "must carry the self-review section".
+  Write the body file in one call, then run `gh pr create` in a separate call.
+  · ref: `.claude/skills/pr-self-review/scripts/gate.mjs:45-49`
+
 ## Codebase Patterns
 
 - **2026-09-29** · Agent instructions live in `AGENTS.md`; the `CLAUDE.md` beside it is a one-line
@@ -77,6 +83,10 @@ _None yet._
   is not installed here, but the public API still gives the failing STEP and annotations:
   `curl https://api.github.com/repos/AslanovRustam/dev-digest/actions/jobs/<id>` (steps + conclusions) and
   `/check-runs/<id>/annotations`. Use that to pick what to reproduce locally. · ref: `.github/workflows/`
+- **2026-10-07** · `routing.md` has no glob for `server/test/**` or `reviewer-core/test/**`. Backend test files
+  therefore route to NO skill in `/pr-self-review`, planner or implementer. Only `client/src/**/*.test.tsx` gets
+  `react-testing-library`. For a backend test, take the skills of the production file it tests. Adding a route
+  means changing both `routing.md` and `ROUTES` in `scripts/collect.mjs`. · ref: `.claude/skills/pr-self-review/references/routing.md`
 
 ## Tool & Library Notes
 
@@ -144,6 +154,66 @@ _None yet._
   reviewed with whatever the findings file contains — run it after a fix commit and the NEW, unreviewed version is
   cached as clean (it happened once; recovery: `cache.mjs clear` and a full re-plan). · ref: `.claude/skills/pr-self-review/scripts/cache.mjs`
 
+- **2026-10-07** · Claude Code auto mode denies an agent's `Write` of a new hook script under `.claude/hooks/`
+  as `[Self-Modification]`, and the denial covers every route to the same file. `.claude/agents/*.md` and
+  edits to `.gitignore` / `AGENTS.md` pass. So when a plan includes a hook script, hand that file to the
+  user to create or approve, and do NOT wire a frontmatter `hooks:` entry to a script that does not exist yet.
+  · ref: `.claude/agents/implementer.md` (shipped without its planned guard hook)
+
+- **2026-10-07** · Subagent frontmatter (Claude Code 2.1.x, code.claude.com/docs/en/sub-agents):
+  - `isolation: worktree` branches from the DEFAULT branch, not the caller's HEAD, so it is useless for work on a
+    feature branch.
+  - `skills:` preloads full skill text, but cannot preload a `disable-model-invocation: true` skill
+    (`pr-self-review`).
+  - Non-fork subagents get CLAUDE.md/AGENTS.md but NOT the conversation, so hand them work by file path.
+  · ref: `.claude/agents/planner.md`, `.claude/agents/implementer.md`
+
+- **2026-10-07** · An agent definition is cached when the session first loads it. A `hooks:` block added to
+  `.claude/agents/<name>.md` later in the same session is silently ignored: the guard did not fire and the
+  denied command ran. Smoke-test frontmatter changes in a FRESH process, e.g.
+  `claude -p --model haiku --allowedTools "Agent" "Bash(git switch:*)" -- "<delegate to the agent>"`, where the
+  same hook did deny. Unit tests of the script alone do not prove the wiring.
+  · ref: `.claude/hooks/implementer-guard.mjs`, `.claude/hooks/implementer-guard.test.mjs`
+
+- **2026-10-07** · A `.md` file without frontmatter in `.claude/agents/` is skipped. It does not become an
+  agent and produces no error, so `.claude/agents/README.md` is safe. Verified in Claude Code 2.1.284 by asking a
+  fresh `claude -p` session to list its `subagent_type` names. `claude agents` cannot do this: it manages
+  background sessions and does not list definitions. · ref: `.claude/agents/README.md`
+- **2026-10-07** · No CI workflow runs `.claude/hooks/*.test.mjs`. `skills.yml:43` runs only `gate.test.mjs`, but
+  `implementer-guard.mjs` imports `statements()` from `gate.mjs`. A `gate.mjs` change can therefore break the guard
+  while CI stays green. After touching `gate.mjs`, also run `node --test .claude/hooks/implementer-guard.test.mjs`.
+  · ref: `.github/workflows/skills.yml:43`, `.claude/hooks/implementer-guard.mjs:14`
+- **2026-10-07** · The Edit tool trims trailing whitespace from `old_string` / `new_string`. Replacing
+  `const GIT = ` with `export const GIT = ` produced `export const GIT =String.raw…`: the separating space was
+  lost. Always end both strings on a non-space token. Tests can miss this kind of damage. · ref: `.claude/hooks/implementer-guard.mjs`
+- **2026-10-07** · Smoke-testing an agent guard via `claude -p`: two traps. (1) A read-only agent refuses a
+  `touch` request from its prompt and never calls Bash, so the hook goes unexercised. Use a harmless command
+  that is NOT on the allowlist, such as `node --version`. (2) Pre-approve only `--allowedTools "Agent"`. With
+  `Bash(node:*)` pre-approved, the haiku main session ran the command itself and printed `v24…`, which looks
+  like the guard failed. `--disallowedTools Bash` also strips Bash from the subagent. Expect
+  `agent-guard[<profile>]` in the output. · ref: `.claude/hooks/agent-guard.mjs`
+- **2026-10-07** · Diff a branch against `origin/main`, not local `main`, when scoping a review
+  (architecture-reviewer, plan-verifier, self-review) — or `git fetch` first. Local `main` lags after PRs
+  are merged on GitHub (here `53a096c` vs `origin/main` `6dcae1c`), so `git merge-base HEAD main` pulls
+  ~150 already-merged files from earlier lessons into the review scope. · ref: `git merge-base HEAD origin/main`
+- **2026-10-07** · When checking UI with the Playwright MCP, delete `.playwright-mcp/` afterwards — it writes
+  snapshots, console logs and screenshots there in the repo root, only that folder and the repo are allowed
+  save roots (the session scratchpad is refused), and it is not in `.gitignore`. Also, `fullPage: true`
+  does not capture below the fold on the studio pages (content scrolls inside an inner container): scroll
+  the target with `browser_evaluate` + `scrollIntoView`, then take a viewport screenshot. · ref: `.gitignore`
+- **2026-10-08** · Don't assume `.devdigest/` is git-ignored — only `.devdigest/cache/`, `pr-self-review/` and
+  `plans/` are. A tool state file written to `.devdigest/<file>` shows up as untracked; the first
+  `stop-check.mjs` rewrite stored its tree-hash there and the hash changed on every run, so the hook re-asked
+  forever. Keep tool state in `os.tmpdir()` or under an ignored subfolder. · ref: `.gitignore:19-31`,
+  `.claude/skills/engineering-insights/scripts/stop-check.mjs`
+- **2026-10-09** · After editing an agent's frontmatter, parse it as YAML — never put `: ` inside an
+  unquoted `description` (e.g. "`phase: P2`"). The YAML breaks, and Claude Code silently drops the agent
+  from the available list (no error), while `agent-guard.test.mjs` / `implementer-guard.test.mjs` stay
+  green because they never parse the frontmatter. Check: `python -c "import yaml,re,sys;
+  s=open(sys.argv[1],encoding='utf8').read().replace('\r\n','\n');
+  yaml.safe_load(re.match(r'---\n(.*?)\n---\n',s,re.S).group(1))" .claude/agents/<name>.md`.
+  · ref: `.claude/agents/implementer.md:3`
+
 ## Recurring Errors & Fixes
 
 - **2026-09-23** · **Symptom:** `GET /repos` → 500; logs show `read ECONNRESET`, then `28P01 auth_failed`
@@ -174,6 +244,18 @@ still traces the history. Cross-references updated in the root memory, `client/A
 `.claude/skills/engineering-insights/SKILL.md` and `e2e/INSIGHTS.md`; the untracked, dangling
 `.claude/CLAUDE.md` (`@Agents.md` → no such file) was deleted. `.claude/skills/zod/AGENTS.md` is an
 unrelated vendored skill asset and was left alone.
+
+### 2026-10-07 — `planner` + `implementer` subagents
+Added `.claude/agents/planner.md` (read-only, opus, preloads both architecture skills) and `implementer.md`
+(sonnet, edits plus package tests, no review). Both map files to skills through `pr-self-review/references/routing.md`.
+Plans travel as `.devdigest/plans/*.md` (git-ignored). The PreToolUse guard hook is still missing (see Tool & Library Notes).
+Later the same day the user approved the guard. Added `.claude/hooks/implementer-guard.mjs` with `node --test` coverage,
+reusing `statements()` (now exported) from `pr-self-review/scripts/gate.mjs`. It is verified to deny in a fresh session.
+
+### 2026-10-07 — `test-writer`, `plan-verifier`, `architecture-reviewer`, `doc-writer`
+Added the four agents plus `.claude/hooks/agent-guard.mjs <profile>`. All profiles share one Bash allowlist and
+differ only in the paths Edit/Write may touch. A wiring test pins the agent → profile map. Each profile is
+verified to deny in a fresh `claude -p --model haiku --allowedTools "Agent" …` session.
 
 ## Open Questions
 
