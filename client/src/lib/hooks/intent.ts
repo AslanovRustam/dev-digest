@@ -6,11 +6,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { PrIntentResponse } from "@devdigest/shared";
 
-const key = (prId: string | null | undefined) => ["pr-intent", prId] as const;
+/** Query key of a PR's intent — reuse it to invalidate (e.g. after a review run may have derived one). */
+export const prIntentKey = (prId: string | null | undefined) => ["pr-intent", prId] as const;
 
 export function usePrIntent(prId: string | null | undefined) {
   return useQuery({
-    queryKey: key(prId),
+    queryKey: prIntentKey(prId),
     queryFn: () => api.get<PrIntentResponse>(`/pulls/${prId}/intent`),
     enabled: !!prId,
   });
@@ -21,6 +22,6 @@ export function useDeriveIntent(prId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.post<PrIntentResponse>(`/pulls/${prId}/intent`),
-    onSuccess: (res) => qc.setQueryData(key(prId), res),
+    onSuccess: (res) => qc.setQueryData(prIntentKey(prId), res),
   });
 }

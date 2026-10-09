@@ -6,9 +6,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Button, Icon } from "@devdigest/ui";
 import { usePrIntent, useDeriveIntent } from "@/lib/hooks/intent";
-import { ApiError } from "@/lib/api";
 import { IntentSources } from "./_components/IntentSources";
-import { confidenceTone, riskIcon, shortSha } from "./helpers";
+import { confidenceTone, intentErrorKey, riskIcon, shortSha } from "./helpers";
 import { s } from "./styles";
 
 function ScopeList({
@@ -51,16 +50,16 @@ export function IntentCard({ prId }: { prId: string }) {
   const derive = useDeriveIntent(prId);
 
   const err = derive.error;
-  const errorText = !err
-    ? null
-    : err instanceof ApiError && err.status === 0
-      ? t("errors.unreachable")
-      : err instanceof ApiError && err.code === "config_error"
-        ? t("errors.config")
-        : t("errors.generic", { message: err.message });
+  const errorText = err ? t(intentErrorKey(err), { message: err.message }) : null;
 
   if (isLoading) return <div style={{ ...s.wrap, ...s.muted }}>{t("loading")}</div>;
-  if (isError || !data) return <div style={{ ...s.wrap, ...s.error }}>{t("errors.load")}</div>;
+  if (isError || !data) {
+    return (
+      <div role="alert" style={{ ...s.wrap, ...s.error }}>
+        {t("errors.load")}
+      </div>
+    );
+  }
 
   const intent = data.intent;
   if (!intent) {
@@ -76,7 +75,11 @@ export function IntentCard({ prId }: { prId: string }) {
           <Button type="button" kind="primary" loading={derive.isPending} onClick={() => derive.mutate()}>
             {t("derive")}
           </Button>
-          {errorText && <span style={s.error}>{errorText}</span>}
+          {errorText && (
+            <span role="alert" style={s.error}>
+              {errorText}
+            </span>
+          )}
         </div>
       </div>
     );
@@ -102,7 +105,11 @@ export function IntentCard({ prId }: { prId: string }) {
           {t("rederive")}
         </Button>
       </div>
-      {errorText && <div style={s.error}>{errorText}</div>}
+      {errorText && (
+        <div role="alert" style={s.error}>
+          {errorText}
+        </div>
+      )}
 
       <div>
         <div style={s.label}>{t("summaryLabel")}</div>

@@ -110,4 +110,24 @@ describe("IntentCard", () => {
     expect(await screen.findByText("Fresh summary.")).toBeInTheDocument();
     await waitFor(() => expect(fn.mock.calls.some((c) => c[1]?.method === "POST")).toBe(true));
   });
+
+  it("Derive without an OpenRouter key shows the Settings hint as an alert", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) =>
+        init?.method === "POST"
+          ? new Response(JSON.stringify({ error: { code: "config_error", message: "OPENROUTER_API_KEY is not set" } }), {
+              status: 400,
+              headers: { "content-type": "application/json" },
+            })
+          : new Response(JSON.stringify({ intent: null, pr_head_sha: "abc1234def", stale: false }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+      ),
+    );
+    renderCard();
+    fireEvent.click(await screen.findByRole("button", { name: /Derive intent/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Add an OpenRouter key in Settings/);
+  });
 });

@@ -77,12 +77,12 @@ describe('redactSecrets', () => {
     'ghu_abcdefghijklmnopqrstuvwxyz0123',
     'ghs_abcdefghijklmnopqrstuvwxyz0123',
     'ghr_abcdefghijklmnopqrstuvwxyz0123',
-    'github_pat_abcdefghijklmnopqrstuvwxyz0123',
-    'sk-or-v1-0123456789abcdef0123456789abcdef',
-    'sk-ant-api03-abcdefghijklmnopqrstuvwxyz',
-    'sk-abcdefghijklmnopqrstuvwxyz0123',
+    'github_pat_abcdefghijklmnopqrstuvwxyz0123', // pr-self-review-ignore: INV-SECRET — fake token shape that redactSecrets must catch, not a credential
+    'sk-or-v1-0123456789abcdef0123456789abcdef', // pr-self-review-ignore: INV-SECRET — fake token shape that redactSecrets must catch, not a credential
+    'sk-ant-api03-abcdefghijklmnopqrstuvwxyz', // pr-self-review-ignore: INV-SECRET — fake token shape that redactSecrets must catch, not a credential
+    'sk-abcdefghijklmnopqrstuvwxyz0123', // pr-self-review-ignore: INV-SECRET — fake token shape that redactSecrets must catch, not a credential
     'Bearer eyJhbGciOi.abc.def',
-    'AKIAABCDEFGHIJKLMNOP',
+    'AKIAABCDEFGHIJKLMNOP', // pr-self-review-ignore: INV-SECRET — fake token shape that redactSecrets must catch, not a credential
     'xoxb-123-456-abcdef',
   ];
   it.each(secrets)('redacts %s', (secret) => {

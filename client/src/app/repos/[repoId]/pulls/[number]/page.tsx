@@ -19,6 +19,7 @@ import RunTraceDrawer from "./_components/RunTraceDrawer";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePrReviews, useCancelRun, usePrActiveRuns, usePrRuns, useDeleteRun } from "../../../../../lib/hooks/reviews";
+import { prIntentKey } from "../../../../../lib/hooks/intent";
 import { useActiveRepo, useRepoNotFound } from "../../../../../lib/repo-context";
 import { ApiError } from "../../../../../lib/api";
 import { githubPrUrl } from "../../../../../lib/github-urls";
@@ -166,7 +167,7 @@ export default function PRDetailPage() {
                 deleteRun.mutate(id);
             }}
             onRunDone={() => {
-              if (prId) qc.invalidateQueries({ queryKey: ["pr-intent", prId] });
+              if (prId) qc.invalidateQueries({ queryKey: prIntentKey(prId) });
               invalidateActiveRuns();
               invalidateRunHistory();
               refetchReviews();

@@ -5,7 +5,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@devdigest/ui";
 import type { IntentSource } from "@devdigest/shared";
-import { sourceStatusTone } from "../../helpers";
+import { sourceStatusTone } from "./helpers";
 import { s } from "./styles";
 
 export function IntentSources({ sources, missing }: { sources: IntentSource[]; missing: string[] }) {

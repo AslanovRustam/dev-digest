@@ -55,6 +55,8 @@ export interface ContainerOverrides {
   llm?: Partial<Record<'openai' | 'anthropic' | 'openrouter', LLMProvider>>;
   /** repo-intel facade (T1.1+) — tests inject mock RepoIntel implementations. */
   repoIntel?: RepoIntel;
+  /** intent-layer facade (L03) — tests stub it instead of mocking the LLM / GitHub / git beneath it. */
+  intent?: IntentFacade;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
@@ -146,9 +148,12 @@ export class Container {
   /**
    * The intent-layer facade (L03). `reviews` derives / reuses a PR's intent through
    * this interface, never by importing the intent service.
+   * Tests inject a stub via `ContainerOverrides.intent`.
    */
   get intent(): IntentFacade {
-    return (this._intent ??= new IntentService(this));
+    if (this.overrides.intent) return this.overrides.intent;
+    this._intent ??= new IntentService(this);
+    return this._intent;
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */
