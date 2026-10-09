@@ -206,6 +206,13 @@ _None yet._
   `stop-check.mjs` rewrite stored its tree-hash there and the hash changed on every run, so the hook re-asked
   forever. Keep tool state in `os.tmpdir()` or under an ignored subfolder. · ref: `.gitignore:19-31`,
   `.claude/skills/engineering-insights/scripts/stop-check.mjs`
+- **2026-10-09** · After editing an agent's frontmatter, parse it as YAML — never put `: ` inside an
+  unquoted `description` (e.g. "`phase: P2`"). The YAML breaks, and Claude Code silently drops the agent
+  from the available list (no error), while `agent-guard.test.mjs` / `implementer-guard.test.mjs` stay
+  green because they never parse the frontmatter. Check: `python -c "import yaml,re,sys;
+  s=open(sys.argv[1],encoding='utf8').read().replace('\r\n','\n');
+  yaml.safe_load(re.match(r'---\n(.*?)\n---\n',s,re.S).group(1))" .claude/agents/<name>.md`.
+  · ref: `.claude/agents/implementer.md:3`
 
 ## Recurring Errors & Fixes
 
