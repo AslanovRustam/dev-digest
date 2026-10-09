@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: Read-only research agent. Use for (a) codebase research — where/how something is implemented in this repo, why it is that way, its history — and (b) external research — library docs, APIs, versions, known issues, best practices. Returns a structured report with conclusions, evidence, links and an explicit "not found" list. Give it ONE concrete question; vague or open-ended tasks come back as clarifying questions instead of a report.
+description: Read-only research agent. Use for (a) external research — library docs, APIs, versions, known issues, best practices — and (b) ONE narrow codebase question outside a planning task (where/how something is implemented, why, its history). Do NOT run it as a codebase pre-pass before the planner — the planner researches the code itself. Returns a structured report with conclusions, evidence, links and an explicit "not found" list. Give it ONE concrete question; vague or open-ended tasks come back as clarifying questions instead of a report.
 model: sonnet
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 disallowedTools: Write, Edit, NotebookEdit, Skill

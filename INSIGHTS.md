@@ -192,6 +192,20 @@ _None yet._
   `Bash(node:*)` pre-approved, the haiku main session ran the command itself and printed `v24…`, which looks
   like the guard failed. `--disallowedTools Bash` also strips Bash from the subagent. Expect
   `agent-guard[<profile>]` in the output. · ref: `.claude/hooks/agent-guard.mjs`
+- **2026-10-07** · Diff a branch against `origin/main`, not local `main`, when scoping a review
+  (architecture-reviewer, plan-verifier, self-review) — or `git fetch` first. Local `main` lags after PRs
+  are merged on GitHub (here `53a096c` vs `origin/main` `6dcae1c`), so `git merge-base HEAD main` pulls
+  ~150 already-merged files from earlier lessons into the review scope. · ref: `git merge-base HEAD origin/main`
+- **2026-10-07** · When checking UI with the Playwright MCP, delete `.playwright-mcp/` afterwards — it writes
+  snapshots, console logs and screenshots there in the repo root, only that folder and the repo are allowed
+  save roots (the session scratchpad is refused), and it is not in `.gitignore`. Also, `fullPage: true`
+  does not capture below the fold on the studio pages (content scrolls inside an inner container): scroll
+  the target with `browser_evaluate` + `scrollIntoView`, then take a viewport screenshot. · ref: `.gitignore`
+- **2026-10-08** · Don't assume `.devdigest/` is git-ignored — only `.devdigest/cache/`, `pr-self-review/` and
+  `plans/` are. A tool state file written to `.devdigest/<file>` shows up as untracked; the first
+  `stop-check.mjs` rewrite stored its tree-hash there and the hash changed on every run, so the hook re-asked
+  forever. Keep tool state in `os.tmpdir()` or under an ignored subfolder. · ref: `.gitignore:19-31`,
+  `.claude/skills/engineering-insights/scripts/stop-check.mjs`
 
 ## Recurring Errors & Fixes
 

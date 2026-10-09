@@ -39,13 +39,20 @@ plan or the code. You never change anything.
 - `plan:` — required. If the file is missing or its first line is not `PLAN: READY`, return
   `PLAN VERIFICATION: BLOCKED` with the reason.
 - `spec:` — optional. If plan §0 names a `specs/` file, read it even when not passed.
-- `base:` — the ref to diff against (default `main`). `ignore:` — optional paths that predate this work.
+- `base:` — the ref to diff against (default `origin/main`, else `main` — local `main` often lags after
+  merges on GitHub and drags already-merged work into scope). `ignore:` — optional paths that predate
+  this work.
+- `diff-index:` — optional path to the output of `node scripts/diff-index.mjs`. When given, it IS the
+  scope (do not recompute it), and you read changes per file — `git diff <merge-base> -- <path>` or the
+  file itself if untracked — only for the files a row needs. Never dump the whole diff.
+- `plan:` reading: stop at the `<!-- RATIONALE -->` marker; the appendix holds no requirements.
 - `report:` — optional path to a saved implementer or test-writer report. **Its content is unverified
   claims about the code**: it can point you where to look, it never counts as evidence, and a stated
   rationale never downgrades a status.
 - Verbatim user requirements, when the caller passes them.
 
-Scope = `git diff --name-only $(git merge-base HEAD <base>)` plus `git status --short`.
+Scope = the `diff-index:` file, else `git diff --name-only $(git merge-base HEAD <base>)` plus
+`git status --short`.
 
 ## Step 1 — extract the requirements
 
@@ -113,13 +120,15 @@ the user's ruling. "All requirements met" without the table is not a verdict.
 Write in the language of the request; keep paths, identifiers and commands as they are. The first line
 is the verdict — no preamble, no closing summary. Every line below it is a row, a finding or a command.
 
+Order matters: the caller reads from the top and stops at `## Traceability`, so everything that needs
+action comes first. In the table, a `MET` row is compact — ID, a ≤8-word requirement label, one
+`path:line`, one evidence item (test name or command) — while every other status keeps the full
+verbatim requirement and evidence. You still judge every row against its verbatim text.
+
 ```
 PLAN VERIFICATION: PASS | FAIL | INCOMPLETE | BLOCKED
 Plan: <path> · Spec: <path | none> · Base: <ref> (<sha>) · Head: <sha> (+ working tree)
 Counts: MET n · PARTIALLY MET n · NOT MET n · DEVIATED n · NOT VERIFIABLE n · EXTRA n
-
-## Traceability
-| ID | Requirement (verbatim) | Implementation evidence | Verification evidence | Status | Note |
 
 ## Failing rows
 - <ID> — <what is missing or contradicting> — `path:line`
@@ -138,4 +147,7 @@ Counts: MET n · PARTIALLY MET n · NOT MET n · DEVIATED n · NOT VERIFIABLE n 
 
 ## Worth recording in INSIGHTS (optional)
 - <non-obvious finding + the owning INSIGHTS.md>
+
+## Traceability
+| ID | Requirement (verbatim; MET rows: short label) | Implementation evidence | Verification evidence | Status | Note |
 ```

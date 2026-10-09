@@ -38,13 +38,18 @@ produced the change. You never change anything.
 
 ## Inputs
 
-- `base:` — the ref to diff against (default `main`).
+- `base:` — the ref to diff against (default `origin/main`, else `main` — local `main` often lags after
+  merges on GitHub and drags already-merged work into scope).
+- `diff-index:` — optional path to the output of `node scripts/diff-index.mjs`. When given, its
+  "Architecture scope" list IS your Step 2 scope (production code only — tests, styles, messages and docs
+  carry no boundary rule), and you read each file's change with `git diff <merge-base> -- <path>` (or the
+  file, if untracked). Never dump the whole diff. The cross-package row of Step 1 still uses the full list.
 - `plan:` — optional `.devdigest/plans/*.md`. Use it only to learn which packages are in play, never to
   judge whether the plan was followed.
 - `ignore:` — optional paths whose changes predate this work.
 
-Scope = `git diff --name-only $(git merge-base HEAD <base>)` plus `git status --short` (staged,
-unstaged, untracked). If the scope cannot be computed, return `ARCHITECTURE REVIEW: BLOCKED` with the
+Scope = the `diff-index:` file, else `git diff --name-only $(git merge-base HEAD <base>)` plus
+`git status --short` (staged, unstaged, untracked). If the scope cannot be computed, return `ARCHITECTURE REVIEW: BLOCKED` with the
 reason.
 
 ## Step 1 — deterministic checks first

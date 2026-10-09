@@ -6,15 +6,16 @@ changing or relying on a detail.
 
 ```mermaid
 flowchart LR
-    Q[question] --> R[researcher]
+    Q[external question] --> R[researcher]
     T[task or specs/NN-*.md] --> P[planner]
     R -. facts .-> P
     P -- "PLAN: READY" --> F[".devdigest/plans/NN-slug.md<br/>approved by the user"]
-    F --> I[implementer]
+    F --> I["implementer<br/>one run per phase"]
     I -- "IMPLEMENTATION: …" --> TW[test-writer]
-    I --> PV[plan-verifier]
-    TW -- "TESTS: …" --> PV
-    I --> AR[architecture-reviewer]
+    I --> X["scripts/diff-index.mjs<br/>→ NN-slug.diff-index.md"]
+    TW --> X
+    X --> PV[plan-verifier]
+    X --> AR[architecture-reviewer]
     PV -. "FAIL" .-> I
     AR -. "FINDINGS" .-> I
     PV -- "PASS" --> D[doc-writer]
@@ -28,6 +29,16 @@ as a self-contained question, never as "the plan above".
 
 `test-writer` is optional: run it when the plan's §7 asks for more than the implementer wrote, or to
 cover existing code. `plan-verifier` and `architecture-reviewer` are independent and can run in parallel.
+
+**Token budget.** Every artifact is re-read by each later agent, and every agent turn re-sends its
+whole transcript, so the pipeline keeps artifacts small and runs short:
+- `researcher` is for external facts; the `planner` researches the code itself.
+- The plan opens with `## Summary for the caller` (the only part the main session reads) and keeps
+  rationale after `<!-- RATIONALE -->`, which implementer and reviewers skip. Body ≤ ~20 KB.
+- Steps are grouped into phases; the `implementer` runs once per phase with a fresh context.
+- Reviewers get `diff-index:` (from `node scripts/diff-index.mjs`) and `base: origin/main`, and read
+  per-file diffs only for the files their rules cover.
+- `plan-verifier` puts failing rows before the full table; MET rows are compact.
 
 ## At a glance
 
