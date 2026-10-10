@@ -30,11 +30,12 @@ const CONCRETE_ADAPTERS =
 /**
  * Pure business-rule files: the domain ring, as flat files beside service.ts.
  * `helpers.ts` / `constants.ts` are the per-module convention; `pulls/{cost,
- * findings,status}.ts` are named rule files. NOT listed on purpose:
+ * findings,status}.ts` are named rule files, as is `reviews/smart-diff.ts`
+ * (Smart Diff classifier, reused by L08). NOT listed on purpose:
  * `reviews/findings.ts`, which takes a repository and is application logic.
  */
 const DOMAIN_FILES =
-  '^src/modules/([^/]+/(helpers|constants)|pulls/(cost|findings|status))[.]ts$';
+  '^src/modules/([^/]+/(helpers|constants)|pulls/(cost|findings|status)|reviews/smart-diff)[.]ts$';
 
 /**
  * What a domain file is allowed to reach: ring 0/1, the shared error kernel, and

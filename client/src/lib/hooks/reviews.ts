@@ -13,6 +13,7 @@ import type {
   ReviewRunResponse,
   RunEvent,
   RunSummary,
+  SmartDiffResponse,
 } from "@devdigest/shared";
 
 // ---- Active (in-flight) runs — server-side source of truth ----
@@ -67,6 +68,7 @@ export function useDeleteRun(prId: string | null | undefined) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
       qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      qc.invalidateQueries({ queryKey: smartDiffKey(prId) });
     },
   });
 }
@@ -83,7 +85,22 @@ export function useDeleteReview(prId: string | null | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (reviewId: string) => api.del<{ ok: boolean }>(`/reviews/${reviewId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["reviews", prId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      qc.invalidateQueries({ queryKey: smartDiffKey(prId) });
+    },
+  });
+}
+
+// ---- Smart Diff (files grouped by role; no model call) ----
+/** Query key of a PR's smart diff — invalidate when the latest review changes. */
+export const smartDiffKey = (prId: string | null | undefined) => ["smart-diff", prId] as const;
+
+export function useSmartDiff(prId: string | null | undefined) {
+  return useQuery({
+    queryKey: smartDiffKey(prId),
+    queryFn: () => api.get<SmartDiffResponse>(`/pulls/${prId}/smart-diff`),
+    enabled: !!prId,
   });
 }
 
