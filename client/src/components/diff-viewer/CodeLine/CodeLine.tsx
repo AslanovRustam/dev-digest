@@ -5,6 +5,7 @@
 import React from "react";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
 import { type Line } from "../helpers";
+import { type DiffAnnotation } from "../annotations";
 import { s, lineRowFor, lineSignFor } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
@@ -14,11 +15,15 @@ export function CodeLine({
   path,
   threads,
   commenting,
+  annotations,
+  showAnnotations,
 }: {
   ln: Line;
   path: string;
   threads: CommentThread[];
   commenting?: DiffCommentApi;
+  annotations: DiffAnnotation[];
+  showAnnotations: boolean;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -34,6 +39,7 @@ export function CodeLine({
   const sign = ln.kind === "add" ? "+" : ln.kind === "del" ? "−" : "";
   const target = commenting?.canComment ? commentTargetFor(ln) : null;
   const showAdd = hover && !!target && !composing;
+  const top = annotations.find((a) => !a.resolved);
 
   return (
     <div
@@ -41,7 +47,7 @@ export function CodeLine({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={lineRowFor(ln.kind)}>
+      <div style={top ? { ...lineRowFor(ln.kind), boxShadow: `inset 3px 0 0 ${top.color}` } : lineRowFor(ln.kind)}>
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (
             <button
@@ -62,6 +68,7 @@ export function CodeLine({
         <span className="mono" style={s.lineText}>
           {ln.text || " "}
         </span>
+        {top && <span style={{ ...s.annotationLabel, color: top.color }}>{top.label}</span>}
       </div>
 
       {commenting &&
@@ -69,6 +76,14 @@ export function CodeLine({
         threads.map((th) => (
           <CommentThreadView key={th.rootId} thread={th} commenting={commenting} path={path} />
         ))}
+
+      {showAnnotations && annotations.length > 0 && (
+        <div style={cs.thread}>
+          {annotations.map((a) => (
+            <React.Fragment key={a.id}>{a.content}</React.Fragment>
+          ))}
+        </div>
+      )}
 
       {commenting && composing && target && (
         <InlineComposer

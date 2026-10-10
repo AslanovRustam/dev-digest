@@ -29,6 +29,21 @@ export const s = {
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
   fileStat: { fontSize: 12 } satisfies CSSProperties,
+  fileMarker: {
+    display: "inline-block",
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    flexShrink: 0,
+  } satisfies CSSProperties,
+  annotationLabel: {
+    flexShrink: 0,
+    padding: "0 12px",
+    fontSize: 11,
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+  } satisfies CSSProperties,
   addText: { color: "var(--code-add-text)" } satisfies CSSProperties,
   delText: { color: "var(--code-del-text)" } satisfies CSSProperties,
   fileBody: {

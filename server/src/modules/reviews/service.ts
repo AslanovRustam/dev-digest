@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Container } from '../../platform/container.js';
-import type { FindingActionKind, RunEventKind, RunTrace } from '@devdigest/shared';
+import type { FindingActionKind, RunEventKind, RunTrace, SmartDiff } from '@devdigest/shared';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import type { AgentRow } from '../../db/rows.js';
 import { ReviewRepository } from './repository.js';
@@ -8,6 +8,7 @@ import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
 import { reviewToDto } from './helpers.js';
+import { buildSmartDiff } from './smart-diff.js';
 
 // Re-export DTO types + converters for backward-compatible imports from
 // './service.js' (these previously lived here; logic now in ./helpers.ts).
@@ -175,6 +176,18 @@ export class ReviewService {
     return rows.map(({ review, findings }) =>
       reviewToDto(review, findings, review.agentId ? names.get(review.agentId) : null),
     );
+  }
+
+  /**
+   * Smart Diff: the PR's files grouped by role, with the lines of the newest
+   * review's open findings. Pure DB read — no LLM call.
+   */
+  async smartDiff(workspaceId: string, prId: string): Promise<SmartDiff> {
+    const pull = await this.repo.getPull(workspaceId, prId);
+    if (!pull) throw new NotFoundError('Pull request not found');
+    const files = await this.repo.getPrFiles(prId);
+    const latest = (await this.repo.reviewsForPull(prId))[0];
+    return buildSmartDiff(files, latest?.findings ?? []);
   }
 
   async getRunTrace(runId: string): Promise<RunTrace | undefined> {

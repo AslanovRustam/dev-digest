@@ -18,7 +18,7 @@ import { IntentCard } from "./_components/IntentCard";
 import RunTraceDrawer from "./_components/RunTraceDrawer";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePrReviews, useCancelRun, usePrActiveRuns, usePrRuns, useDeleteRun } from "../../../../../lib/hooks/reviews";
+import { smartDiffKey, usePrReviews, useCancelRun, usePrActiveRuns, usePrRuns, useDeleteRun } from "../../../../../lib/hooks/reviews";
 import { prIntentKey } from "../../../../../lib/hooks/intent";
 import { useActiveRepo, useRepoNotFound } from "../../../../../lib/repo-context";
 import { ApiError } from "../../../../../lib/api";
@@ -59,6 +59,17 @@ export default function PRDetailPage() {
   const invalidateRunHistory = () => {
     if (prId) qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
   };
+
+  // When the last live run settles, refresh the latest review + smart-diff so the
+  // diff's finding markers and counters update without a reload.
+  const prevRunning = React.useRef(false);
+  React.useEffect(() => {
+    if (prevRunning.current && !reviewRunning && prId) {
+      qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      qc.invalidateQueries({ queryKey: smartDiffKey(prId) });
+    }
+    prevRunning.current = reviewRunning;
+  }, [reviewRunning, prId, qc]);
 
   const tab = search.get("tab") ?? "overview";
   const traceRunId = search.get("trace");
@@ -168,6 +179,7 @@ export default function PRDetailPage() {
             }}
             onRunDone={() => {
               if (prId) qc.invalidateQueries({ queryKey: prIntentKey(prId) });
+              if (prId) qc.invalidateQueries({ queryKey: smartDiffKey(prId) });
               invalidateActiveRuns();
               invalidateRunHistory();
               refetchReviews();
@@ -181,6 +193,8 @@ export default function PRDetailPage() {
             filesCount={pr.files_count}
             files={pr.files}
             canComment={pr.status === "open"}
+            repoFullName={repoFullName}
+            headSha={pr.head_sha}
           />
         )}
       </div>

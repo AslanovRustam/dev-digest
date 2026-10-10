@@ -98,6 +98,16 @@ _None yet._
   `.dependency-cruiser.cjs` admits just those two names (plus three `pulls` files), so a pure sibling such as
   `intent/references.ts` imported from `helpers.ts` breaks `domain-files-are-pure`. Extend the regex
   deliberately if a split is really needed. · ref: `.dependency-cruiser.cjs:36`
+- **2026-10-09** · Put a pure function that another module will reuse INSIDE the consuming module, not in a
+  new module — `no-cross-module-imports` lets a sibling import only `constants.ts` / `types.ts`, so a
+  `smart-diff/helpers.ts` would be unreachable from `reviews` (the L08 pre-prompt filter's home). The Smart
+  Diff classifier is `reviews/smart-diff.ts`, added to `DOMAIN_FILES` so `pnpm arch` enforces its purity —
+  why: a named rule file outside that regex is silently unchecked · ref: `src/modules/reviews/smart-diff.ts`,
+  `.dependency-cruiser.cjs:36`
+- **2026-10-09** · Smart Diff classifies a bare `config.ts` as `core`: the wiring rule `*.config.*` needs a dot
+  on BOTH sides of `config`. Keep it that way — e2e flow `05-pr-diff` clicks `src/config.ts` and relies on the
+  core group being expanded by default (docs/boilerplate start collapsed) · ref: `src/modules/reviews/constants.ts`
+  (`SMART_DIFF_RULES`), `test/reviews-smart-diff.test.ts`
 
 ## Tool & Library Notes
 
@@ -191,6 +201,17 @@ service/repository, and get it wrong by copying the neighbouring broken module �
 with "this module deliberately has no service.ts/repository.ts: its convention is a thin route that talks to
 container.db". The failure mode is contagion from existing violations, not ignorance.
 
+### 2026-10-09 — Smart Diff (L04)
+Classifier + `GET /pulls/:id/smart-diff` in `reviews` (pure `smart-diff.ts`, rules in `constants.ts`, no LLM
+call). Placement and the `config.ts` → core decision recorded under Codebase Patterns.
+
 ## Open Questions
 
-_None yet._
+- **2026-10-09** · `test/reviews.it.test.ts` › "skills (L02): an agent with no skills gets no skills section and
+  null skill_blocks" failed once in a full `pnpm exec vitest run .it.test` run (Windows, Docker up), then passed
+  alone and on a full rerun. Error text was not captured — next time save the failure output; suspect
+  parallel-file load / timing rather than the code under test · ref: `test/reviews.it.test.ts`
+- **2026-10-09** · Same pattern, different file: a later full `.it.test` run failed `test/intent.it.test.ts:277`
+  ("a review with no stored intent derives it ONCE…", `TypeError: … reading 'map'` on `first.log`), then passed
+  alone and on rerun. Not file-specific — look at shared timing (SSE/run-log completion vs. assertion) under load
+  · ref: `test/intent.it.test.ts:277`
