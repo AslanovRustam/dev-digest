@@ -275,7 +275,13 @@ _None yet._
   outputs (`tool_result`) hold the text a regex replace threw away. Prove the reconstruction by re-applying the forward
   edits and byte-comparing with the tree, stage it with `git hash-object -w --path=<p>` + `git update-index --cacheinfo`,
   then test the commit alone with `git stash push -u` (ignored `node_modules` stay) and `trap 'git stash pop' EXIT`
-  — why: untracked files have no git baseline · ref: commits `f47a583` (L04) / `360b279` (L05)
+  — why: untracked files have no git baseline · ref: branches `feat/l04-mcp-server` / `feat/l05-blast-radius`
+- **2026-10-24** · `gh` is not installed on this Windows machine (neither Git Bash nor PowerShell), so `/pr-self-review`
+  step 7 cannot run `gh pr create`: open the PR with the GitHub MCP connector (`create_pull_request`) and paste
+  `pr-body-section.md` (with its `<!-- pr-self-review:<hash> -->` marker) into the body yourself — the PreToolUse gate
+  only matches `gh pr …` commands, so nothing checks that path. The gate's freshness hash includes HEAD's SHA, so any
+  rebase makes the report stale; re-run `/pr-self-review` (skill reviews mostly come from the cache, but files git
+  re-checked-out with CRLF miss it) · ref: `.claude/skills/pr-self-review/scripts/gate.mjs:151-155`, PR #12
 
 ## Recurring Errors & Fixes
 
