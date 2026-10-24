@@ -268,6 +268,14 @@ _None yet._
   `{id: {mime, compressed, data}}`), base64-decode each `data` and gunzip when `compressed`, then grep the chunks for the
   feature name — each screen is a plain JSX file (e.g. `/* blast.jsx … */`) and the mock data lives in a separate chunk
   — why: the prototype is a gzip+base64 bundle, so text search on the HTML finds nothing · ref: `.devdigest/plans/research/08-blast-prototype.jsx`
+- **2026-10-24** · To split two features that ended up in one uncommitted tree (L04 + L05), recover the older version of a
+  file a subagent edited from its transcript, not from `tasks/<id>.output` (an empty link): the JSONL is at
+  `~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl`, and every `tool_use` appears TWICE (dedupe by
+  `id`). Edits done by `node`/`sed` scripts in Bash are there verbatim, and the agent's earlier `cat`/`sed -n`
+  outputs (`tool_result`) hold the text a regex replace threw away. Prove the reconstruction by re-applying the forward
+  edits and byte-comparing with the tree, stage it with `git hash-object -w --path=<p>` + `git update-index --cacheinfo`,
+  then test the commit alone with `git stash push -u` (ignored `node_modules` stay) and `trap 'git stash pop' EXIT`
+  — why: untracked files have no git baseline · ref: commits `f47a583` (L04) / `360b279` (L05)
 
 ## Recurring Errors & Fixes
 
