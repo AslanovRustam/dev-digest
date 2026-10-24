@@ -227,6 +227,13 @@ _None yet._
   port, so the API talks to the wrong server. **Fix:** `Stop-Service postgresql-x64-17` (admin) and
   restart the container — or map the Docker DB to another port and update `DATABASE_URL`.
   · ref: `server/.env` → `DATABASE_URL`
+- **2026-10-09** · **Symptom:** the UI shows `Files changed � 3 files` / `Review not run yet � …`; typecheck,
+  lint and RTL tests (regex matchers) all pass. **Cause:** a subagent edit on Windows wrote cp1252 single bytes
+  (`0xB7` for `·`, `0x97` for `—`) into UTF-8 files (`client/messages/en/prReview.json`,
+  `client/src/lib/hooks/reviews.ts`); they decode to U+FFFD. **Fix:** before review, decode every changed and
+  untracked file with `new TextDecoder('utf-8', { fatal: true })` (or `file <path>` → "Non-ISO extended-ASCII")
+  and map the bytes back; assert user-visible strings containing `·`/`—` exactly, not by regex
+  · ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/DiffTab/DiffTab.test.tsx`
 
 ## Session Notes
 

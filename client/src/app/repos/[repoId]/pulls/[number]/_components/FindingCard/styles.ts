@@ -64,8 +64,18 @@ export const s = {
     lineHeight: 1.6,
     color: "var(--text-secondary)",
   } satisfies CSSProperties,
-  suggestionWrap: { marginTop: 14 } satisfies CSSProperties,
+  /* Boxed so the fix reads as its own block, apart from the rationale. */
+  suggestionWrap: {
+    marginTop: 14,
+    padding: "12px 14px",
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border-strong)",
+    borderRadius: 8,
+  } satisfies CSSProperties,
   suggestionLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
     fontSize: 12,
     fontWeight: 700,
     letterSpacing: "0.05em",
@@ -73,6 +83,8 @@ export const s = {
     marginBottom: 8,
     textTransform: "uppercase",
   } satisfies CSSProperties,
+  /* Accent, not the muted label colour, so the icon stands out from the text. */
+  suggestionIcon: { color: "var(--accent)", flexShrink: 0 } satisfies CSSProperties,
   actions: {
     display: "flex",
     gap: 8,

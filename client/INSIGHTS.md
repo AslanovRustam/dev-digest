@@ -75,6 +75,12 @@ _None yet._
   propagation. why: the kit `Modal` is not portalled, so inline it inherits the parent's opacity; and
   React bubbles synthetic events through the COMPONENT tree even across a portal, so a click inside the
   modal still fires the card's `onClick`. · ref: `src/app/skills/_components/DeleteSkillModal/DeleteSkillModal.tsx`
+- **2026-10-09** · To show route-specific content inside the shared diff viewer (e.g. a `FindingCard` under a
+  code line), pass it through the generic `DiffAnnotationApi` (`content: ReactNode`, built by the route's
+  `DiffTab`) — `src/components/diff-viewer` must not import from `src/app/**` (eslint components ↛ app), so it
+  cannot import `FindingCard` itself. Anchoring mirrors comment threads: `lineKey("RIGHT", line)` +
+  `partitionAnnotations`; unmatched items render in `UnanchoredAnnotations` · ref:
+  `src/components/diff-viewer/annotations.ts`
 
 ## Tool & Library Notes
 
@@ -114,6 +120,10 @@ _None yet._
 - **2026-10-07** · `import/no-restricted-paths` (the client's layer boundaries) is configured as `"warn"`. So
   `pnpm lint` exits 0 even when boundary violations exist. Read the output and grep for `no-restricted-paths`;
   never trust the exit code. · ref: `eslint.config.mjs:45-46`
+- **2026-10-09** · `@testing-library/user-event` is NOT a client dependency — write RTL tests with `fireEvent`
+  (+ `waitFor`), as `IntentCard.test.tsx` and `DiffTab.test.tsx` do; importing `userEvent` fails both
+  `pnpm typecheck` (TS2307) and vitest. Do not add the dependency as a side effect of a feature
+  · ref: `client/package.json`
 
 ## Recurring Errors & Fixes
 

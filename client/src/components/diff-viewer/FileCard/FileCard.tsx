@@ -15,9 +15,13 @@ import {
   type CommentThread,
   type DiffCommentApi,
 } from "../comments";
+import { partitionAnnotations, type DiffAnnotation, type DiffAnnotationApi } from "../annotations";
 import { s, chevronFor } from "../styles";
 import { CodeLine } from "../CodeLine";
 import { OutdatedComments } from "../OutdatedComments";
+import { UnanchoredAnnotations } from "../UnanchoredAnnotations";
+
+const NO_ANNOTATIONS: DiffAnnotation[] = [];
 
 /** Threads anchored to a given parsed line (RIGHT=new, LEFT=old). */
 function threadsForLine(ln: Line, matched: Map<string, CommentThread[]>): CommentThread[] {
@@ -30,7 +34,26 @@ function threadsForLine(ln: Line, matched: Map<string, CommentThread[]>): Commen
   return out;
 }
 
-export function FileCard({ file, commenting }: { file: PrFile; commenting?: DiffCommentApi }) {
+/** Annotations anchored to a given parsed line (new side only). */
+function annotationsForLine(ln: Line, matched: Map<string, DiffAnnotation[]>): DiffAnnotation[] {
+  if (matched.size === 0) return NO_ANNOTATIONS;
+  const out: DiffAnnotation[] = [];
+  for (const key of keysForLine(ln)) {
+    const list = matched.get(key);
+    if (list) out.push(...list);
+  }
+  return out;
+}
+
+export function FileCard({
+  file,
+  commenting,
+  annotations,
+}: {
+  file: PrFile;
+  commenting?: DiffCommentApi;
+  annotations?: DiffAnnotationApi;
+}) {
   const t = useTranslations("shell");
   const [open, setOpen] = React.useState(
     (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
@@ -48,6 +71,17 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
     return partitionThreads(fileThreads, renderedKeys);
   }, [comments, file.path, lines]);
 
+  const annotationItems = annotations?.items;
+  const { fileItems, matchedAnnotations, unmatchedAnnotations } = React.useMemo(() => {
+    const own = (annotationItems ?? NO_ANNOTATIONS).filter((a) => a.path === file.path);
+    const renderedKeys = new Set<string>();
+    for (const ln of lines) for (const k of keysForLine(ln)) renderedKeys.add(k);
+    const { matched, unmatched } = partitionAnnotations(own, renderedKeys);
+    return { fileItems: own, matchedAnnotations: matched, unmatchedAnnotations: unmatched };
+  }, [annotationItems, file.path, lines]);
+  const markerItem = fileItems.find((a) => !a.resolved);
+  const showAnnotations = !!annotations?.show;
+
   const commentCount = commenting
     ? commenting.comments.filter((c) => c.path === file.path).length
     : 0;
@@ -60,6 +94,13 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
         <span className="mono" style={s.filePath}>
           {file.path}
         </span>
+        {annotations && markerItem && (
+          <span
+            role="img"
+            aria-label={annotations.markerLabel}
+            style={{ ...s.fileMarker, background: markerItem.color }}
+          />
+        )}
         <span className="mono tnum" style={s.fileStat}>
           <span style={s.addText}>+{file.additions}</span>{" "}
           <span style={s.delText}>−{file.deletions}</span>
@@ -85,10 +126,13 @@ export function FileCard({ file, commenting }: { file: PrFile; commenting?: Diff
                 path={file.path}
                 threads={threadsForLine(ln, matched)}
                 commenting={commenting}
+                annotations={annotationsForLine(ln, matchedAnnotations)}
+                showAnnotations={showAnnotations}
               />
             ))
           )}
           {commenting && commenting.showComments && <OutdatedComments threads={outdated} />}
+          {showAnnotations && <UnanchoredAnnotations items={unmatchedAnnotations} />}
         </div>
       )}
     </div>

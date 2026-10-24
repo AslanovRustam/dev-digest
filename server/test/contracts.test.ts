@@ -10,6 +10,7 @@ import {
   Risks,
   PrHistory,
   SmartDiff,
+  SmartDiffRole,
   Conformance,
   Onboarding,
   EvalRun,
@@ -181,6 +182,12 @@ describe('AI contracts parse fixtures', () => {
       split_suggestion: { too_big: false, total_lines: 285, proposed_splits: [] },
     });
     expect(d.groups[0]!.role).toBe('core');
+  });
+
+  it('SmartDiffRole accepts tests and docs, rejects unknown roles', () => {
+    expect(SmartDiffRole.parse('tests')).toBe('tests');
+    expect(SmartDiffRole.parse('docs')).toBe('docs');
+    expect(() => SmartDiffRole.parse('vendor')).toThrow();
   });
 
   it('Conformance / Onboarding / EvalRun / MemoryItem', () => {

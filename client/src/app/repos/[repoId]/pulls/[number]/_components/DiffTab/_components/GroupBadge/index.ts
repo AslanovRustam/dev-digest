@@ -1,0 +1,1 @@
+export { GroupBadge } from "./GroupBadge";
