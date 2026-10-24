@@ -65,6 +65,14 @@ describe('routes (no DB)', () => {
     await app.close();
   });
 
+  it('GET /pulls/:id/blast rejects a non-uuid id with 422', async () => {
+    const app = await buildApp({ config });
+    const res = await app.inject({ method: 'GET', url: '/pulls/not-a-uuid/blast' });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error.code).toBe('validation_error');
+    await app.close();
+  });
+
   it('GET /runs/:id/findings rejects a non-uuid id with 422', async () => {
     const app = await buildApp({ config });
     const res = await app.inject({ method: 'GET', url: '/runs/not-a-uuid/findings' });

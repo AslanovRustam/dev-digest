@@ -21,6 +21,7 @@ import {
   Repo,
   PrDetail,
   RunFindingsResponse,
+  BlastRadiusResponse,
 } from '@devdigest/shared';
 
 /**
@@ -341,5 +342,39 @@ describe('RunFindingsResponse contract', () => {
 
   it('rejects an unknown status', () => {
     expect(() => RunFindingsResponse.parse({ ...done, status: 'queued' })).toThrow();
+  });
+});
+
+describe('BlastRadiusResponse contract', () => {
+  const base = {
+    changed_symbols: [{ name: 'run', file: 'a.ts', kind: 'function' }],
+    downstream: [
+      {
+        symbol: 'run',
+        callers: [{ name: 'main', file: 'b.ts', line: 3 }],
+        endpoints_affected: [],
+        crons_affected: [],
+      },
+    ],
+    summary: '1 changed symbol, 1 caller',
+    stats: { symbols: 1, callers: 1, endpoints: 0, crons: 0 },
+  };
+
+  it('parses a non-degraded response', () => {
+    expect(() =>
+      BlastRadiusResponse.parse({ ...base, degraded: false, reason: null, indexed_sha: 'abc' }),
+    ).not.toThrow();
+  });
+
+  it('parses a degraded response', () => {
+    expect(() =>
+      BlastRadiusResponse.parse({ ...base, degraded: true, reason: 'index_partial', indexed_sha: null }),
+    ).not.toThrow();
+  });
+
+  it('rejects a reason outside the enum', () => {
+    expect(() =>
+      BlastRadiusResponse.parse({ ...base, degraded: true, reason: 'nope', indexed_sha: null }),
+    ).toThrow();
   });
 });

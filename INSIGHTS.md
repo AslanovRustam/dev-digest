@@ -36,6 +36,11 @@ _None yet._
   the command runs, sees the old or missing file, and denies with "must carry the self-review section".
   Write the body file in one call, then run `gh pr create` in a separate call.
   · ref: `.claude/skills/pr-self-review/scripts/gate.mjs:45-49`
+- **2026-10-24** · Don't start the next lesson's pipeline on top of the previous lesson's UNCOMMITTED work (L05 Blast
+  Radius ran over untracked L04 `mcp/`): `scripts/diff-index.mjs` lists both features (111 files), every reviewer
+  needs a hand-written scope list, and `plan-verifier` cannot tell which `mcp/` edits belong to which plan (rows end
+  NOT VERIFIABLE). Commit the previous lesson (or at least snapshot it) and branch before running `planner` —
+  why: the reviewers diff against `origin/main` + working tree · ref: `.devdigest/plans/08-blast-radius.diff-index.md`
 
 ## Codebase Patterns
 
@@ -258,6 +263,11 @@ _None yet._
   For an isolated headless test that skips the project's hooks, add `--setting-sources user`. · ref: `claude --help` (2.1.309)
 - **2026-10-23** · Supersedes 2026-10-23 (Open Questions, `.mcp.json` cwd). Moot for this repo: the MCP server is opt-in
   via `claude --mcp-config mcp/devdigest.mcp.json`, started from the root, and there is no root `.mcp.json`. See `mcp/INSIGHTS.md`.
+- **2026-10-24** · To get a lesson's design source from the Claude Design prototype link, do not trust the `Artifact read`
+  summary (it only sees "Unpacking…"); open the raw HTML it saves, parse `<script type="__bundler/manifest">` (JSON
+  `{id: {mime, compressed, data}}`), base64-decode each `data` and gunzip when `compressed`, then grep the chunks for the
+  feature name — each screen is a plain JSX file (e.g. `/* blast.jsx … */`) and the mock data lives in a separate chunk
+  — why: the prototype is a gzip+base64 bundle, so text search on the HTML finds nothing · ref: `.devdigest/plans/research/08-blast-prototype.jsx`
 
 ## Recurring Errors & Fixes
 

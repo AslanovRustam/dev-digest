@@ -52,6 +52,7 @@ import {
   RESYNC_JOB_KIND,
   SUPPORTED_EXT,
 } from './constants.js';
+import { advanceFrontier, capCallersPerSymbol, isTestPath, rollUpFacts } from './helpers.js';
 import { runFullIndex, type IndexPayload } from './pipeline/full.js';
 import { runIncremental } from './pipeline/incremental.js';
 
@@ -370,21 +371,38 @@ export class RepoIntelService implements RepoIntel {
       });
     }
     callers.sort((a, b) => b.rank - a.rank);
+    // Cap per changed symbol (not globally) so one hot symbol cannot hide the others' callers.
+    const cappedCallers = capCallersPerSymbol(callers, MAX_CALLERS_PER_SYMBOL);
 
     // Precomputed facts per caller file (endpoints + crons), so consumers can
     // attribute them to the changed symbol whose callers live in that file.
-    const facts = await this.repo.getFileFacts(repoId, callerFiles);
-    const endpoints = new Set<string>();
-    const factsByFile: Record<string, { endpoints: string[]; crons: string[] }> = {};
-    for (const f of facts) {
-      factsByFile[f.filePath] = { endpoints: f.endpoints, crons: f.crons };
-      for (const e of f.endpoints) endpoints.add(e);
+    // A helper's callers are usually services; the route lives in an importer of the
+    // caller. So each caller file's facts = its own + those of its importers up to
+    // BFS_DEPTH (direct caller = hop 1). Facts from test files are excluded.
+    const cappedFiles = [...new Set(cappedCallers.map((c) => c.file))];
+    const reached = new Map<string, Set<string>>();
+    let frontier = new Map<string, string[]>();
+    for (const f of cappedFiles) {
+      reached.set(f, new Set([f]));
+      frontier.set(f, [f]);
     }
+    for (let hop = 1; hop < BFS_DEPTH; hop++) {
+      const toQuery = [...new Set([...frontier.values()].flat())];
+      if (toQuery.length === 0) break;
+      const edges = await this.repo.getImporters(repoId, toQuery);
+      frontier = advanceFrontier(frontier, edges, reached);
+    }
+
+    const factFiles = [...new Set([...reached.values()].flatMap((s) => [...s]))].filter(
+      (f) => !isTestPath(f),
+    );
+    const facts = await this.repo.getFileFacts(repoId, factFiles);
+    const { factsByFile, endpoints } = rollUpFacts(reached, facts);
 
     return {
       changedSymbols,
-      callers: callers.slice(0, MAX_CALLERS_PER_SYMBOL),
-      impactedEndpoints: [...endpoints],
+      callers: cappedCallers,
+      impactedEndpoints: endpoints,
       factsByFile,
       degraded: false,
     };

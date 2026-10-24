@@ -51,6 +51,10 @@ _None yet._
   - Stdio transport: `@modelcontextprotocol/server/stdio`.
   · ref: `mcp/node_modules/@modelcontextprotocol/server/dist/*.d.mts`, `mcp/package.json`
 
+- **2026-10-24** · A tool behind a route with its own rate limit must branch on HTTP 429 BEFORE calling `apiErrorText`:
+  `apiErrorText` maps every 429 to the review limit text (`rateLimited()`, 10/min) — why: it was written for
+  `POST /pulls/:id/review` only · ref: `src/resolve.ts:27`, `src/tools/get-blast-radius.ts:24`
+
 ## Recurring Errors & Fixes
 
 - **2026-10-23** · **Symptom:** after tightening a response shape, a tool test fails with the generic "Unexpected API

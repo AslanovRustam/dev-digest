@@ -25,7 +25,7 @@ const INSTRUCTIONS = [
   '- run_agent_on_pr: review a PR with one agent, wait, return verdict + findings',
   '- get_findings: verdict and findings of a run_id',
   '- get_conventions: a repo\'s coding conventions',
-  '- get_blast_radius: not implemented yet',
+  '- get_blast_radius: symbols, callers and endpoints a PR affects',
 ].join('\n');
 
 const TOOLS: ToolDef[] = [listAgents, runAgentOnPr, getFindings, getConventions, getBlastRadius];

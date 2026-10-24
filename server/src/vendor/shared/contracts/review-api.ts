@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Finding, Verdict } from './findings.js';
-import { Intent, IntentConfidence, IntentRiskArea, IntentSource, SmartDiff } from './brief.js';
+import { BlastRadius, Intent, IntentConfidence, IntentRiskArea, IntentSource, SmartDiff } from './brief.js';
 
 /**
  * A2 — Review-Core API surface contracts. These extend the core
@@ -85,6 +85,21 @@ export type PrIntentResponse = z.infer<typeof PrIntentResponse>;
 /** Smart-diff response for a PR (the SmartDiff). */
 export const SmartDiffResponse = SmartDiff;
 export type SmartDiffResponse = z.infer<typeof SmartDiffResponse>;
+
+export const BlastDegradedReason = z.enum(['flag_off', 'index_failed', 'index_partial', 'repo_too_large', 'no_data']);
+export type BlastDegradedReason = z.infer<typeof BlastDegradedReason>;
+
+export const BlastStats = z.object({ symbols: z.number().int(), callers: z.number().int(), endpoints: z.number().int(), crons: z.number().int() });
+export type BlastStats = z.infer<typeof BlastStats>;
+
+/** `GET /pulls/:id/blast` — BlastRadius + counts + honest degradation; line numbers are valid at `indexed_sha` (null = use the PR head). */
+export const BlastRadiusResponse = BlastRadius.extend({
+  stats: BlastStats,
+  degraded: z.boolean(),
+  reason: BlastDegradedReason.nullable(),
+  indexed_sha: z.string().nullable(),
+});
+export type BlastRadiusResponse = z.infer<typeof BlastRadiusResponse>;
 
 /** Lifecycle of one agent run, as reported by `GET /runs/:id/findings`. */
 export const ReviewRunStatus = z.enum(['running', 'done', 'failed', 'cancelled']);

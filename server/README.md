@@ -76,6 +76,7 @@ flowchart TB
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
+    blast["blast<br/>/pulls/:id/blast"]
   end
   subgraph Platform["Platform"]
     settings["settings<br/>/settings · /providers"]
@@ -83,6 +84,41 @@ flowchart TB
   end
   HEALTH["/health (liveness) · /health/ready (DB ping → 200/503)"]
 ```
+
+### Blast radius (`GET /pulls/:id/blast`)
+
+`modules/blast/` (registered in `modules/index.ts`) returns, for a PR's changed
+files, the changed symbols, their callers grouped by symbol, and the endpoints /
+crons behind those callers. It only reads the precomputed repo-intel index — no
+model call, no re-analysis. Rate limit: 30 requests/minute
+(`modules/blast/constants.ts`), because the fallback path scans the clone. An
+unknown or foreign-workspace PR yields a not-found error. Response contract:
+`BlastRadiusResponse` in `src/vendor/shared/contracts/review-api.ts`.
+
+```mermaid
+sequenceDiagram
+  participant R as blast/routes.ts
+  participant S as BlastService
+  participant DB as BlastRepository
+  participant RI as container.repoIntel
+  participant H as helpers.toBlastRadiusResponse
+  R->>S: get(workspaceId, prId)
+  S->>DB: getPull, listChangedPaths
+  S->>RI: getBlastRadius(repoId, paths)
+  S->>RI: getIndexState(repoId)
+  S->>H: facade result, index state, repoIntelEnabled
+  H-->>S: BlastRadiusResponse (pure mapping)
+  S-->>R: BlastRadiusResponse
+```
+
+Mapping rules (`modules/blast/helpers.ts`): callers are grouped by `viaSymbol`;
+a group's endpoints/crons come from the facts of its caller files; `stats` and a
+number-only `summary` are computed; at most 200 changed symbols are listed
+(`stats.symbols` counts all). `degraded`/`reason` is derived from the config
+flag and index state (`flag_off`, `index_failed`, `index_partial`, `no_data`), and
+`indexed_sha` is set only when the result is not degraded. Facade behaviour
+(per-symbol cap, importer walk, test-file exclusion):
+[`repo-intel` README](src/modules/repo-intel/README.md).
 
 ## Environment
 

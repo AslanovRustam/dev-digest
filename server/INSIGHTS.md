@@ -191,6 +191,17 @@ _None yet._
   **Fix:** check first — `GET /runs/:id/trace` → `raw_output.findings` and `stats.grounding`. `0/0` means the
   model returned none; `k/N` with k < N means grounding dropped N−k. Only the second case is a code question.
   · ref: `src/modules/reviews/routes.ts` (`GET /runs/:id/trace`)
+- **2026-10-24** · **Symptom:** on Windows the repo index says `status: full`, yet `file_edges` is empty
+  (`stats->>'edgesWritten' = 0`, no `graphFailed`), every `references.decl_file` is NULL, `file_rank` is flat and
+  `GET /pulls/:id/blast` shows 0 callers for every PR. **Cause:** `toRel()` in the depgraph adapter returned
+  `path.relative` output with `\`, while the `files` set it filters against is POSIX — every edge was dropped
+  silently (the adapter never throws, so nothing marks the index partial). **Fix:** normalise with
+  `.split(sep).join('/')` (done), then `POST /repos/:id/resync`. Check `edgesWritten` in `repo_index_state.stats`
+  whenever blast/rank output looks empty. · ref: `src/adapters/depgraph/index.ts` (`toRel`), `test/depgraph-adapter.test.ts`
+- **2026-10-24** · **Symptom:** a `DepCruiseGraph.buildEdges` test on an `os.tmpdir()` fixture returns `[]` on Windows
+  even with correct code. **Cause:** dependency-cruiser joins cwd with the absolute root, so a root on another drive
+  (`C:\…\Temp` vs repo on `D:`) becomes `D:\…\server\C:\…` → ENOENT, swallowed by the adapter's catch. **Fix:**
+  create depgraph fixtures under `process.cwd()` and remove them in `afterAll`. · ref: `test/depgraph-adapter.test.ts`
 
 ## Session Notes
 

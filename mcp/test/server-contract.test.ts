@@ -13,7 +13,7 @@ const EXPECTED_INSTRUCTIONS = [
   '- run_agent_on_pr: review a PR with one agent, wait, return verdict + findings',
   '- get_findings: verdict and findings of a run_id',
   "- get_conventions: a repo's coding conventions",
-  '- get_blast_radius: not implemented yet',
+  '- get_blast_radius: symbols, callers and endpoints a PR affects',
 ].join('\n');
 
 const REPO_DESC = 'GitHub repo as owner/name, e.g. acme/payments-api';
@@ -62,12 +62,12 @@ const EXPECTED: Record<string, Expected> = {
     annotations: { readOnlyHint: true, idempotentHint: true },
   },
   get_blast_radius: {
-    title: 'Blast radius (not implemented)',
+    title: 'Get PR blast radius',
     description:
-      'NOT IMPLEMENTED (L04): will show which symbols, callers and endpoints a PR affects. It always returns an error for now; use run_agent_on_pr or get_findings instead.',
+      'Map what a pull request can break: the symbols declared in its changed files, their callers as file:line, and the HTTP endpoints and crons behind those callers. Reads the precomputed repo index (no model call) and flags an incomplete index with a reason.',
     described: { repo: REPO_DESC, pr: PR_DESC },
     undescribed: [],
-    annotations: { readOnlyHint: true },
+    annotations: { readOnlyHint: true, idempotentHint: true },
   },
 };
 
@@ -159,18 +159,11 @@ describe('MCP server contract (SDK in-memory transport)', () => {
     expect(Object.keys(schema.properties ?? {})).toEqual([]);
   });
 
-  it('get_blast_radius description starts with NOT IMPLEMENTED (L04)', async () => {
-    const { tools } = await (await connect()).listTools();
-    expect(tools.find((t) => t.name === 'get_blast_radius')?.description).toMatch(/^NOT IMPLEMENTED \(L04\)/);
-  });
-
   it('maps a ToolResult to MCP content and isError', async () => {
     const client = await connect();
     const bad = await client.callTool({ name: 'get_blast_radius', arguments: { repo: 'a/b', pr: 1 } });
     expect(bad.isError).toBe(true);
-    expect(bad.content).toEqual([
-      { type: 'text', text: expect.stringMatching(/^NOT IMPLEMENTED \(L04\)/) },
-    ]);
+    expect(bad.content).toEqual([{ type: 'text', text: expect.stringContaining('not reachable') }]);
     const good = await (await connect(() => ok([{ id: 'a1', name: 'Sec', model: 'm', enabled: true }]))).callTool({
       name: 'list_agents',
       arguments: {},

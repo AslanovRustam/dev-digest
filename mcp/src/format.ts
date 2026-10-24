@@ -1,7 +1,9 @@
 /** Ring 0: pure output shaping. Compact JSON, truncation, offset pagination. SDK-free. */
-import { FINDING_TEXT_MAX, SNIPPET_MAX, SUMMARY_MAX } from './constants.js';
-import type { Convention, Finding, RunFindings } from './contracts.js';
+import { BLAST_FACTS_MAX, BLAST_SYMBOLS_MAX, FINDING_TEXT_MAX, SNIPPET_MAX, SUMMARY_MAX } from './constants.js';
+import type { BlastRadius, Convention, Finding, RunFindings } from './contracts.js';
 import {
+  blastDegradedNext,
+  blastMoreNext,
   invalidCursor,
   noConventionsNext,
   runCancelled,
@@ -156,5 +158,30 @@ export function renderConventions(
     conventions: page.items.map((c) => compactConvention(c, opts.format)),
     ...(page.nextCursor ? { next_cursor: page.nextCursor } : {}),
     ...(!opts.hasAccepted ? { next: noConventionsNext() } : {}),
+  });
+}
+
+// ---- blast radius ----
+
+/** Compact blast map: first BLAST_SYMBOLS_MAX symbol groups, callers as "file:line (name)", facts capped. */
+export function renderBlast(repo: string, pr: number, blast: BlastRadius): ToolResult {
+  const shown = blast.downstream.slice(0, BLAST_SYMBOLS_MAX);
+  const omitted = blast.downstream.length - shown.length;
+  const next = blast.degraded ? blastDegradedNext() : omitted > 0 ? blastMoreNext() : undefined;
+  return toolText({
+    repo,
+    pr,
+    summary: blast.summary,
+    stats: blast.stats,
+    degraded: blast.degraded,
+    reason: blast.reason,
+    downstream: shown.map((g) => ({
+      symbol: g.symbol,
+      callers: g.callers.map((c) => `${c.file}:${c.line} (${c.name})`),
+      endpoints: g.endpoints_affected.slice(0, BLAST_FACTS_MAX),
+      crons: g.crons_affected.slice(0, BLAST_FACTS_MAX),
+    })),
+    ...(omitted > 0 ? { omitted_symbols: omitted } : {}),
+    ...(next ? { next } : {}),
   });
 }
