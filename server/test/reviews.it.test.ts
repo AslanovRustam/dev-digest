@@ -229,6 +229,24 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
 
+    // GET /runs/:id/findings — the poll target for external clients (MCP)
+    const rf = await app.inject({ method: 'GET', url: `/runs/${runId}/findings` });
+    expect(rf.statusCode).toBe(200);
+    const runFindings = rf.json();
+    expect(runFindings.status).toBe('done');
+    expect(runFindings.verdict).toBe('request_changes');
+    expect(runFindings.agent_name).toBe('Sec');
+    expect(runFindings.findings).toHaveLength(1);
+    expect(runFindings.findings[0].start_line).toBe(11);
+
+    // unknown run id → 404 envelope
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/runs/00000000-0000-4000-8000-000000000000/findings',
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error.code).toBe('not_found');
+
     await app.close();
   });
 

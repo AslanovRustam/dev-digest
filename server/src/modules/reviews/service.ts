@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import type { Container } from '../../platform/container.js';
-import type { FindingActionKind, RunEventKind, RunTrace, SmartDiff } from '@devdigest/shared';
+import type {
+  FindingActionKind,
+  RunEventKind,
+  RunFindingsResponse,
+  RunTrace,
+  SmartDiff,
+} from '@devdigest/shared';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import type { AgentRow } from '../../db/rows.js';
 import { ReviewRepository } from './repository.js';
-import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
+import { type ReviewDto, type ReviewDtoFinding, toRunFindings } from './helpers.js';
 import { ReviewRunExecutor, type Logger } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
 import { reviewToDto } from './helpers.js';
@@ -71,6 +77,14 @@ export class ReviewService {
   /** All runs for a PR (any status), newest first — the run history (incl. failures). */
   async listRuns(workspaceId: string, prId: string) {
     return this.repo.listRunsForPull(workspaceId, prId);
+  }
+
+  /** One run's status + its review and findings (workspace-scoped). */
+  async runFindings(workspaceId: string, runId: string): Promise<RunFindingsResponse> {
+    const found = await this.repo.getRunInWorkspace(workspaceId, runId);
+    if (!found) throw new NotFoundError('Run not found');
+    const reviewed = await this.repo.reviewForRun(workspaceId, runId);
+    return toRunFindings(found.run, found.agentName, reviewed);
   }
 
   /** Delete one run from the history (+ its trace). */

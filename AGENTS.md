@@ -2,7 +2,7 @@
 
 Local-first AI pull-request review. Course starter: exactly one flow works end to end
 (add repo → import PR → agent review); lessons L01–L08 add features back.
-4 independent packages — NO workspace, NO shared node_modules, mixed package managers.
+5 independent packages — NO workspace, NO shared node_modules, mixed package managers.
 
 ## Before answering
 - Identify which package(s) the task touches, then read that package's `AGENTS.md` first
@@ -19,6 +19,7 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 | `server/`        | Fastify 5 API + Drizzle, Postgres 16 + pgvector       | pnpm | 3001 |
 | `client/`        | Next.js 15 / React 19 studio                          | pnpm | 3000 |
 | `reviewer-core/` | pure engine: diff → prompt → LLM → grounded findings  | npm  | —    |
+| `mcp/`           | opt-in MCP server `devdigest`, not run by dev.sh      | npm  | —    |
 | `e2e/`           | deterministic agent-browser flows                     | npm  | —    |
 | `scripts/`       | `dev.sh` (full stack) · `e2e.sh` (hermetic e2e stack) · `diff-index.mjs` (review scope map) | —    | —    |
 
@@ -34,6 +35,8 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 - reviewer-core is consumed as raw TS source via tsconfig `paths` (no build, no publish);
   it imports `shared` from `../server`, so a `shared` edit also affects the engine.
 - Contracts are Zod; derive types with `z.infer`, never hand-write a parallel TS type.
+- `mcp/` is not a `shared` consumer: it talks to the API over HTTP with its own lenient Zod shapes; a new or
+  changed route it uses means updating `mcp/src/contracts.ts` (see `mcp/AGENTS.md`).
 - CI is path-filtered per package (`.github/workflows/`); `reviewer-core/**` also triggers server CI.
 
 ## Gotchas

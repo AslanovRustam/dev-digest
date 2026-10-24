@@ -93,6 +93,23 @@ export async function reviewsForPull(
   }));
 }
 
+/** The newest review a run produced (workspace-scoped), with its findings. */
+export async function reviewForRun(
+  db: Db,
+  workspaceId: string,
+  runId: string,
+): Promise<{ review: ReviewRow; findings: FindingRow[] } | undefined> {
+  const [review] = await db
+    .select()
+    .from(t.reviews)
+    .where(and(eq(t.reviews.runId, runId), eq(t.reviews.workspaceId, workspaceId)))
+    .orderBy(desc(t.reviews.createdAt))
+    .limit(1);
+  if (!review) return undefined;
+  const findings = await db.select().from(t.findings).where(eq(t.findings.reviewId, review.id));
+  return { review, findings };
+}
+
 export async function getReview(db: Db, reviewId: string): Promise<ReviewRow | undefined> {
   const [row] = await db.select().from(t.reviews).where(eq(t.reviews.id, reviewId));
   return row;

@@ -87,6 +87,22 @@ _None yet._
   therefore route to NO skill in `/pr-self-review`, planner or implementer. Only `client/src/**/*.test.tsx` gets
   `react-testing-library`. For a backend test, take the skills of the production file it tests. Adding a route
   means changing both `routing.md` and `ROUTES` in `scripts/collect.mjs`. · ref: `.claude/skills/pr-self-review/references/routing.md`
+- **2026-10-19** · An MCP "run review" tool must start and then poll, not block. `POST /pulls/:id/review` returns
+  `{runs:[{run_id,…}]}` right away and runs `executor.executeRuns` fire-and-forget, so a run can take minutes
+  (one LLM call per diff chunk). The API has no `GET /runs/:id` and no "findings by run id" route: findings come
+  from `GET /pulls/:id/reviews`, filtered on `review.run_id`, and status from `GET /pulls/:id/runs`. Add a run-scoped
+  route instead of filtering in the MCP layer. · ref: `server/src/modules/reviews/service.ts:136`, `server/src/modules/reviews/routes.ts:130`
+- **2026-10-23** · A new top-level package needs main-session edits that `implementer` is denied (`.claude/**`):
+  - `routing.md` + `ROUTES` in `collect.mjs`;
+  - a `touches(/^<pkg>\//)` block in `pr-self-review/scripts/checks.mjs`;
+  - `CI_TRIGGER_GLOBS` plus the `INV-CI-BLIND` rationale text in `invariants.mjs`;
+  - the `test-writer`/`doc-writer` allow (and gate-test deny) lists in `.claude/hooks/agent-guard.mjs`, plus its test and `.claude/agents/README.md`;
+  - the routing table AND the frontmatter `description` in `engineering-insights/SKILL.md`.
+  Missing any one of them silently leaves the package unreviewed or unwritable. · ref: `.claude/skills/pr-self-review/scripts/checks.mjs:32`
+- **2026-10-23** · `scripts/diff-index.mjs` has TWO package lists: `PACKAGES` (grouping) and the regex in
+  `inArchitectureScope` (what architecture-reviewer reads). Adding a package to `PACKAGES` only still drops its
+  `src/**` from the "Architecture scope" list, and a reviewer fed only the index skips it. That happened with `mcp/`.
+  · ref: `scripts/diff-index.mjs:13`, `scripts/diff-index.mjs:38`
 
 ## Tool & Library Notes
 
@@ -218,6 +234,30 @@ _None yet._
   it — a server-only port change (e.g. `vendor/shared/adapters.ts`) can only pass via `report.mjs --override`.
   `INV-SECRET` IS line-level: a trailing ignore on each fixture line works. · ref:
   `.claude/skills/pr-self-review/references/invariants.md` ("Known limits")
+- **2026-10-19** · Claude Code defers MCP tools by default (tool search). At session start it loads only the tool
+  NAMES and the server's `instructions` string, which is cut at 4,096 chars. Claude decides when to search for the
+  tools based on `instructions`, so keep it short (≈300–600 chars) and keyword-rich.
+  - Descriptions of tools that load up front are cut at 4,096 chars, deferred ones at 16,384.
+  - Tool output warns at 10k tokens and is capped at 25k (`MAX_MCP_OUTPUT_TOKENS`).
+  - `ENABLE_TOOL_SEARCH=false`, `_meta["anthropic/alwaysLoad"]` or a non-first-party `ANTHROPIC_BASE_URL` all turn
+    deferral off.
+  - Cursor and VS Code still send every schema in each request.
+  - Measure the cost with `/context`. · ref: https://code.claude.com/docs/en/mcp
+- **2026-10-23** · Node 24: `node --test .claude/skills/pr-self-review/scripts/` (a directory) does not discover the
+  tests. It runs the directory as one file and reports `✖ … scripts 'test failed'`, with 0 tests. Pass the files
+  instead: `node --test .claude/skills/pr-self-review/scripts/*.test.mjs` (32 tests); CI runs `gate.test.mjs`
+  directly. · ref: `.github/workflows/skills.yml:44`
+- **2026-10-23** · `plan-verifier` on a large plan (~260 traceable rows, 4 phases, 69 files) hits its 50-turn limit
+  before writing any report: the notification says "stopped at its 50-turn limit". Resume it with SendMessage and
+  ask for the report from the evidence it already has, unfinished rows marked NOT VERIFIABLE. That costs one turn,
+  not a rerun. For plans this size, pass `diff-index:` and per-phase reports, and expect the resume.
+  · ref: `.claude/agents/plan-verifier.md`
+- **2026-10-23** · `claude -p` with `--allowedTools` / `--disallowedTools` / `--mcp-config`: these flags are variadic
+  (`<tools...>`). A prompt given as the last argument is swallowed as tool names ("Permission deny rule … matches no
+  known tool"), and then `-p` fails with "Input must be provided". Pipe the prompt instead: `echo "…" | claude -p …`.
+  For an isolated headless test that skips the project's hooks, add `--setting-sources user`. · ref: `claude --help` (2.1.309)
+- **2026-10-23** · Supersedes 2026-10-23 (Open Questions, `.mcp.json` cwd). Moot for this repo: the MCP server is opt-in
+  via `claude --mcp-config mcp/devdigest.mcp.json`, started from the root, and there is no root `.mcp.json`. See `mcp/INSIGHTS.md`.
 
 ## Recurring Errors & Fixes
 
@@ -269,6 +309,11 @@ Added the four agents plus `.claude/hooks/agent-guard.mjs <profile>`. All profil
 differ only in the paths Edit/Write may touch. A wiring test pins the agent → profile map. Each profile is
 verified to deny in a fresh `claude -p --model haiku --allowedTools "Agent" …` session.
 
+### 2026-10-19 — research: `devdigest-mcp` server (L04)
+Web + codebase research only, no code. There is no MCP code yet. 3 of the 5 tools map onto existing routes
+(`GET /agents`, `POST /pulls/:id/review`, `GET /repos/:id/conventions`). `get_findings` needs a run-scoped route.
+Blast radius has a service (`RepoIntelService.getBlastRadius`) but no route.
+
 ## Open Questions
 
 - **2026-09-29** · Is `server/package.json` still skip-worktree? Root `AGENTS.md` and the comments in
@@ -276,5 +321,13 @@ verified to deny in a fresh `claude -p --model haiku --allowedTools "Agent" …`
   instead of using scripts), but `git ls-files -v package.json` returns `H`, not `S`, in this working tree.
   If the flag is gone for everyone, the CI steps can call the package scripts directly and the AGENTS.md
   gotcha should be dropped. Check on a fresh clone before changing either. · ref: `.github/workflows/server-unit.yml`
+- **2026-10-19** · MCP TypeScript SDK v2 (`@modelcontextprotocol/server`) examples import `zod/v4`. Server and
+  reviewer-core pin `zod ^3.24.1`. Two things are unverified: whether the installed 3.x resolves to ≥3.25 (the
+  first version that ships the `zod/v4` subpath), and whether v2 is tagged stable on npm. Check `npm view
+  @modelcontextprotocol/server dist-tags` and the lockfile before choosing v1 or v2. · ref: `server/package.json`
+- **2026-10-23** · `.mcp.json` stdio servers: the docs do not say which cwd Claude Code uses, and the desktop app was
+  reported to use `$HOME` (#75266). `CLAUDE_PROJECT_DIR` is set in the server's env. In project `.mcp.json`,
+  `args` must use `${CLAUDE_PROJECT_DIR:-.}`, but whether it expands there is unverified. Check with
+  `claude mcp list` from the root AND from `server/` once `mcp/dist` exists. · ref: https://code.claude.com/docs/en/mcp
 
 _None yet._

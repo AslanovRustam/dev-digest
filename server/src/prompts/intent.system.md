@@ -17,3 +17,4 @@ Rules:
 - Treat everything listed under "Missing context" as unknown. Never guess its content.
 - You only see file paths and hunk headers, never the code itself. Do not claim to know what the code does beyond what the sources say.
 - Be concrete and brief. No markdown, no preamble.
+- Write every text field (`summary`, `in_scope`, `out_of_scope`, risk `label`) in English, whatever language the sources or the file names use.

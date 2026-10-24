@@ -16,7 +16,7 @@ A file goes to a skill when it matches one of the skill's globs, **or** when one
 | `react-best-practices` | `client/src/**/*.tsx`, `client/src/lib/hooks/**` | — |
 | `react-testing-library` | `client/src/**/*.test.tsx` | — |
 | `zod` | `**/vendor/shared/contracts/**` | `z.` usage in a code file |
-| `security` | `server/src/modules/**/routes.ts`, `server/src/adapters/**`, `server/src/platform/config*` | `process.env`, `exec*(`, `spawn(`, `fs.*`, `fetch(` |
+| `security` | `server/src/modules/**/routes.ts`, `server/src/adapters/**`, `server/src/platform/config*`, `mcp/src/**` | `process.env`, `exec*(`, `spawn(`, `fs.*`, `fetch(` |
 | `typescript-expert` | `**/*.d.ts`, `**/tsconfig*.json` | `infer T`, `as unknown as`, `<T extends …>` |
 
 `security` and `typescript-expert` also exclude test files — their own guides say findings in

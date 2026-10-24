@@ -13,7 +13,7 @@ import type { Finding, RunSummary, RunTrace } from '@devdigest/shared';
  * composes them so its public API stays identical.
  */
 
-import type { FindingRow, PullRow } from '../../db/rows.js';
+import type { AgentRunRow, FindingRow, PullRow } from '../../db/rows.js';
 export type { FindingRow, PullRow };
 
 export type ReviewRow = typeof t.reviews.$inferSelect;
@@ -66,6 +66,14 @@ export class ReviewRepository {
     return reviewRepo.reviewsForPull(this.db, prId);
   }
 
+  /** The newest review a run produced, with its findings (workspace-scoped). */
+  reviewForRun(
+    workspaceId: string,
+    runId: string,
+  ): Promise<{ review: ReviewRow; findings: FindingRow[] } | undefined> {
+    return reviewRepo.reviewForRun(this.db, workspaceId, runId);
+  }
+
   getReview(reviewId: string): Promise<ReviewRow | undefined> {
     return reviewRepo.getReview(this.db, reviewId);
   }
@@ -82,6 +90,14 @@ export class ReviewRepository {
   /** All runs for a PR (any status), newest first — the PR run history. */
   listRunsForPull(workspaceId: string, prId: string): Promise<RunSummary[]> {
     return runRepo.listRunsForPull(this.db, workspaceId, prId);
+  }
+
+  /** One run (any status) + its agent's name, scoped to the workspace. */
+  getRunInWorkspace(
+    workspaceId: string,
+    runId: string,
+  ): Promise<{ run: AgentRunRow; agentName: string | null } | undefined> {
+    return runRepo.getRunInWorkspace(this.db, workspaceId, runId);
   }
 
   /** Delete one agent run (+ its trace via FK cascade). Workspace-scoped. */

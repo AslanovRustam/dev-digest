@@ -113,6 +113,8 @@ test('test-writer: test files and test helpers are writable', () => {
     join(ROOT, 'client', 'src', 'lib', 'findings.test.ts'),
     join(ROOT, 'client', 'src', 'test', 'setup.ts'),
     join(ROOT, 'server', 'src', 'x', 'y.test.ts'),
+    join(ROOT, 'mcp', 'test', 'wait.test.ts'),
+    join(ROOT, 'mcp', 'test', 'helpers', 'fake-api.ts'),
     join(ROOT, '..', 'elsewhere', 'scratch.ts'),
   ]) {
     assert.equal(edit(p, 'test-writer'), false, p);
@@ -136,6 +138,11 @@ test('test-writer: production code, gate tests, config, e2e flows and tooling ar
     join(ROOT, 'server', 'test', 'INSIGHTS.md'),
     join(ROOT, 'server', 'src', 'db', 'migrations', '0001_x.sql'),
     join(ROOT, 'client', 'src', 'app', '__snapshots__', 'x.snap'),
+    join(ROOT, 'mcp', 'test', 'architecture.test.ts'),
+    join(ROOT, 'mcp', 'test', 'server-contract.test.ts'),
+    join(ROOT, 'mcp', 'src', 'tools', 'list-agents.ts'),
+    join(ROOT, 'mcp', 'package.json'),
+    join(ROOT, 'mcp', '.dependency-cruiser.cjs'),
   ]) {
     assert.equal(edit(p, 'test-writer'), true, p);
     assert.equal(edit(p, 'test-writer', 'Write'), true, p);
@@ -155,6 +162,8 @@ test('doc-writer: documentation files are writable', () => {
     'TESTING.md',
     'e2e/docs/x.md',
     'server/src/modules/repo-intel/README.md',
+    'mcp/README.md',
+    'mcp/docs/x.md',
   ]) {
     assert.equal(edit(join(ROOT, p), 'doc-writer'), false, p);
     assert.equal(edit(join(ROOT, p), 'doc-writer', 'Write'), false, p);
@@ -176,6 +185,9 @@ test('doc-writer: product copies, specs, agent instructions, code and tooling ar
     'docs/diagram.png',
     '.claude/agents/README.md',
     'e2e/specs/x.flow.json',
+    'mcp/AGENTS.md',
+    'mcp/INSIGHTS.md',
+    'mcp/src/index.ts',
   ]) {
     assert.equal(edit(join(ROOT, p), 'doc-writer'), true, p);
     assert.equal(edit(join(ROOT, p), 'doc-writer', 'Write'), true, p);

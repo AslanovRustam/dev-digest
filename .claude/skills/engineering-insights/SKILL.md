@@ -1,6 +1,6 @@
 ---
 name: engineering-insights
-description: Captures non-obvious engineering lessons into the INSIGHTS.md of the module the work touched (server, repo-intel, client, reviewer-core, e2e, or the repo root). Use proactively whenever a session uncovers a root cause, a dead end or failed approach, a dependency or tool quirk, a codebase convention or architectural decision, a recurring error and its fix, or an unresolved question; at the end of every task; when the Stop hook requests an insights check; or when the user says "remember this", "add to insights", "lessons learned" or "wrap up".
+description: Captures non-obvious engineering lessons into the INSIGHTS.md of the module the work touched (server, repo-intel, client, reviewer-core, e2e, mcp, or the repo root). Use proactively whenever a session uncovers a root cause, a dead end or failed approach, a dependency or tool quirk, a codebase convention or architectural decision, a recurring error and its fix, or an unresolved question; at the end of every task; when the Stop hook requests an insights check; or when the user says "remember this", "add to insights", "lessons learned" or "wrap up".
 ---
 
 # Engineering insights
@@ -24,6 +24,7 @@ description: Captures non-obvious engineering lessons into the INSIGHTS.md of th
 | `client/**`                                                           | `client/INSIGHTS.md`                        |
 | `reviewer-core/**`                                                    | `reviewer-core/INSIGHTS.md`                 |
 | `e2e/**`                                                              | `e2e/INSIGHTS.md`                           |
+| `mcp/**`                                                              | `mcp/INSIGHTS.md`                           |
 | `scripts/**`, `.github/**`, Docker, both `shared` copies, cross-package | `INSIGHTS.md` (root)                      |
 
 ## Sections (fixed order)

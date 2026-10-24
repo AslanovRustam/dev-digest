@@ -33,7 +33,7 @@ export function maskSecret(match) {
 
 // ---------------------------------------------------------------- CI reach
 
-const CI_TRIGGER_GLOBS = [/^client\//, /^server\//, /^reviewer-core\//, /^e2e\//, /^\.github\/workflows\//];
+const CI_TRIGGER_GLOBS = [/^client\//, /^server\//, /^reviewer-core\//, /^e2e\//, /^mcp\//, /^\.github\/workflows\//];
 
 // ---------------------------------------------------------------- helpers
 
@@ -252,7 +252,7 @@ export function runInvariants(plan, patch, { root = repoRoot() } = {}) {
         title: 'No CI workflow is triggered by this change set',
         file: '.',
         rationale:
-          'All five workflows are path-filtered to `client/**`, `server/**`, `reviewer-core/**`, `e2e/**` and `.github/workflows/**`. Paths like `.claude/**`, `docs/**`, `specs/**` and root `*.md` run no checks at all.',
+          'The package workflows are path-filtered to `client/**`, `server/**`, `reviewer-core/**`, `e2e/**`, `mcp/**` and `.github/workflows/**`. Paths like `.claude/**`, `docs/**`, `specs/**` and root `*.md` run no checks at all.',
         suggestion: 'This self-review is the only gate for this PR — read the diff once more before merging.',
       }),
     );

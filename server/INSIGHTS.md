@@ -112,6 +112,11 @@ _None yet._
 ## Tool & Library Notes
 
 _None yet._
+- **2026-10-10** · Pin the output language in every LLM system prompt ("write every text field in English") —
+  OpenRouter `deepseek/deepseek-v4-flash` returned the whole intent (summary, scope, risk labels) in Chinese for
+  an English PR when `intent.system.md` set no language. After editing any `src/prompts/*.md`, restart the API:
+  `loadPromptTemplate` caches templates in-process and tsx watch does not reload on `.md` · ref:
+  `src/prompts/intent.system.md`, `src/platform/prompts.ts:21`, `test/intent-helpers.test.ts`
 - **2026-09-29** · dependency-cruiser's PROGRAMMATIC api does not validate unless you pass
   `validate: true` explicitly — the CLI sets it for you. Without it `summary.violations` is silently `[]`
   and an architecture test passes while proving nothing. Call it as

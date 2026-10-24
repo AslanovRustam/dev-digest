@@ -85,3 +85,24 @@ export type PrIntentResponse = z.infer<typeof PrIntentResponse>;
 /** Smart-diff response for a PR (the SmartDiff). */
 export const SmartDiffResponse = SmartDiff;
 export type SmartDiffResponse = z.infer<typeof SmartDiffResponse>;
+
+/** Lifecycle of one agent run, as reported by `GET /runs/:id/findings`. */
+export const ReviewRunStatus = z.enum(['running', 'done', 'failed', 'cancelled']);
+export type ReviewRunStatus = z.infer<typeof ReviewRunStatus>;
+
+/** `GET /runs/:id/findings` — one run's status + its review. findings: severity desc, file, start_line. */
+export const RunFindingsResponse = z.object({
+  run_id: z.string(),
+  pr_id: z.string().nullable(),
+  agent_id: z.string().nullable(),
+  agent_name: z.string().nullable(),
+  status: ReviewRunStatus,
+  error: z.string().nullable(),
+  review_id: z.string().nullable(),
+  verdict: Verdict.nullable(),
+  summary: z.string().nullable(),
+  score: z.number().int().nullable(),
+  blockers: z.number().int().nullable(),
+  findings: z.array(FindingRecord),
+});
+export type RunFindingsResponse = z.infer<typeof RunFindingsResponse>;

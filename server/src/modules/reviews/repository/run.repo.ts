@@ -2,6 +2,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
+import type { AgentRunRow } from '../../../db/rows.js';
 
 // ---- in-flight / history --------------------------------------------------
 
@@ -66,6 +67,22 @@ export async function listRunsForPull(
     score: run.score,
     blockers: run.blockers,
   }));
+}
+
+/** One run (any status) in the workspace, with its agent's name. Undefined when
+ *  the id is unknown or belongs to another workspace. */
+export async function getRunInWorkspace(
+  db: Db,
+  workspaceId: string,
+  runId: string,
+): Promise<{ run: AgentRunRow; agentName: string | null } | undefined> {
+  const [row] = await db
+    .select({ run: t.agentRuns, agentName: t.agents.name })
+    .from(t.agentRuns)
+    .leftJoin(t.agents, eq(t.agents.id, t.agentRuns.agentId))
+    .where(and(eq(t.agentRuns.id, runId), eq(t.agentRuns.workspaceId, workspaceId)))
+    .limit(1);
+  return row ? { run: row.run, agentName: row.agentName ?? null } : undefined;
 }
 
 /**

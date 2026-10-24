@@ -89,10 +89,13 @@ export const PROFILES = {
     deny: [
       [/^server\/test\/architecture\.test\.ts$/, 'architecture gate — weakening it disables the gate'],
       [/^reviewer-core\/test\/purity\.test\.ts$/, 'engine purity gate — weakening it disables the gate'],
+      [/^mcp\/test\/architecture\.test\.ts$/, 'mcp ring gate — weakening it disables the gate'],
+      [/^mcp\/test\/server-contract\.test\.ts$/, 'pins the user-approved MCP texts verbatim — change only with the user'],
     ],
     allow: [
       /^server\/test\//,
       /^reviewer-core\/test\//,
+      /^mcp\/test\//,
       /^server\/src\/.+\.test\.ts$/,
       /^client\/src\/.+\.test\.tsx?$/,
       /^client\/src\/test\//,
@@ -108,8 +111,8 @@ export const PROFILES = {
     ],
     allow: [
       /^docs\/.+\.md$/,
-      /^(?:server|client|reviewer-core|e2e)\/docs\/.+\.md$/,
-      /^(?:server|client|reviewer-core|e2e)\/README\.md$/,
+      /^(?:server|client|reviewer-core|e2e|mcp)\/docs\/.+\.md$/,
+      /^(?:server|client|reviewer-core|e2e|mcp)\/README\.md$/,
       /^README\.md$/,
       /^TESTING\.md$/,
       /^server\/src\/modules\/[^/]+\/README\.md$/,
