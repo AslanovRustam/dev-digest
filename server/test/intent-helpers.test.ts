@@ -19,7 +19,8 @@ import {
   rawFromPatches,
   truncate,
 } from '../src/modules/intent/helpers.js';
-import { MAX_RISK_AREAS, MAX_SCOPE_ITEMS, MAX_SUMMARY_CHARS } from '../src/modules/intent/constants.js';
+import { MAX_RISK_AREAS, MAX_SCOPE_ITEMS, MAX_SUMMARY_CHARS, SYSTEM_PROMPT_FILE } from '../src/modules/intent/constants.js';
+import { renderPrompt } from '../src/platform/prompts.js';
 
 const repo = { owner: 'acme', name: 'api' };
 const refs = (body: string, title = 'A change', branch = 'feat/x') =>
@@ -391,5 +392,13 @@ describe('isStale', () => {
   it('compares head shas', () => {
     expect(isStale('a', 'a')).toBe(false);
     expect(isStale('a', 'b')).toBe(true);
+  });
+});
+
+describe('intent system prompt', () => {
+  // deepseek-v4-flash answered in Chinese when the prompt set no output language.
+  it('pins the output language to English', async () => {
+    const system = await renderPrompt(SYSTEM_PROMPT_FILE, { max_items: '5', max_risks: '5' });
+    expect(system).toMatch(/Write every text field .* in English/);
   });
 });
