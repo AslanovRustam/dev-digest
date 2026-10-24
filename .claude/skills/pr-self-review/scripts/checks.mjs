@@ -34,6 +34,7 @@ function planChecks(paths) {
   const server = touches(/^server\//);
   const core = touches(/^reviewer-core\//);
   const client = touches(/^client\//);
+  const mcp = touches(/^mcp\//);
   const sharedServer = touches(/^server\/src\/vendor\/shared\//);
 
   const checks = [];
@@ -75,6 +76,19 @@ function planChecks(paths) {
     checks.push(
       { pkg: 'reviewer-core', name: 'typecheck', cmd: 'npm run typecheck', cwd: 'reviewer-core' },
       { pkg: 'reviewer-core', name: 'test', cmd: 'npm test', cwd: 'reviewer-core' },
+    );
+  }
+
+  // mcp is a standalone npm package (thin HTTP client over the API): no server/shared imports,
+  // so only its own changes trigger it.
+  if (mcp) {
+    if (!existsSync(join(repoRoot(), 'mcp', 'node_modules'))) {
+      checks.push({ pkg: 'mcp', name: 'install', cmd: 'npm ci', cwd: 'mcp' });
+    }
+    checks.push(
+      { pkg: 'mcp', name: 'typecheck', cmd: 'npm run typecheck', cwd: 'mcp' },
+      { pkg: 'mcp', name: 'arch', cmd: 'npm run arch', cwd: 'mcp' },
+      { pkg: 'mcp', name: 'test', cmd: 'npm test', cwd: 'mcp' },
     );
   }
 

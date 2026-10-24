@@ -130,8 +130,9 @@ report with "Worth recording in INSIGHTS", and the main session records those en
   can fail (red first, or a flip check of the expected value); runs the package lanes. A new test that
   fails because the code is wrong stays failing and is reported as `BUG FOUND`.
 - **Tools:** `Read, Grep, Glob, Edit, Write, Bash, Skill`. Denied: `Agent, NotebookEdit, WebSearch, WebFetch`.
-- **Enforced:** `agent-guard.mjs test-writer` — Edit/Write only on test files (never the
-  `architecture.test.ts` / `purity.test.ts` gates); Bash on the shared read-only allowlist.
+- **Enforced:** `agent-guard.mjs test-writer` — Edit/Write only on test files, including `mcp/test/**`. Never the
+  gate tests `server/test/architecture.test.ts`, `reviewer-core/test/purity.test.ts`, `mcp/test/architecture.test.ts`,
+  or `mcp/test/server-contract.test.ts`, which pins the user-approved MCP texts. Bash on the shared read-only allowlist.
 - **Skills:** none preloaded. It invokes the skills `routing.md` gives each test file
   (`react-testing-library` for `client/src/**/*.test.tsx`) plus those of the production file under test.
 - **In:** a `PLAN: READY` plan path, or explicit behaviours + scenarios. "Add tests for X" alone →

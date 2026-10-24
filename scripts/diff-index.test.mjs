@@ -13,6 +13,8 @@ test('architecture scope keeps production code and migration SQL only', () => {
   assert.equal(inArchitectureScope('server/src/modules/intent/service.ts'), true);
   assert.equal(inArchitectureScope('reviewer-core/src/review/scope.ts'), true);
   assert.equal(inArchitectureScope('client/src/lib/hooks/intent.ts'), true);
+  assert.equal(inArchitectureScope('mcp/src/tools/x.ts'), true);
+  assert.equal(inArchitectureScope('mcp/test/x.test.ts'), false);
   assert.equal(inArchitectureScope('server/src/db/migrations/0018_x.sql'), true);
   assert.equal(inArchitectureScope('server/src/db/migrations/meta/0018_snapshot.json'), false);
   assert.equal(inArchitectureScope('server/test/intent.it.test.ts'), false);
@@ -23,6 +25,7 @@ test('architecture scope keeps production code and migration SQL only', () => {
 
 test('packages and rendering', () => {
   assert.equal(packageOf('reviewer-core/src/prompt.ts'), 'reviewer-core');
+  assert.equal(packageOf('mcp/src/x.ts'), 'mcp');
   assert.equal(packageOf('INSIGHTS.md'), 'other');
   const md = renderIndex({
     base: 'origin/main',

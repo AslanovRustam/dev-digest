@@ -20,6 +20,7 @@ import {
   Settings,
   Repo,
   PrDetail,
+  RunFindingsResponse,
 } from '@devdigest/shared';
 
 /**
@@ -285,5 +286,60 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('RunFindingsResponse contract', () => {
+  const finding = {
+    id: 'f1',
+    severity: 'CRITICAL',
+    category: 'bug',
+    title: 'Off-by-one',
+    file: 'src/a.ts',
+    start_line: 11,
+    end_line: 14,
+    rationale: 'why',
+    suggestion: null,
+    confidence: 0.9,
+    review_id: 'rv1',
+    accepted_at: null,
+    dismissed_at: null,
+  };
+  const done = {
+    run_id: 'r1',
+    pr_id: 'p1',
+    agent_id: 'a1',
+    agent_name: 'Security',
+    status: 'done',
+    error: null,
+    review_id: 'rv1',
+    verdict: 'request_changes',
+    summary: 'needs work',
+    score: 40,
+    blockers: 1,
+    findings: [finding],
+  };
+
+  it('parses a finished run with findings', () => {
+    expect(RunFindingsResponse.parse(done).findings).toHaveLength(1);
+  });
+
+  it('parses a running run that has no review yet', () => {
+    expect(() =>
+      RunFindingsResponse.parse({
+        ...done,
+        status: 'running',
+        review_id: null,
+        verdict: null,
+        summary: null,
+        score: null,
+        blockers: null,
+        findings: [],
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects an unknown status', () => {
+    expect(() => RunFindingsResponse.parse({ ...done, status: 'queued' })).toThrow();
   });
 });

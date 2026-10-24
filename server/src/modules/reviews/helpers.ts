@@ -2,8 +2,9 @@
  * Pure helpers for the review service (side-effect free; operate purely on
  * their arguments — no DB / network / `this`).
  */
-import type { Finding, PromptAssembly, SkillBlock } from '@devdigest/shared';
-import type { FindingRow, PullRow, ReviewRow, SkillRow } from '../../db/rows.js';
+import { ReviewRunStatus, Verdict } from '@devdigest/shared';
+import type { Finding, PromptAssembly, RunFindingsResponse, SkillBlock } from '@devdigest/shared';
+import type { AgentRunRow, FindingRow, PullRow, ReviewRow, SkillRow } from '../../db/rows.js';
 
 // reduceReviews + sliceDiff live in @devdigest/reviewer-core (pure engine logic
 // shared with the CI runner); re-exported here for backward-compatible imports.
@@ -70,6 +71,43 @@ export function reviewToDto(
     model: review.model,
     created_at: review.createdAt.toISOString(),
     findings: findings.map(findingRowToDto),
+  };
+}
+
+const SEVERITY_RANK: Record<string, number> = { CRITICAL: 0, WARNING: 1, SUGGESTION: 2 };
+
+/**
+ * Shape one run + its review into the `GET /runs/:id/findings` payload.
+ * A null / unknown run status (legacy rows) reads as 'failed'; an unparsable
+ * verdict as null. Findings are ordered severity desc, file, start_line so
+ * every consumer paginates over one stable order.
+ */
+export function toRunFindings(
+  run: AgentRunRow,
+  agentName: string | null,
+  reviewed: { review: ReviewRow; findings: FindingRow[] } | undefined,
+): RunFindingsResponse {
+  const status = ReviewRunStatus.safeParse(run.status);
+  const verdict = Verdict.safeParse(reviewed?.review.verdict);
+  const findings = (reviewed?.findings ?? []).map(findingRowToDto).sort(
+    (a, b) =>
+      (SEVERITY_RANK[a.severity] ?? 3) - (SEVERITY_RANK[b.severity] ?? 3) ||
+      a.file.localeCompare(b.file) ||
+      a.start_line - b.start_line,
+  );
+  return {
+    run_id: run.id,
+    pr_id: run.prId,
+    agent_id: run.agentId,
+    agent_name: agentName,
+    status: status.success ? status.data : 'failed',
+    error: run.error,
+    review_id: reviewed?.review.id ?? null,
+    verdict: verdict.success ? verdict.data : null,
+    summary: reviewed?.review.summary ?? null,
+    score: reviewed?.review.score ?? run.score,
+    blockers: run.blockers,
+    findings,
   };
 }
 

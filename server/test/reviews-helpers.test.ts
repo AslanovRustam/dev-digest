@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSkillBlocks, formatSkillBlock, taskLine } from '../src/modules/reviews/helpers.js';
+import { buildSkillBlocks, formatSkillBlock, taskLine, toRunFindings } from '../src/modules/reviews/helpers.js';
 
 /**
  * Unit coverage for the review task-line. The key invariant: our trusted
@@ -80,5 +80,77 @@ describe('buildSkillBlocks', () => {
 
   it('returns [] for no skills', () => {
     expect(buildSkillBlocks([], () => 1)).toEqual([]);
+  });
+});
+
+/** GET /runs/:id/findings — pure mapping of a run + its review. */
+describe('toRunFindings', () => {
+  const run = (over: Record<string, unknown> = {}) =>
+    ({
+      id: 'r1',
+      prId: 'p1',
+      agentId: 'a1',
+      status: 'done',
+      error: null,
+      score: 70,
+      blockers: 1,
+      ...over,
+    }) as never;
+  const frow = (id: string, severity: string, file: string, startLine: number) =>
+    ({
+      id,
+      reviewId: 'rv1',
+      file,
+      startLine,
+      endLine: startLine,
+      severity,
+      category: 'bug',
+      title: id,
+      rationale: 'why',
+      suggestion: null,
+      confidence: 0.8,
+      kind: 'finding',
+      trifectaComponents: null,
+      acceptedAt: null,
+      dismissedAt: null,
+    }) as never;
+  const review = (over: Record<string, unknown> = {}) =>
+    ({ id: 'rv1', verdict: 'request_changes', summary: 'sum', score: 40, ...over }) as never;
+
+  it('a running run without a review has no verdict and no findings', () => {
+    const out = toRunFindings(run({ status: 'running' }), 'Sec', undefined);
+    expect(out).toMatchObject({ status: 'running', verdict: null, review_id: null, findings: [] });
+    expect(out.agent_name).toBe('Sec');
+  });
+
+  it('sorts findings CRITICAL > WARNING > SUGGESTION, then file, then start_line', () => {
+    const out = toRunFindings(run(), null, {
+      review: review(),
+      findings: [
+        frow('s', 'SUGGESTION', 'a.ts', 1),
+        frow('w', 'WARNING', 'a.ts', 5),
+        frow('c2', 'CRITICAL', 'b.ts', 1),
+        frow('c1b', 'CRITICAL', 'a.ts', 9),
+        frow('c1a', 'CRITICAL', 'a.ts', 2),
+      ],
+    });
+    expect(out.findings.map((f) => f.id)).toEqual(['c1a', 'c1b', 'c2', 'w', 's']);
+    expect(out.verdict).toBe('request_changes');
+    expect(out.score).toBe(40);
+  });
+
+  it('falls back to the run score when the review has none', () => {
+    const out = toRunFindings(run(), null, { review: review({ score: null }), findings: [] });
+    expect(out.score).toBe(70);
+  });
+
+  it('reads a null or unknown status as failed', () => {
+    expect(toRunFindings(run({ status: null }), null, undefined).status).toBe('failed');
+    expect(toRunFindings(run({ status: 'weird' }), null, undefined).status).toBe('failed');
+  });
+
+  it('maps an unparsable verdict to null', () => {
+    const out = toRunFindings(run(), null, { review: review({ verdict: 'LGTM' }), findings: [] });
+    expect(out.verdict).toBeNull();
   });
 });

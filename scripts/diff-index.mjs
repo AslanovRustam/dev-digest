@@ -10,7 +10,7 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-const PACKAGES = ['server', 'client', 'reviewer-core', 'e2e', '.claude', 'specs', 'docs', 'scripts'];
+const PACKAGES = ['server', 'client', 'reviewer-core', 'mcp', 'e2e', '.claude', 'specs', 'docs', 'scripts'];
 
 /** Tags that decide which reviewer cares about a file. */
 export function tagsFor(path) {
@@ -30,12 +30,12 @@ export function packageOf(path) {
   return PACKAGES.includes(first) ? first : 'other';
 }
 
-/** Files the architecture rules can apply to: production code in the three packages. */
+/** Files the architecture rules can apply to: production code in the four packages. */
 export function inArchitectureScope(path) {
   const tags = tagsFor(path);
   if (tags.some((t) => ['test', 'messages', 'styles', 'doc'].includes(t))) return false;
   if (tags.includes('migration')) return path.endsWith('.sql'); // the SQL, not drizzle meta
-  return /^(server\/src|reviewer-core\/src|client\/src)\//.test(path);
+  return /^(server\/src|reviewer-core\/src|client\/src|mcp\/src)\//.test(path);
 }
 
 /**

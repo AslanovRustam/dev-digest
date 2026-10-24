@@ -121,7 +121,13 @@ const ROUTES = [
   },
   {
     skill: 'security',
-    include: ['server/src/modules/**/routes.ts', 'server/src/adapters/**', 'server/src/platform/config*'],
+    include: [
+      'server/src/modules/**/routes.ts',
+      'server/src/adapters/**',
+      'server/src/platform/config*',
+      // The MCP server hands PR-derived (untrusted) text to another agent and talks HTTP.
+      'mcp/src/**',
+    ],
     exclude: TEST_FILES,
     content: /process\.env|\bexec(File|Sync)?\s*\(|\bspawn\s*\(|\bfs\.[a-z]|fetch\s*\(/,
     scope: CODE_SCOPE,
