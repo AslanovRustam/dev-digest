@@ -36,6 +36,11 @@ _None yet._
   the command runs, sees the old or missing file, and denies with "must carry the self-review section".
   Write the body file in one call, then run `gh pr create` in a separate call.
   · ref: `.claude/skills/pr-self-review/scripts/gate.mjs:45-49`
+- **2026-10-24** · Don't start the next lesson's pipeline on top of the previous lesson's UNCOMMITTED work (L05 Blast
+  Radius ran over untracked L04 `mcp/`): `scripts/diff-index.mjs` lists both features (111 files), every reviewer
+  needs a hand-written scope list, and `plan-verifier` cannot tell which `mcp/` edits belong to which plan (rows end
+  NOT VERIFIABLE). Commit the previous lesson (or at least snapshot it) and branch before running `planner` —
+  why: the reviewers diff against `origin/main` + working tree · ref: `.devdigest/plans/08-blast-radius.diff-index.md`
 
 ## Codebase Patterns
 
@@ -258,6 +263,25 @@ _None yet._
   For an isolated headless test that skips the project's hooks, add `--setting-sources user`. · ref: `claude --help` (2.1.309)
 - **2026-10-23** · Supersedes 2026-10-23 (Open Questions, `.mcp.json` cwd). Moot for this repo: the MCP server is opt-in
   via `claude --mcp-config mcp/devdigest.mcp.json`, started from the root, and there is no root `.mcp.json`. See `mcp/INSIGHTS.md`.
+- **2026-10-24** · To get a lesson's design source from the Claude Design prototype link, do not trust the `Artifact read`
+  summary (it only sees "Unpacking…"); open the raw HTML it saves, parse `<script type="__bundler/manifest">` (JSON
+  `{id: {mime, compressed, data}}`), base64-decode each `data` and gunzip when `compressed`, then grep the chunks for the
+  feature name — each screen is a plain JSX file (e.g. `/* blast.jsx … */`) and the mock data lives in a separate chunk
+  — why: the prototype is a gzip+base64 bundle, so text search on the HTML finds nothing · ref: `.devdigest/plans/research/08-blast-prototype.jsx`
+- **2026-10-24** · To split two features that ended up in one uncommitted tree (L04 + L05), recover the older version of a
+  file a subagent edited from its transcript, not from `tasks/<id>.output` (an empty link): the JSONL is at
+  `~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl`, and every `tool_use` appears TWICE (dedupe by
+  `id`). Edits done by `node`/`sed` scripts in Bash are there verbatim, and the agent's earlier `cat`/`sed -n`
+  outputs (`tool_result`) hold the text a regex replace threw away. Prove the reconstruction by re-applying the forward
+  edits and byte-comparing with the tree, stage it with `git hash-object -w --path=<p>` + `git update-index --cacheinfo`,
+  then test the commit alone with `git stash push -u` (ignored `node_modules` stay) and `trap 'git stash pop' EXIT`
+  — why: untracked files have no git baseline · ref: branches `feat/l04-mcp-server` / `feat/l05-blast-radius`
+- **2026-10-24** · `gh` is not installed on this Windows machine (neither Git Bash nor PowerShell), so `/pr-self-review`
+  step 7 cannot run `gh pr create`: open the PR with the GitHub MCP connector (`create_pull_request`) and paste
+  `pr-body-section.md` (with its `<!-- pr-self-review:<hash> -->` marker) into the body yourself — the PreToolUse gate
+  only matches `gh pr …` commands, so nothing checks that path. The gate's freshness hash includes HEAD's SHA, so any
+  rebase makes the report stale; re-run `/pr-self-review` (skill reviews mostly come from the cache, but files git
+  re-checked-out with CRLF miss it) · ref: `.claude/skills/pr-self-review/scripts/gate.mjs:151-155`, PR #12
 
 ## Recurring Errors & Fixes
 

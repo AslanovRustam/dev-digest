@@ -28,7 +28,7 @@ the separate `@modelcontextprotocol/client` (devDependency, pinned 2.3.1).
 - `src/format.ts` — compact/paginate/truncate/counts, `ToolResult` · `src/messages.ts` — every error / `next` text
 - `src/constants.ts` — limits and defaults · `src/resolve.ts` — `owner/name` + PR number → ids, API error text
 - `src/wait.ts` — `waitForRun` poll loop · `src/tools/*.ts` — `list-agents`, `run-agent-on-pr`, `get-findings`,
-  `get-conventions`, `get-blast-radius` (stub), `types.ts` (`ToolDef`, `ToolCtx`)
+  `get-conventions`, `get-blast-radius`, `types.ts` (`ToolDef`, `ToolCtx`)
 
 ## Rings (onion applied to `mcp/`; enforced by `npm run arch` + `test/architecture.test.ts`)
 Dependencies point inward. Flat files, no `domain/` folder; folders only for `tools/` and `adapters/`.
@@ -88,6 +88,7 @@ the "LLM-facing texts" section of `specs/07-mcp-server.md` first, then the code,
 | `POST /pulls/:prId/review` (`{agentId}`, 10/min rate limit) | `run_agent_on_pr` |
 | `GET /runs/:id/findings` | `wait.ts`, `get_findings` |
 | `GET /repos/:id/conventions` | `get_conventions` |
+| `GET /pulls/:id/blast` (30/min rate limit) | `get_blast_radius` |
 
 A change to one of these (path, status, shape) means updating `src/contracts.ts` and its tests. The server's
 `GET /runs/:id/findings` response is `RunFindingsResponse` in `server/src/vendor/shared/contracts/review-api.ts`;
@@ -108,7 +109,8 @@ this package keeps its own lenient copy on purpose.
 - The server itself reads no project files, only env + HTTP, so its own cwd does not matter, only the entry path.
 - The API must be running (`./scripts/dev.sh`) and the repo + PR already imported in DevDigest.
 - A PR whose repo is not cloned and has no `pr_files` is reviewed with an empty diff (same as in the UI before opening the PR).
-- `get_blast_radius` is a registered stub that always returns an error (lesson L04 homework).
+- `get_blast_radius` reads the precomputed repo index (no model call); a PR never opened in the UI has no `pr_files` yet and
+  returns an empty map flagged `no_data`. Spec: `../specs/08-blast-radius.md`.
 
 ## Docs
 | Doc | Use when |

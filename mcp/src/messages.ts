@@ -62,5 +62,11 @@ export const stillRunningNext = (runId: string): string => `call get_findings(${
 export const noConventionsNext = (): string =>
   'extract or accept conventions in the DevDigest UI (Conventions tab)';
 
-export const blastRadiusNotImplemented = (): string =>
-  'NOT IMPLEMENTED (L04): blast radius is not available yet. Use run_agent_on_pr / get_findings for review results.';
+export const blastRateLimited = (): string =>
+  'Blast radius rate limit (30/min) hit — wait ~60s, then retry';
+
+export const blastDegradedNext = (): string =>
+  'the repo index is incomplete — re-sync the repo index in the DevDigest UI, then retry';
+
+export const blastMoreNext = (): string =>
+  "open the PR's Overview tab in the DevDigest UI for the full map";

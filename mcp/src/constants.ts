@@ -28,3 +28,7 @@ export const SUMMARY_MAX = 300;
 export const FINDING_TEXT_MAX = 400;
 export const SNIPPET_MAX = 300;
 export const RUN_ERROR_MAX = 200;
+
+/** get_blast_radius output caps: symbol groups listed, and endpoints / crons per group. */
+export const BLAST_SYMBOLS_MAX = 10;
+export const BLAST_FACTS_MAX = 20;

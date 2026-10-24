@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { Finding, RunFindings } from '../src/contracts.js';
+import type { BlastRadius, Finding, RunFindings } from '../src/contracts.js';
 import {
   compactFinding,
   paginate,
+  renderBlast,
   renderConventions,
   renderRun,
   severityCounts,
@@ -159,5 +160,32 @@ describe('renderConventions', () => {
   it('an empty list carries a next hint', () => {
     const c = JSON.parse(renderConventions('a/b', null, [], { limit: 30, format: 'concise', hasAccepted: false }).text);
     expect(c.next).toMatch(/Conventions tab/);
+  });
+});
+
+describe('renderBlast', () => {
+  const blast = (n: number, facts: number): BlastRadius => ({
+    summary: 's',
+    stats: { symbols: n, callers: n, endpoints: facts, crons: 0 },
+    degraded: false,
+    reason: null,
+    downstream: Array.from({ length: n }, (_, i) => ({
+      symbol: `s${i}`,
+      callers: [{ name: 'c', file: 'a.ts', line: 7 }],
+      endpoints_affected: Array.from({ length: facts }, (_, k) => `GET /e${k}`),
+      crons_affected: [],
+    })),
+  });
+  it('formats callers as file:line (name) and caps symbols and facts', () => {
+    const body = JSON.parse(renderBlast('a/b', 1, blast(11, 25)).text);
+    expect(body.downstream).toHaveLength(10);
+    expect(body.downstream[0].callers).toEqual(['a.ts:7 (c)']);
+    expect(body.downstream[0].endpoints).toHaveLength(20);
+    expect(body.omitted_symbols).toBe(1);
+  });
+  it('has no next and no omitted_symbols when nothing is cut or degraded', () => {
+    const body = JSON.parse(renderBlast('a/b', 1, blast(2, 1)).text);
+    expect(body).not.toHaveProperty('next');
+    expect(body).not.toHaveProperty('omitted_symbols');
   });
 });

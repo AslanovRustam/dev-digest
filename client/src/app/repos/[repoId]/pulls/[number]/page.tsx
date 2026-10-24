@@ -153,10 +153,12 @@ export default function PRDetailPage() {
       />
 
       <div style={{ padding: "24px 32px 44px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 1080, margin: "0 auto" }}>
-        {tab === "overview" && <OverviewTab prBody={pr.body} />}
+        {tab === "overview" && (
+          <OverviewTab prBody={pr.body} prId={prId} repoFullName={repoFullName} headSha={pr.head_sha} />
+        )}
 
-        {/* Overview: after the description. Findings: before the review results. */}
-        {prId && tab !== "diff" && <IntentCard prId={prId} />}
+        {/* Overview renders IntentCard inside OverviewTab (next to the blast radius). Findings: before the review results. */}
+        {prId && tab === "findings" && <IntentCard prId={prId} />}
 
         {tab === "findings" && (
           <FindingsTab

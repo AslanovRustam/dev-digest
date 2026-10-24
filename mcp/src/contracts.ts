@@ -91,6 +91,28 @@ export const ConventionsList = z.object({
 });
 export type ConventionsList = z.infer<typeof ConventionsList>;
 
+/** GET /pulls/:id/blast */
+export const BlastRadius = z.object({
+  summary: z.string(),
+  stats: z.object({
+    symbols: z.number().int(),
+    callers: z.number().int(),
+    endpoints: z.number().int(),
+    crons: z.number().int(),
+  }),
+  degraded: z.boolean(),
+  reason: z.string().nullable(),
+  downstream: z.array(
+    z.object({
+      symbol: z.string(),
+      callers: z.array(z.object({ name: z.string(), file: z.string(), line: z.number().int() })),
+      endpoints_affected: z.array(z.string()).default([]),
+      crons_affected: z.array(z.string()).default([]),
+    }),
+  ),
+});
+export type BlastRadius = z.infer<typeof BlastRadius>;
+
 // ---- Tool inputs (flat shapes; descriptions are LLM-facing and user-approved, plan §6a) ----
 
 const repo = z.string().describe('GitHub repo as owner/name, e.g. acme/payments-api');

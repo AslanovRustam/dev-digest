@@ -21,6 +21,15 @@ _None yet._
 
 _None yet._
 
+- **2026-10-24** · Don't read `getBlastRadius().degraded/reason` as the index state: the facade only ever reports
+  `reason: 'no_data'` (ripgrep fallback), returns `degraded: false` for a `partial` index and never sets `flag_off`.
+  Consumers that must show an honest state read `getIndexState()` + `config.repoIntelEnabled` themselves — why: the
+  persistent path (`tryPersistentBlast`) accepts `full` and `partial` alike · ref: `src/modules/blast/helpers.ts`
+  (`blastDegradation`), `src/modules/repo-intel/service.ts` (`getBlastRadius`)
+- **2026-10-24** · A consumer module's ring-0 `helpers.ts` may not even type-import `repo-intel/types.ts` (`pnpm arch`
+  rule `domain-files-are-pure`): declare a local structural interface for the facade fields it reads, and let the
+  module's `service.ts` pass the facade result in · ref: `src/modules/blast/helpers.ts` (`BlastInput`)
+
 ## Tool & Library Notes
 
 _None yet._
@@ -28,6 +37,10 @@ _None yet._
 ## Recurring Errors & Fixes
 
 _None yet._
+
+- **2026-10-24** · Supersedes 2026-10-01 (Open Questions, flat `file_rank`). Not tsconfig `paths`: on Windows the
+  depgraph adapter dropped every edge (`\` vs `/` paths), so `file_edges` was empty and PageRank uniform. Fixed in
+  `src/adapters/depgraph/index.ts`; after a resync this repo has 854 edges. See `server/INSIGHTS.md` (2026-10-24).
 
 ## Session Notes
 

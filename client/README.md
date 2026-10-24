@@ -31,10 +31,17 @@ flowchart TD
   SETTINGS["/settings/:section<br/>API keys · models"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
-  PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
+  PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments · /pulls/:id/blast<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
   AGENTS -->|"/agents · /agents/:id"| API
   SETTINGS -->|"/settings · /providers"| API
 ```
+
+The PR detail Overview tab renders `BlastRadiusCard`
+(`src/app/repos/[repoId]/pulls/[number]/_components/BlastRadiusCard/`) next to the
+Intent card: a summary row, an expandable tree (`BlastTree`) and a graph view
+(`BlastGraph`), with a badge plus reason when the result is degraded. Data comes from
+`usePrBlast` (`src/lib/hooks/blast.ts`, `GET /pulls/:id/blast`); strings are in
+`messages/en/blast.json`.
 
 Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,
 `g`-then-key shortcuts). Pages are thin; feature logic sits in colocated

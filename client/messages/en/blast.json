@@ -1,4 +1,19 @@
 {
+  "title": "Blast radius",
+  "loading": "Loading blast radius…",
+  "errors": {
+    "load": "Couldn't load the blast radius."
+  },
+  "degraded": {
+    "badge": "Index incomplete",
+    "reason": {
+      "flag_off": "Repo intelligence is off — callers come from a text search and may be incomplete.",
+      "index_failed": "The last repo index failed — re-sync the repo index to rebuild it.",
+      "index_partial": "The repo index is partial — some callers may be missing.",
+      "repo_too_large": "The repo is too large to index fully — some callers may be missing.",
+      "no_data": "No repo index for these files yet — callers come from a text search and may be incomplete."
+    }
+  },
   "stat": {
     "symbols": "symbols",
     "callers": "callers",
@@ -6,13 +21,19 @@
     "crons": "cron/jobs"
   },
   "view": {
+    "ariaLabel": "Blast radius view",
     "tree": "tree",
     "graph": "graph"
   },
-  "callerCount": "{count} callers",
+  "callerCount": "{count, plural, one {# caller} other {# callers}}",
   "noDownstream": "{count} changed symbol(s), no downstream callers found.",
   "graph": {
     "empty": "No downstream callers to graph.",
-    "ariaLabel": "Blast radius graph"
+    "ariaLabel": "Blast radius graph",
+    "legend": {
+      "symbol": "changed symbol",
+      "callers": "callers",
+      "endpoints": "endpoints affected"
+    }
   }
 }

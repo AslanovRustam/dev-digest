@@ -23,7 +23,9 @@ describe('messages', () => {
     requestAborted: m.requestAborted('r1'),
     invalidCursor: m.invalidCursor(),
     unexpectedError: m.unexpectedError(),
-    blastRadiusNotImplemented: m.blastRadiusNotImplemented(),
+    blastRateLimited: m.blastRateLimited(),
+    blastDegradedNext: m.blastDegradedNext(),
+    blastMoreNext: m.blastMoreNext(),
     stillRunningNext: m.stillRunningNext('r1'),
     noConventionsNext: m.noConventionsNext(),
   };

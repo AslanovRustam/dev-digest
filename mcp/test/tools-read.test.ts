@@ -149,13 +149,78 @@ describe('get_conventions', () => {
 });
 
 describe('get_blast_radius', () => {
-  it('always returns the NOT IMPLEMENTED error without any API call', async () => {
-    const api = fakeApi(() => ok({}));
-    const out = await getBlastRadius.run({ repo: 'a/b', pr: 1 }, ctxFor(api));
-    expect(out).toEqual({
-      text: 'NOT IMPLEMENTED (L04): blast radius is not available yet. Use run_agent_on_pr / get_findings for review results.',
-      isError: true,
+  const REPO = '22222222-2222-4222-8222-222222222222';
+  const PR = '33333333-3333-4333-8333-333333333333';
+  const args = { repo: 'acme/pay', pr: 482 };
+  const group = (i: number, over: object = {}) => ({
+    symbol: `sym${i}`,
+    callers: [{ name: `caller${i}`, file: 'src/a.ts', line: i }],
+    endpoints_affected: ['GET /x'],
+    crons_affected: [],
+    ...over,
+  });
+  const blast = (over: object = {}) => ({
+    summary: '1 changed symbol, 1 caller, 1 endpoint, 0 crons',
+    stats: { symbols: 1, callers: 1, endpoints: 1, crons: 0 },
+    degraded: false,
+    reason: null,
+    downstream: [group(1)],
+    ...over,
+  });
+  const handler =
+    (blastRes: ReturnType<typeof ok> | ReturnType<typeof err>) => (p: string) => {
+      if (p === '/repos') return ok([{ id: REPO, full_name: 'Acme/Pay' }]);
+      if (p === `/repos/${REPO}/pulls`) return ok([{ id: PR, number: 482, title: 't' }]);
+      return blastRes;
+    };
+
+  it('resolves repo + PR, calls the blast route and returns the compact map', async () => {
+    const api = fakeApi(handler(ok(blast())));
+    const out = await getBlastRadius.run(args, ctxFor(api));
+    expect(api.calls).toEqual(['GET /repos', `GET /repos/${REPO}/pulls`, `GET /pulls/${PR}/blast`]);
+    expect(out.isError).toBeUndefined();
+    expect(JSON.parse(out.text)).toEqual({
+      repo: 'acme/pay',
+      pr: 482,
+      summary: '1 changed symbol, 1 caller, 1 endpoint, 0 crons',
+      stats: { symbols: 1, callers: 1, endpoints: 1, crons: 0 },
+      degraded: false,
+      reason: null,
+      downstream: [{ symbol: 'sym1', callers: ['src/a.ts:1 (caller1)'], endpoints: ['GET /x'], crons: [] }],
     });
-    expect(api.calls).toEqual([]);
+  });
+  it('degraded adds the re-sync next step', async () => {
+    const api = fakeApi(handler(ok(blast({ degraded: true, reason: 'index_partial' }))));
+    const body = JSON.parse((await getBlastRadius.run(args, ctxFor(api))).text);
+    expect(body).toMatchObject({ degraded: true, reason: 'index_partial' });
+    expect(body.next).toContain('re-sync the repo index');
+  });
+  it('more than 10 symbol groups: first 10 + omitted_symbols + UI next', async () => {
+    const downstream = Array.from({ length: 13 }, (_, i) => group(i + 1));
+    const body = JSON.parse((await getBlastRadius.run(args, ctxFor(fakeApi(handler(ok(blast({ downstream }))))))).text);
+    expect(body.downstream).toHaveLength(10);
+    expect(body.omitted_symbols).toBe(3);
+    expect(body.next).toContain('Overview tab');
+  });
+  it('HTTP 429 gives the blast rate-limit text', async () => {
+    const api = fakeApi(handler(err({ kind: 'http', status: 429, code: 'rate_limited', message: 'x' })));
+    const out = await getBlastRadius.run(args, ctxFor(api));
+    expect(out).toEqual({ text: 'Blast radius rate limit (30/min) hit — wait ~60s, then retry', isError: true });
+  });
+  it('PR not found stops before the blast call', async () => {
+    const api = fakeApi(handler(ok(blast())));
+    const out = await getBlastRadius.run({ ...args, pr: 9 }, ctxFor(api));
+    expect(out.isError).toBe(true);
+    expect(out.text).toContain('PR #9 not found');
+    expect(api.calls).toHaveLength(2);
+  });
+  it('unreachable API gives the start-the-server message', async () => {
+    const out = await getBlastRadius.run(args, ctxFor(fakeApi(() => err({ kind: 'unreachable' }))));
+    expect(out.isError).toBe(true);
+    expect(out.text).toContain('not reachable at http://localhost:3001');
+  });
+  it('a bad shape is reported without echoing anything', async () => {
+    const out = await getBlastRadius.run(args, ctxFor(fakeApi(handler(ok({ nope: 1 })))));
+    expect(out).toEqual({ text: 'Unexpected API response — is the DevDigest server up to date?', isError: true });
   });
 });

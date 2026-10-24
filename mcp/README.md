@@ -1,7 +1,7 @@
 # devdigest MCP server — run it from zero
 
 A local stdio MCP server that gives Claude Code five DevDigest tools: `list_agents`, `run_agent_on_pr`,
-`get_findings`, `get_conventions` and `get_blast_radius` (stub). It is a thin client over the DevDigest HTTP API.
+`get_findings`, `get_conventions` and `get_blast_radius`. It is a thin client over the DevDigest HTTP API.
 
 It is **opt-in**:
 - `./scripts/dev.sh` never starts it.
@@ -137,7 +137,7 @@ Ask in plain language. Claude picks the tools.
 | "Run the Security Reviewer on acme/payments-api PR #482 — can it merge?" | `list_agents` → `run_agent_on_pr` |
 | "Show the findings of run `<run_id>` with full rationale." | `get_findings` (`response_format: "detailed"`) |
 | "What coding conventions does acme/payments-api follow?" | `get_conventions` |
-| "What breaks if PR #482 merges?" | `get_blast_radius` → "NOT IMPLEMENTED (L04)" (stub) |
+| "What breaks if PR #482 merges?" | `get_blast_radius` (symbols, callers and endpoints the PR affects) |
 
 - `run_agent_on_pr` is the only tool that writes. It starts a real review, which costs one LLM review with the
   agent's provider.
