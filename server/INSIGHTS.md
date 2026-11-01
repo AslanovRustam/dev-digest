@@ -37,6 +37,15 @@ _None yet._
   added or changed by the PR is missing or stale there. Read it at `pull.headSha` through a ref-aware
   method instead (GitHub contents API `?ref=`), and normalise the path first. · ref:
   `src/adapters/git/simple-git.ts:129`
+- **2026-11-01** · Don't feed files of an imported repo into an LLM prompt through `GitClient.readFile` without
+  an lstat check — it follows symlinks, so a committed `docs/x.md` → `~/.devdigest/secrets.json` link sends local
+  secrets to the model. Reject symlinks and paths resolving outside the clone, as the repo-intel walker does —
+  why: `readFile(join(clonePath, path))` has neither guard · ref: `src/adapters/git/simple-git.ts:129`,
+  `src/modules/repo-intel/pipeline/walk.ts:89`
+- **2026-11-01** · Don't pass an existing branch name to `GitHubClient.commitFiles` unless you mean to discard
+  it — when the branch exists it calls `updateRef({ force: true })` with a commit parented on the BASE, silently
+  replacing that branch's history. Generate a fresh branch name per commit (e.g. suffix a timestamp) · ref:
+  `src/adapters/github/octokit.ts:279`, `:324`
 
 ## Codebase Patterns
 
@@ -220,6 +229,10 @@ container.db". The failure mode is contagion from existing violations, not ignor
 ### 2026-10-09 — Smart Diff (L04)
 Classifier + `GET /pulls/:id/smart-diff` in `reviews` (pure `smart-diff.ts`, rules in `constants.ts`, no LLM
 call). Placement and the `config.ts` → core decision recorded under Codebase Patterns.
+
+### 2026-11-01 — Project Context spec (research only)
+Drafted `specs/2026-11-01-project-context.md`. Two traps for reading repo docs into prompts and committing
+edits back are recorded under What Doesn't Work (symlink-following `readFile`, force `updateRef`).
 
 ## Open Questions
 
