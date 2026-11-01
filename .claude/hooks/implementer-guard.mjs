@@ -1,7 +1,8 @@
 // PreToolUse guard for the `implementer` subagent (wired in `.claude/agents/implementer.md`).
 //
 // The implementer edits code and runs tests — nothing else. This hook turns the "never commit,
-// never migrate, never touch generated/vendored paths" rules from advice into a hard deny.
+// never migrate, never touch generated/vendored paths, write files only with Edit/Write" rules from
+// advice into a hard deny.
 // It is a guardrail against mistakes, not a security boundary: `bash -c "git push"` hides the
 // command inside quotes and passes.
 //
@@ -32,6 +33,24 @@ const BASH_RULES = [
   [/^(?:pnpm|npm)\s+(?:run\s+)?db:(?:migrate|seed)\b/, 'writes to the developer database — migrations never run implicitly'],
 ];
 
+/**
+ * [regex on one shell statement, why it is denied] — files are written with Edit / Write only: those are
+ * the calls PATH_RULES can see, and shell writes corrupted files in past runs (a heredoc ate `\(`,
+ * `printf >>` truncated a CRLF test file and cost four turns to rebuild).
+ */
+const WRITE_RULES = [
+  [/(?<!<)<<(?!<)/, 'a heredoc writes a file or feeds an inline script, and silently eats backslash escapes'],
+  [/^tee\b(?!\s+\/dev\/null\s*$)/, '`tee` writes a file'],
+  [/^(?:sed|perl)\s+(?:\S+\s+)*?-(?:[a-zA-Z]*i[a-zA-Z.]*|-in-place)(?:[\s=]|$)/, 'in-place edit'],
+  [/^(?:python3?|py|node)\s+(?:-\S+\s+)*?(?:-c|-e|-p|--eval|--print|-)(?:\s|$)/, 'an inline script can write any file'],
+];
+
+const WRITE_HINT =
+  'Write files with the Edit / Write tools (Edit keeps CRLF line endings). A throwaway script goes to a file outside the repo through Write, then `node <file>`.';
+
+/** Redirect targets that write nothing: /dev/null and fd duplication (`2>&1`). */
+const ALLOWED_REDIRECT = new Set(['/dev/null', 'nul', 'NUL', '&1', '&2', '&-']);
+
 /** [regex on a repo-relative POSIX path, why it is denied] */
 const PATH_RULES = [
   [/^server\/src\/db\/migrations\//, 'generated — use `pnpm db:generate`, never hand-edit'],
@@ -50,10 +69,17 @@ export function normalise(raw) {
 }
 
 function bashVerdict(command) {
+  const denied = (s, why, hint) => ({ deny: true, reason: `implementer-guard: \`${s}\` is denied (${why}). ${hint}` });
   for (const raw of statements(command)) {
     const s = normalise(raw);
     for (const [re, why] of BASH_RULES) {
-      if (re.test(s)) return { deny: true, reason: `implementer-guard: \`${s}\` is denied (${why}). ${HANDOFF}` };
+      if (re.test(s)) return denied(s, why, HANDOFF);
+    }
+    for (const m of s.matchAll(/>{1,2}\s*(\S*)/g)) {
+      if (!ALLOWED_REDIRECT.has(m[1])) return denied(s, 'an output redirect writes a file', WRITE_HINT);
+    }
+    for (const [re, why] of WRITE_RULES) {
+      if (re.test(s)) return denied(s, why, WRITE_HINT);
     }
   }
   return { deny: false };

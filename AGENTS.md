@@ -11,7 +11,8 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
   import stub for Claude Code — always edit `AGENTS.md`, never the stub.
 - Skim root `INSIGHTS.md` + the package `INSIGHTS.md` for known traps before a non-trivial change.
 - If the task changes a Zod contract, plan the edit in BOTH copies of `shared` (see below).
-- If a `specs/` file exists for the feature, it is the source of truth for scope.
+- If a spec exists for the feature (root `specs/` for cross-package features, `<package>/specs/` for
+  one package — see `specs/README.md`), it is the source of truth for scope.
 
 ## Map
 | Path             | What                                                  | PM   | Port |
@@ -21,7 +22,7 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 | `reviewer-core/` | pure engine: diff → prompt → LLM → grounded findings  | npm  | —    |
 | `mcp/`           | opt-in MCP server `devdigest`, not run by dev.sh      | npm  | —    |
 | `e2e/`           | deterministic agent-browser flows                     | npm  | —    |
-| `scripts/`       | `dev.sh` (full stack) · `e2e.sh` (hermetic e2e stack) · `diff-index.mjs` (review scope map) | —    | —    |
+| `scripts/`       | `dev.sh` (full stack) · `e2e.sh` (hermetic e2e stack) · agent pipeline: `diff-index.mjs` (review scope map), `plan.mjs` (plan slice / lint / files vs diff), `verify.mjs` (one full test run, fingerprinted), `tree-snapshot.mjs` (what a fix round changed) | —    | —    |
 
 ## Commands (Windows: run `.sh` in Git Bash, not PowerShell)
 - Full stack from zero: `./scripts/dev.sh` (`--no-seed` · `--no-client` · `--db-only`)
@@ -52,27 +53,61 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 - Writing file content through a bash heredoc corrupts backslash escapes silently — `\(` vanishes
   in a JS template literal, `\1` becomes chr(1) in a Python non-raw string. Use the Write/Edit tools
   for content with escapes, or verify with `cat -A` afterwards; the terminal renders the damage as
-  nothing.
+  nothing. For `implementer` this is enforced: `implementer-guard.mjs` denies Bash file writes.
 
 ## Agents (`.claude/agents/`)
-- Pipeline: optional `researcher` (external facts only) → `planner` (researches the code itself,
-  Development Plan, read-only) → `implementer`, one run per plan phase (code + package tests) → optional
-  `test-writer` (test files only) → `plan-verifier` (every plan item traced to code + evidence) and
-  `architecture-reviewer` (boundary rules), both read-only → `doc-writer` (docs for what shipped) → the
-  user runs `/pr-self-review`.
-- Subagents do not see the conversation: save the planner's output to `.devdigest/plans/<NN-slug>.md`
-  (git-ignored) and give every later agent that path, never "the plan above". Save a report there too
-  when another agent needs it (e.g. the implementer's report for `plan-verifier`).
-- Token budget (each artifact is re-read by every later agent, each agent turn re-sends its transcript):
-  - Do not run `researcher` as a codebase pre-pass before `planner` — the planner does that research.
-  - From the plan, the main session reads and shows the user only `## Summary for the caller`; the
-    appendix after `<!-- RATIONALE -->` is for humans only.
-  - Run `implementer` once per phase (`phase: P1`, `P2`, …) with a fresh context instead of one long run;
-    pass the previous phase's saved report only if the next phase depends on it.
-  - Before the reviewers: `git fetch`, then `node scripts/diff-index.mjs > .devdigest/plans/<NN-slug>.diff-index.md`
-    and pass `diff-index:` + `base: origin/main` to `plan-verifier` and `architecture-reviewer`.
-  - From `plan-verifier`, read only up to `## Traceability` (failing rows come first).
-- `planner`, `implementer` and `test-writer` map files to skills through
+- Pipeline — three steps, each started by the user:
+  1. optional `spec-creator` — draft spec from the user's sources (Figma, screenshots, text). When the user
+     approves it, change only its `Status:` line to `approved`; after the PR merges, to `implemented`.
+  2. `implementation-planner` — researches the code itself, checks the requirements, writes the plan to
+     the `plan: .devdigest/plans/<NN-slug>.md` path you pass and returns only its summary. Run
+     `node scripts/plan.mjs lint <plan>`; on an ERROR send the output back to the same run. The user
+     picks the execution mode among its questions.
+  3. `/run-plan plan:<path> [spec:] [brief:] [design:]` (`.claude/skills/run-plan/SKILL.md`) — everything
+     after the plan: `implementer` per phase → `node scripts/verify.mjs` (the ONE full test run) → review
+     rounds — `plan-verifier` ∥ `architecture-reviewer` (boundaries, not bugs) ∥ the `code-review` skill
+     (correctness) — with fix rounds until no blocking finding is open (a delta re-review each round; after
+     3 rounds it asks) → live check → `doc-writer` → the user runs `/pr-self-review`. The fix rounds, the
+     ledger and the triage rules live in that skill.
+  - `researcher` — external facts only, at any step.
+  - `test-writer` is off in this pipeline (token budget); run it by hand on the verifier's "Rows without
+    test evidence" when a gap matters.
+- The planner cannot talk to the user. Ask every question from its `Summary for the caller` with
+  `AskUserQuestion` — never answer one yourself, never skip one; the first is always the execution mode.
+  If an answer differs from the planner's default or accepts a recommendation, continue the same planner
+  run (`SendMessage` to its id) with the answers — a fresh run redoes the research.
+- Execution mode — the user's choice, recorded in §0 of the saved plan:
+  - multi-agent — `/run-plan` as above;
+  - single-agent — the main session implements every phase itself (invokes the skills of the plan's
+    Skill map, runs each `done when` and `node scripts/verify.mjs`) and spawns no subagents;
+    `/pr-self-review` stays mandatory.
+- `spec-creator` cannot talk to the user either. Ask every blocking question and proposal from its
+  `SPEC: NEEDS_INPUT` with `AskUserQuestion`; run each "Needs research" item as its own `researcher`
+  (independent ones in parallel); then continue the same run (`SendMessage`) with the answers and the
+  reports. Its write limit (spec files only, drafts only) is a prompt rule — no guard hook backs it.
+- Specs (`specs/**`, `<package>/specs/**`, `e2e/docs/specs/**`) are written only by `spec-creator`, as
+  drafts — the one exception is the `Status:` line the main session moves on the user's word (step 1).
+  They are planner input only: it never writes or edits a spec and never plans a spec step.
+  A conflicting or outdated spec comes back under "Spec impact"; what happens to it is the user's call.
+- Subagents do not see the conversation: give every agent the plan's path
+  (`.devdigest/plans/<NN-slug>.md`, git-ignored), never "the plan above". The planner writes that file
+  itself; implementer and both reviewers write their reports there too (`out:`) and return only a head.
+- Token budget (each artifact is re-read by every later agent, each agent turn re-sends its transcript —
+  measured: the context re-sent per turn, not test output, is what costs):
+  - Do not run `researcher` as a codebase pre-pass before `implementation-planner` — it does that research.
+  - Show the user the summary the planner returns; do not Read the plan file. The appendix after
+    `<!-- RATIONALE -->` is for humans only.
+  - Run `implementer` once per phase with a fresh context; it reads only `node scripts/plan.mjs slice
+    <plan> <phase>`. Pass the previous phase's saved report only if the next phase depends on it.
+  - Before the reviewers: `git fetch`, `node scripts/diff-index.mjs > .devdigest/plans/<NN-slug>.diff-index.md`
+    and the `verify.mjs` record; pass `diff-index:`, `base: origin/main` and `verify:` to `plan-verifier`
+    (`diff-index:` + `base:` to `architecture-reviewer`).
+  - Models: `implementer`, `plan-verifier`, `architecture-reviewer`, `doc-writer` run on `sonnet`;
+    `spec-creator` and `implementation-planner` on `opus`. `/run-plan verifier:opus` overrides the
+    verifier for a schema or shared-contract plan.
+  - Re-review after fixes is a delta: `scripts/tree-snapshot.mjs` gives the files a fix round changed;
+    `plan-verifier` re-checks `rows:`, `architecture-reviewer` gets `scope:` + `previous:`.
+- `implementation-planner`, `implementer` and `test-writer` map files to skills through
   `.claude/skills/pr-self-review/references/routing.md` — the same table the self-review uses. Change it
   there, not in the agent prompts.
 - Guards: `.claude/hooks/implementer-guard.mjs` and `.claude/hooks/agent-guard.mjs <profile>`. After
@@ -112,6 +147,6 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 | `README.md` | need the architecture diagram, review flow end to end, or the lesson roadmap |
 | `TESTING.md` | choosing which suite a test belongs in, or why CI ran / didn't run |
 | `docs/agent-prompts/` | writing or tuning a reviewer agent's system prompt or model choice |
-| `specs/` | implementing a feature that spans packages (one spec per feature / lesson) |
+| `specs/README.md` | writing or reading a spec: which folder (root `specs/` = cross-package only, `<package>/specs/` = one package), naming, statuses |
 | `INSIGHTS.md` | something fails in a way that "shouldn't happen"; entries are added via the `engineering-insights` skill |
 | `<package>/AGENTS.md` | before any edit inside that package |

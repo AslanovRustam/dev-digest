@@ -10,6 +10,12 @@ _None yet._
   why: `main` is reset to the starter (`c6af1e4`), but e.g. run cost exists on `origin/full-functionality`
   (spec `git show 5406a0a:specs/01-run-cost-badge.md`, code `73b3849`/`641abb2`), `origin/lesson-1-lab/run-cost`,
   `origin/feat/review-cost`. Use as reference only; they disagree on design. · ref: `git branch -r`
+- **2026-11-01** · To get "what changed since point X" on an UNCOMMITTED tree, with no commit, stash or
+  index change: copy the real index (`git rev-parse --git-path index`) to a temp file, then run
+  `GIT_INDEX_FILE=<copy> git add -A && git write-tree`. This snapshots tracked + untracked files (ignored ones
+  excluded) as a tree object in `.git/objects`; later `git diff-tree -r --name-status <snapTree> <nowTree>`
+  lists exactly that round's files. It takes 0.18 s on this repo. `git diff` cannot do it (it shows
+  everything since the merge-base), and `git stash create` misses untracked files · ref: `scripts/tree-snapshot.mjs`
 
 ## What Doesn't Work
 
@@ -41,6 +47,11 @@ _None yet._
   needs a hand-written scope list, and `plan-verifier` cannot tell which `mcp/` edits belong to which plan (rows end
   NOT VERIFIABLE). Commit the previous lesson (or at least snapshot it) and branch before running `planner` —
   why: the reviewers diff against `origin/main` + working tree · ref: `.devdigest/plans/08-blast-radius.diff-index.md`
+- **2026-11-01** · The `<!-- RATIONALE -->` marker does NOT shrink what `implementer` / `plan-verifier` read: `Read`
+  returns the whole file (L05 P5 read all 40.8 KB of `08-blast-radius.md`, appendix included), and nothing enforces
+  the planner's "body ≤ ~20 KB" — the 07 / 08 plan bodies were 50 / 40 KB. Every phase run then re-sends that plan on
+  every turn. Keep the rationale in a separate file and hand each phase only its slice of the plan — why: a marker
+  is a prompt hint, not a tool limit · ref: `.claude/agents/implementer.md` → "Before the first edit"
 
 ## Codebase Patterns
 
@@ -108,6 +119,15 @@ _None yet._
   `inArchitectureScope` (what architecture-reviewer reads). Adding a package to `PACKAGES` only still drops its
   `src/**` from the "Architecture scope" list, and a reviewer fed only the index skips it. That happened with `mcp/`.
   · ref: `scripts/diff-index.mjs:13`, `scripts/diff-index.mjs:38`
+- **2026-10-31** · `planner` is now `implementation-planner`: entries above that cite `.claude/agents/planner.md`
+  or "run `planner`" mean `.claude/agents/implementation-planner.md`. Renaming any agent takes three edits at once:
+  - the file name;
+  - its `name:` (the wiring test asserts `name` === basename);
+  - the `wired` map in `.claude/hooks/agent-guard.test.mjs` (`deepEqual` over every agent).
+
+  Then start a NEW session, because the current one keeps offering the old name. A rename plus a body rewrite falls under
+  git's 50% similarity (`git diff -M HEAD` shows delete + add), so commit the pure `git mv` first, as in the
+  2026-09-29 rename entry. · ref: `.claude/hooks/agent-guard.test.mjs:257`
 
 ## Tool & Library Notes
 
@@ -282,6 +302,26 @@ _None yet._
   only matches `gh pr …` commands, so nothing checks that path. The gate's freshness hash includes HEAD's SHA, so any
   rebase makes the report stale; re-run `/pr-self-review` (skill reviews mostly come from the cache, but files git
   re-checked-out with CRLF miss it) · ref: `.claude/skills/pr-self-review/scripts/gate.mjs:151-155`, PR #12
+- **2026-11-01** · Figma MCP `get_screenshot` returns a short-lived URL plus curl instructions by default, not the
+  image. An agent without Bash / WebFetch (e.g. `spec-creator`) must pass `enableBase64Response: true` to see the
+  frame at all; cap `maxDimension` to keep the context small. Never give a spec or planning agent
+  `get_design_context` — it returns generated code. Every Figma file tool also needs `create_session` first and its
+  `sessionId` · ref: `.claude/agents/spec-creator.md` → "Step 2"
+- **2026-11-01** · A NEW `.claude/agents/<name>.md` created mid-session shows up in the same session's agent list
+  (with its `tools:`) a turn later — you can try a brand-new agent without a restart. The 2026-10-07 caching trap
+  still applies to EDITS of an agent the session has already loaded · ref: `.claude/agents/spec-creator.md`
+- **2026-11-01** · To see where the agent pipeline spends tokens, read `<session>/subagents/agent-<id>.meta.json`
+  (`agentType`, `description`) next to each transcript and sum `message.usage` once per assistant `message.id`.
+  Measured over L03–L05: test output is only ~5% of implementer tool-result bytes (the agents already pipe through
+  `| tail`). The cost is the context re-sent on every turn, 70–100K tokens per turn: the whole plan (37–46 KB) plus
+  the preloaded skills (24 KB). In the L05 cycle, the `/pr-self-review` Explore fan-out took 30%, the planner 26%,
+  the 7 implementer runs 19% and `plan-verifier` 17%. The single unphased L03 implementer run took 92 turns and
+  17.2M cache-read tokens. Measure this before you "optimise the tests" · ref: `~/.claude/projects/<project>/<session>/subagents/`
+- **2026-11-01** · Every subagent already gets the root `AGENTS.md` in its context: the transcript shows "Contents of
+  …\AGENTS.md (project instructions)" through the root `CLAUDE.md` import. So an agent prompt that says "Read root
+  `AGENTS.md`" pays 10.5 KB twice on every turn. A nested `<pkg>/CLAUDE.md` arrives only as the literal text
+  `@AGENTS.md`, because the import is NOT expanded, so package `AGENTS.md` files still have to be Read. This is
+  the mechanism behind "subdirectory auto-load is unreliable" · ref: `.claude/agents/implementer.md` → "Before the first edit"
 
 ## Recurring Errors & Fixes
 
@@ -298,6 +338,12 @@ _None yet._
   untracked file with `new TextDecoder('utf-8', { fatal: true })` (or `file <path>` → "Non-ISO extended-ASCII")
   and map the bytes back; assert user-visible strings containing `·`/`—` exactly, not by regex
   · ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/DiffTab/DiffTab.test.tsx`
+- **2026-11-01** · **Symptom:** an `implementer` phase spends 3–4 turns rebuilding a test file it had just written
+  (L05 P1: `server/test/contracts.test.ts` truncated). **Cause:** the agent still writes files from Bash
+  (`printf … >>` into CRLF files, `cat > f <<'EOF'`, `sed -i`, `python - <<`; seen in L04 P3 and L05 P1). The
+  AGENTS.md gotcha is advice only, and these writes also bypass `implementer-guard.mjs`, whose path rules check only
+  the `file_path` of Edit/Write. **Fix:** deny file-writing Bash statements in the guard (redirects to repo paths,
+  `tee`, `sed -i`, interpreter heredocs) so edits go through Edit/Write · ref: `.claude/hooks/implementer-guard.mjs:23-42`
 
 ## Session Notes
 
@@ -338,6 +384,38 @@ Web + codebase research only, no code. There is no MCP code yet. 3 of the 5 tool
 (`GET /agents`, `POST /pulls/:id/review`, `GET /repos/:id/conventions`). `get_findings` needs a run-scoped route.
 Blast radius has a service (`RepoIntelService.getBlastRadius`) but no route.
 
+### 2026-10-31 — `planner` → `implementation-planner`
+The planner no longer writes specs or plans spec steps (it used to, e.g. 08-blast-radius S10). It checks the
+requirements, returns recommendations, and always asks multi-agent vs single-agent. The main session asks its
+questions with `AskUserQuestion` and continues the same run through `SendMessage` (root `AGENTS.md` → Agents).
+
+### 2026-11-01 — `spec-creator` agent + `spec-authoring` skill
+Added `.claude/agents/spec-creator.md` (opus, no Bash, no guard hook — the user chose a prompt-only write limit) and
+the project-owned skill `.claude/skills/spec-authoring/` (template, EARS, IDs, traceability, self-check), preloaded
+by `spec-creator` and `implementation-planner`. Specs: root `specs/` for cross-package only, `<package>/specs/` else.
+
+### 2026-11-01 — SDD pipeline audit (token usage measured from subagent transcripts)
+Audited the agent pipeline (spec-creator → planner → implementer → reviewers → test-writer). The main costs are plan
+size × turns, preloaded skills and the review fan-out, not test output. Nothing was changed in `.claude/`.
+
+### 2026-11-01 — pipeline token fixes applied (same day, after the audit)
+Changes, superseding "nothing was changed" above:
+- `scripts/plan.mjs` (`slice` / `lint` / `files`) and `scripts/verify.mjs`, which runs every lane once and writes
+  fingerprinted JSON. It reuses `planChecks()` from `pr-self-review/scripts/checks.mjs`.
+- The planner writes its own plan file (`agent-guard planner`) and preloads 2 skills. The implementer preloads none
+  and reads only its phase slice.
+- `implementer-guard` denies Bash file writes.
+- New order: verifier before test-writer, delta re-checks (`rows:`), plus a correctness review and a live check.
+  Not changed: `/pr-self-review` still re-reviews onion / frontend-ui after `architecture-reviewer` (deliberate
+  defence in depth; the user's call).
+
+### 2026-11-01 — `/implement` command
+User decisions: `spec-creator` and `implementation-planner` stay manual. `/implement`
+(`.claude/skills/implement/`) runs everything after the plan, with review → ledger → fix-round loops
+(delta re-review, cap 3, oscillation / no-progress stops). `test-writer` is off. Both reviewers moved to
+`sonnet` and write their reports to files (`agent-guard reviewer`).
+Renamed the same day at the user's request: `/implement` → `/run-plan` (`.claude/skills/run-plan/`).
+
 ## Open Questions
 
 - **2026-09-29** · Is `server/package.json` still skip-worktree? Root `AGENTS.md` and the comments in
@@ -353,5 +431,14 @@ Blast radius has a service (`RepoIntelService.getBlastRadius`) but no route.
   reported to use `$HOME` (#75266). `CLAUDE_PROJECT_DIR` is set in the server's env. In project `.mcp.json`,
   `args` must use `${CLAUDE_PROJECT_DIR:-.}`, but whether it expands there is unverified. Check with
   `claude mcp list` from the root AND from `server/` once `mcp/dist` exists. · ref: https://code.claude.com/docs/en/mcp
+- **2026-11-01** · The 2026-10-09 PyYAML check fails on `implementation-planner.md` (`description: … Returns PLAN:
+  READY, …` — an unquoted `: `), yet Claude Code listed `implementation-planner` as an available agent in the same
+  session. So its frontmatter parser is more lenient than PyYAML here, and it is unclear which `: ` cases really drop
+  an agent. Until checked in a fresh `claude -p` session, quote such descriptions anyway. · ref:
+  `.claude/agents/implementation-planner.md:3`
+- **2026-11-01** · Unverified: does a subagent whose `tools:` lists claude.ai connector MCP tools
+  (`mcp__claude_ai_Figma__*`) get them, and must it load them through `ToolSearch` first? With another Figma MCP
+  server the names differ and the allowlist silently gives none. Smoke-test `spec-creator` with a Figma URL in a
+  fresh session. · ref: `.claude/agents/spec-creator.md:5`
 
 _None yet._
