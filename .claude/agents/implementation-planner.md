@@ -141,6 +141,12 @@ and proceed.
     unit test. `plan.mjs lint` fails when a spec ID has no §7 row.
 12. **Write and lint the file.** Write the plan to its path, run `node scripts/plan.mjs lint <path>`, fix
     every ERROR (and every WARN you can), re-run until it passes.
+    - Turn budget: you stop at 60 turns. Write the plan file by turn ~40 even if research is not
+      exhausted — gaps go to §8 — and keep the rest for lint and the return.
+    - Size the body against 20 KB (`wc -c`) before the first lint, and fix every lint finding in ONE edit
+      pass before re-running — trimming in small passes cost 10 lint runs and a turn-limit stop.
+    - Lines the caller passes under "Found so far" (from `spec-creator`) are already researched: start
+      from them instead of re-reading those files whole.
 
 ## Requirements check — after locating the code, before writing any step
 
@@ -189,7 +195,8 @@ records the user's choice — then copy it to §0 and do not ask again.
   `scripts/verify.mjs`, and spawns no subagents. Cheaper and faster; the writer checks its own work.
 
 Recommend single-agent when the plan is one phase in one package with no Zod contract or DB schema
-change; otherwise multi-agent. Give the reason in numbers (phases, packages, files). The plan itself is
+change; otherwise multi-agent. If the user may still pick single-agent for more than 3 phases, say in
+the question that it then needs `/compact` (or a fresh session) at every phase boundary. Give the reason in numbers (phases, packages, files). The plan itself is
 the same in both modes: a phase is an implementer run in one and a checkpoint in the other. `/pr-self-review`
 stays mandatory in both.
 

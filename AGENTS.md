@@ -62,7 +62,8 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
   2. `implementation-planner` — researches the code itself, checks the requirements, writes the plan to
      the `plan: .devdigest/plans/<NN-slug>.md` path you pass and returns only its summary. Run
      `node scripts/plan.mjs lint <plan>`; on an ERROR send the output back to the same run. The user
-     picks the execution mode among its questions.
+     picks the execution mode among its questions. After `spec-creator`, put its "Found so far" lines
+     (with `path:line`) in the planner brief so it does not re-read the same files.
   3. `/run-plan plan:<path> [spec:] [brief:] [design:]` (`.claude/skills/run-plan/SKILL.md`) — everything
      after the plan: `implementer` per phase → `node scripts/verify.mjs` (the ONE full test run) → review
      rounds — `plan-verifier` ∥ `architecture-reviewer` (boundaries, not bugs) ∥ the `code-review` skill
@@ -70,6 +71,9 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
      3 rounds it asks) → live check → `doc-writer` → the user runs `/pr-self-review`. The fix rounds, the
      ledger and the triage rules live in that skill.
   - `researcher` — external facts only, at any step.
+  - `workflow-retro` skill — after every pipeline run, in both modes (`/run-plan` invokes it last): tokens per agent,
+    launch order, turn-limit hits, duplicated reads / commands / brief text, ranked recommendations,
+    into `.devdigest/retros/` (git-ignored). Proposals only; it never edits agents.
   - `test-writer` is off in this pipeline (token budget); run it by hand on the verifier's "Rows without
     test evidence" when a gap matters.
 - The planner cannot talk to the user. Ask every question from its `Summary for the caller` with
@@ -80,7 +84,9 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
   - multi-agent — `/run-plan` as above;
   - single-agent — the main session implements every phase itself (invokes the skills of the plan's
     Skill map, runs each `done when` and `node scripts/verify.mjs`) and spawns no subagents;
-    `/pr-self-review` stays mandatory.
+    `/pr-self-review` stays mandatory. Above 3 phases, run `/compact` at every phase boundary (or continue
+    in a fresh session from the plan slice) — one context holding all phases re-sends 400K+ tokens per
+    turn. It follows `run-plan` → "Single-agent mode", including the closing `workflow-retro`.
 - `spec-creator` cannot talk to the user either. Ask every blocking question and proposal from its
   `SPEC: NEEDS_INPUT` with `AskUserQuestion`; run each "Needs research" item as its own `researcher`
   (independent ones in parallel); then continue the same run (`SendMessage`) with the answers and the
@@ -94,6 +100,8 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
   itself; implementer and both reviewers write their reports there too (`out:`) and return only a head.
 - Token budget (each artifact is re-read by every later agent, each agent turn re-sends its transcript —
   measured: the context re-sent per turn, not test output, is what costs):
+  - One task per session: start unrelated work (tooling, a skill, another feature) in a fresh session —
+    everything stays in the context and is re-sent on every later turn.
   - Do not run `researcher` as a codebase pre-pass before `implementation-planner` — it does that research.
   - Show the user the summary the planner returns; do not Read the plan file. The appendix after
     `<!-- RATIONALE -->` is for humans only.

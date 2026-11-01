@@ -52,6 +52,11 @@ _None yet._
   the planner's "body ≤ ~20 KB" — the 07 / 08 plan bodies were 50 / 40 KB. Every phase run then re-sends that plan on
   every turn. Keep the rationale in a separate file and hand each phase only its slice of the plan — why: a marker
   is a prompt hint, not a tool limit · ref: `.claude/agents/implementer.md` → "Before the first edit"
+- **2026-11-01** · Don't judge a past agent run against today's `.claude/agents/*`, skills or `AGENTS.md` — they
+  change between lessons. A retro of the 2026-10-24 L05 run claimed the verifier "re-ran tests despite a `verify:`
+  record", but `verify.mjs` and the `verify:` input only arrived on 2026-11-01. Read the docs as of the run start:
+  `git show "$(git rev-list -1 --before=<start> HEAD)":<path>`; `workflow-retro` lists the drifted files in its
+  facts header · ref: `.claude/skills/workflow-retro/SKILL.md` (step 3)
 
 ## Codebase Patterns
 
@@ -322,8 +327,25 @@ _None yet._
   `AGENTS.md`" pays 10.5 KB twice on every turn. A nested `<pkg>/CLAUDE.md` arrives only as the literal text
   `@AGENTS.md`, because the import is NOT expanded, so package `AGENTS.md` files still have to be Read. This is
   the mechanism behind "subdirectory auto-load is unreliable" · ref: `.claude/agents/implementer.md` → "Before the first edit"
+- **2026-11-01** · Finish every edit — docs and READMEs included — BEFORE `node scripts/verify.mjs`, and touch
+  nothing while it runs (~70 s here). It fingerprints the tree at the start and the end: a README edited mid-run left
+  all 10 lanes green but printed "WARNING the tree changed during the run — the record is already stale", so the
+  record is unusable for `plan-verifier` / the PR and the whole run must be repeated · ref: `scripts/verify.mjs`
 
 ## Recurring Errors & Fixes
+
+- **2026-11-01** · **Symptom:** `/pr-self-review` reports `INV-SHARED-DRIFT … adapters.ts:0` and the
+  `// pr-self-review-ignore: INV-SHARED-DRIFT — …` that `references/invariants.md` recommends does nothing.
+  **Cause:** the finding is file-level (`start_line: 0`); `applySuppression` only checks lines `n` and `n-1`, so like
+  `INV-MIGRATION` / `INV-RUNTIME-DATA` it can never be suppressed inline. **Fix:** mirror the change into the other
+  `shared` copy (the rule compares paths only), or `report.mjs --override "<reason>"` · ref:
+  `.claude/skills/pr-self-review/scripts/report.mjs` (`applySuppression`)
+- **2026-11-01** · **Symptom:** the planner stops with "stopped at its 60-turn limit" and needs `SendMessage`
+  resumes — in two feature runs in a row (L05 `6b708d4b`: 62 turns; Project Context `becb6c70`: 83 turns, 2 resumes,
+  `plan.mjs lint` ×10). **Cause:** wide research plus many small trimming passes to fit the plan-size cap.
+  **Fix (proposed, not applied):** a turn budget with "write the plan file by ~turn 40", size against 20 KB before
+  the first lint, and spec-creator's "Found so far" lines in the planner brief · ref: `.claude/agents/implementation-planner.md`,
+  `.devdigest/retros/2026-11-01-becb6c70.md`
 
 - **2026-09-23** · **Symptom:** `GET /repos` → 500; logs show `read ECONNRESET`, then `28P01 auth_failed`
   with garbled (cp1251) text, while the Docker container is healthy and logs no connections.

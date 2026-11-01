@@ -29,3 +29,6 @@ test-results/
 
 # implementation-planner → implementer hand-off: Implementation Plans saved by the main session
 .devdigest/plans/
+
+# workflow-retro output: per-session facts, reports and trend.jsonl (session data, local only)
+.devdigest/retros/

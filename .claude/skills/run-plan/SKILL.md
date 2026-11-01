@@ -73,7 +73,8 @@ only the state resets). Update the state file after every stage and every phase.
 
 ## Stage 3 — verify
 
-`node scripts/verify.mjs --out .devdigest/plans/<slug>.verify.json` (background). `OK` → Stage 4.
+`node scripts/verify.mjs --out .devdigest/plans/<slug>.verify.json` (background). Edit nothing — docs and
+`INSIGHTS.md` included — while it runs: any change makes its record stale and forces a re-run. `OK` → Stage 4.
 `FAIL` → a fix phase `V<n>` (template "Amendment", one step per failing lane, its tail quoted from the
 JSON) → implementer → verify again. Still failing after `V2` → ask the user.
 
@@ -139,10 +140,14 @@ Only when a spec AC's Verify is a UI or API action, or §7 has `live check:` row
 2. Write `<slug>.impl-report.md` (template "Final report") and show the user its head (≤ 25 lines):
    phases, rounds, ledger counts, known gaps, what to run by hand (e.g. the integration lane without Docker).
 3. Invoke `engineering-insights` with the agents' "Worth recording" candidates.
-4. Ask the user to run `/pr-self-review` — you cannot invoke it. Never commit, push or open a PR.
+4. Invoke `workflow-retro` with `since:` = the time Stage 1 started, and put its report path and
+   top three findings in the hand-over.
+5. Ask the user to run `/pr-self-review` — you cannot invoke it. Never commit, push or open a PR.
 
 ## Single-agent mode (plan §0)
 
 Implement every phase yourself: invoke the skills of the plan's Skill map, run each `done when`, write
-files with Edit / Write only. Then Stage 3 and Stage 7. No subagents, so no review rounds and no
+files with Edit / Write only. Above 3 phases, `/compact` at every phase boundary. Write the docs and the
+`INSIGHTS.md` entries before Stage 3 — an edit after `verify.mjs` makes its record stale. Then Stage 3,
+Stage 7 and `workflow-retro` (as in Stage 8 step 4). No subagents, so no review rounds and no
 `doc-writer` — that is what the mode trades away; `/pr-self-review` stays mandatory.
