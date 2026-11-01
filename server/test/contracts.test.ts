@@ -22,6 +22,10 @@ import {
   PrDetail,
   RunFindingsResponse,
   BlastRadiusResponse,
+  ContextDocList,
+  ContextAttachments,
+  ContextAttachmentsSet,
+  ContextSaveRequest,
 } from '@devdigest/shared';
 
 /**
@@ -376,5 +380,78 @@ describe('BlastRadiusResponse contract', () => {
     expect(() =>
       BlastRadiusResponse.parse({ ...base, degraded: true, reason: 'nope', indexed_sha: null }),
     ).toThrow();
+  });
+});
+
+describe('Project Context contracts (L05)', () => {
+  const trace = {
+    config: { agent: 'Security Reviewer', model: 'gpt-4.1' },
+    stats: { duration_ms: 1, tokens_in: 1, tokens_out: 1, findings: 0, grounding: '0/0 passed' },
+    prompt_assembly: { system: 's', user: 'u' },
+    tool_calls: [],
+    raw_output: '{}',
+    memory_pulled: [],
+    specs_read: [],
+    log: [],
+  };
+
+  it('a pre-L05 trace without context_documents still parses', () => {
+    expect(RunTrace.parse(trace).context_documents).toBeUndefined();
+  });
+
+  it('parses context_documents with every status', () => {
+    const parsed = RunTrace.parse({
+      ...trace,
+      specs_read: ['specs/a.md', 'docs/b.md'],
+      context_documents: [
+        { path: 'specs/a.md', tokens: 120, status: 'injected', via: null },
+        { path: 'docs/b.md', tokens: 8000, status: 'truncated', via: 'pr-quality-rubric' },
+        { path: 'docs/c.md', tokens: null, status: 'dropped', reason: 'budget', via: null },
+        { path: 'docs/d.md', tokens: null, status: 'skipped', reason: 'symlink', via: null },
+      ],
+    });
+    expect(parsed.context_documents).toHaveLength(4);
+  });
+
+  it('rejects an unknown context document status', () => {
+    expect(() =>
+      RunTrace.parse({
+        ...trace,
+        context_documents: [{ path: 'a.md', tokens: 1, status: 'read', via: null }],
+      }),
+    ).toThrow();
+  });
+
+  it('ContextDocList parses the not-cloned state', () => {
+    expect(() =>
+      ContextDocList.parse({ state: 'not_cloned', scanned_at: null, total: 0, roots: ['specs'], documents: [] }),
+    ).not.toThrow();
+  });
+
+  it('ContextAttachments parses inherited and uncounted rows', () => {
+    expect(() =>
+      ContextAttachments.parse({
+        items: [
+          { path: 'specs/a.md', via_skill: null, status: 'present', tokens: 10, truncated: false, dropped: false },
+          { path: 'docs/b.md', via_skill: 'rubric', status: 'unknown', tokens: null, truncated: false, dropped: false },
+        ],
+        total_tokens: 10,
+        requested_tokens: 10,
+        budget: 24000,
+      }),
+    ).not.toThrow();
+  });
+
+  it('ContextAttachmentsSet rejects more than 100 paths', () => {
+    const paths = Array.from({ length: 101 }, (_, i) => `specs/${i}.md`);
+    expect(ContextAttachmentsSet.safeParse({ paths }).success).toBe(false);
+    expect(ContextAttachmentsSet.safeParse({ paths: paths.slice(0, 100) }).success).toBe(true);
+  });
+
+  it('ContextSaveRequest rejects an unknown mode and a 201-char message', () => {
+    const base = { path: 'specs/a.md', text: '# A' };
+    expect(ContextSaveRequest.safeParse({ ...base, mode: 'delete' }).success).toBe(false);
+    expect(ContextSaveRequest.safeParse({ ...base, mode: 'create', message: 'x'.repeat(201) }).success).toBe(false);
+    expect(ContextSaveRequest.safeParse({ ...base, mode: 'update', base_version: 'abc' }).success).toBe(true);
   });
 });

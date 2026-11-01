@@ -30,14 +30,6 @@ export function mergeRows(skills: readonly Skill[], links: readonly AgentSkillLi
   return [...linked, ...unlinked];
 }
 
-/** Move one element of a list to another index (returns a new list). */
-export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
-  const next = [...list];
-  if (from < 0 || from >= next.length || to < 0 || to >= next.length || from === to) return next;
-  next.splice(to, 0, ...next.splice(from, 1));
-  return next;
-}
-
 /** The PUT body: every linked row, in display order (order = array index). */
 export function toItems(rows: readonly SkillRowModel[]): AgentSkillsSet["items"] {
   return rows.filter((r) => r.linked).map((r) => ({ skill_id: r.skill.id, enabled: r.enabled }));

@@ -138,6 +138,11 @@ export interface CommitFilesPayload {
   base: string;
   message: string;
   files: CommitFile[];
+  /**
+   * The branch must be NEW: if it already exists, reject with
+   * `{ status: 409, code: 'branch_exists' }` before any write.
+   */
+  createOnly?: boolean;
 }
 
 /** A file read from GitHub at a ref (UTF-8 decoded). */
@@ -160,11 +165,12 @@ export interface GitHubClient {
     n: number,
     input: CreateReviewCommentInput,
   ): Promise<PrReviewComment>;
-  openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }>;
+  openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string; number: number }>;
   /**
    * Commit `files` onto `branch` as ONE atomic commit (Git Data API: blobs →
    * tree → commit → ref). Creates the branch from `base` if missing, else
-   * fast-forwards it. Idempotent: re-publishing just adds a new commit.
+   * fast-forwards it — unless `createOnly`, which rejects an existing branch.
+   * Idempotent: re-publishing just adds a new commit.
    */
   commitFiles(repo: RepoRef, payload: CommitFilesPayload): Promise<{ branch: string }>;
   /** The open PR whose head is `branch`, if any (so re-publish reuses it). */
@@ -242,7 +248,48 @@ export interface GitClient {
   log(repo: RepoRef, path?: string): Promise<GitCommit[]>;
   readFile(repo: RepoRef, path: string): Promise<string>;
   clonePathFor(repo: RepoRef): string;
+  /**
+   * Files of the clone's working tree with `extension` (case-insensitive),
+   * paths repo-relative with `/`. Never follows symlinks (files or dirs) and
+   * skips any directory named in `excludeDirs`; hidden directories are walked.
+   * `null` when the repo has no clone.
+   */
+  listWorkingFiles(repo: RepoRef, opts: ListWorkingFilesOptions): Promise<WorkingFile[] | null>;
+  /**
+   * Read one working-tree file as UTF-8 — safe for untrusted paths: rejects
+   * `..`/absolute paths and anything resolving outside the clone, symlinks
+   * anywhere on the path, files over `maxBytes` and invalid UTF-8; `not_cloned`
+   * when the repo has no clone. Failures come back as a `code`, never an
+   * absolute path.
+   */
+  readWorkingFile(repo: RepoRef, path: string, maxBytes: number): Promise<WorkingFileRead>;
 }
+
+export interface ListWorkingFilesOptions {
+  /** e.g. `.md` */
+  extension: string;
+  /** Directory names skipped at any depth, e.g. `.git`, `node_modules`. */
+  excludeDirs: readonly string[];
+}
+
+export interface WorkingFile {
+  /** Repo-relative, `/`-separated. */
+  path: string;
+  size: number;
+  mtimeMs: number;
+}
+
+export type WorkingFileErrorCode =
+  | 'not_cloned'
+  | 'not_found'
+  | 'symlink'
+  | 'outside_clone'
+  | 'too_large'
+  | 'not_utf8';
+
+export type WorkingFileRead =
+  | { ok: true; text: string; size: number; mtimeMs: number }
+  | { ok: false; code: WorkingFileErrorCode };
 
 // ---------- CodeIndex (ripgrep + tree-sitter) ----------
 export interface CodeMatch {

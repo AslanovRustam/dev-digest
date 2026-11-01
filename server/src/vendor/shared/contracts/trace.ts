@@ -73,6 +73,19 @@ export const MemoryPulled = z.object({
 });
 export type MemoryPulled = z.infer<typeof MemoryPulled>;
 
+/** One project-context document as the run handled it (L05). */
+export const ContextDocRead = z.object({
+  path: z.string(),
+  /** Tokens injected (after truncation); null when never read. */
+  tokens: z.number().int().nullable(),
+  status: z.enum(['injected', 'truncated', 'dropped', 'skipped']),
+  /** Why it was dropped or skipped (e.g. `not_found`, `symlink`, `budget`). */
+  reason: z.string().nullish(),
+  /** Name of the skill it was inherited from; null = the agent's own. */
+  via: z.string().nullable(),
+});
+export type ContextDocRead = z.infer<typeof ContextDocRead>;
+
 export const RunStats = z.object({
   duration_ms: z.number().int(),
   tokens_in: z.number().int(),
@@ -99,7 +112,10 @@ export const RunTrace = z.object({
   tool_calls: z.array(ToolCall),
   raw_output: z.string(),
   memory_pulled: z.array(MemoryPulled),
+  /** Paths of the project-context documents injected into the prompt. */
   specs_read: z.array(z.string()),
+  /** Every attached document with its tokens and outcome; absent in pre-L05 traces. */
+  context_documents: z.array(ContextDocRead).nullish(),
   log: z.array(RunLogLine),
 });
 export type RunTrace = z.infer<typeof RunTrace>;

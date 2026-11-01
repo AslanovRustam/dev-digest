@@ -46,6 +46,22 @@ _None yet._
   it — when the branch exists it calls `updateRef({ force: true })` with a commit parented on the BASE, silently
   replacing that branch's history. Generate a fresh branch name per commit (e.g. suffix a timestamp) · ref:
   `src/adapters/github/octokit.ts:279`, `:324`
+- **2026-11-01** · Don't treat a green `pnpm typecheck` as proof that a changed `reviewer-core` / `shared` signature
+  is safe for the server — `tsconfig.json` includes only `src/**/*.ts`, so `test/**` is never typechecked and an
+  old-shape fixture (e.g. `specs: ['…']` after `specs` became `{path,text}[]`) fails only when vitest runs it.
+  Grep `server/test` for the changed name, then run the unit lane · ref: `tsconfig.json:29`,
+  `test/prompt-callers.test.ts`
+- **2026-11-01** · Supersedes 2026-11-01 (the `commitFiles` entry above): on an existing branch `commitFiles`
+  parents the commit on THAT branch's tip, so it is a fast-forward — history is lost only if someone pushes
+  between its `getRef` and `updateRef({ force: true })`. The real trap: it silently adds a commit to whatever
+  branch already has the name. Pass `createOnly: true` when the branch must be new — it rejects with
+  `{ status: 409, code: 'branch_exists' }` before any write · ref: `src/adapters/github/octokit.ts` (`commitFiles`)
+- **2026-11-01** · **Symptom:** an integration test reads `GET /runs/:id/trace` right after `waitForPrRuns` and
+  gets `{"error":{"code":"not_found","message":"Run trace not found"}}` — intermittently, more often the more work a
+  run does. **Cause:** `ReviewRunExecutor.runOneAgent` calls `completeAgentRun` (status `done`, which is all
+  `waitForPrRuns` polls) BEFORE it builds and saves the trace. **Fix:** in the test, poll the trace route until 200
+  (see `contextRun` in `test/reviews.it.test.ts`) · ref: `src/modules/reviews/run-executor.ts` (`completeAgentRun`
+  → `saveRunTrace`), `test/helpers/runs.ts`
 
 ## Codebase Patterns
 

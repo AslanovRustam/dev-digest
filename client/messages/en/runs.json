@@ -33,7 +33,19 @@
       "memoryPulled": "Memory pulled",
       "specsRead": "Specs read",
       "items": "{count, plural, one {# item} other {# items}}",
-      "none": "none"
+      "none": "none",
+      "specTokens": "~{tokens, number} tokens",
+      "specTruncated": "truncated",
+      "specDropped": "dropped — over the token budget",
+      "specSkipped": "skipped: {reason}",
+      "specReason": {
+        "not_found": "not in the repo",
+        "symlink": "symlink",
+        "outside_clone": "outside the repo",
+        "too_large": "over 1 MB",
+        "not_utf8": "not UTF-8",
+        "not_cloned": "repo not cloned"
+      }
     },
     "stat": {
       "duration": "DURATION",
@@ -48,7 +60,7 @@
       "memory": "Memory (dynamic)",
       "repoMap": "Repo skeleton — repo-intel (dynamic)",
       "intent": "PR intent — derived (dynamic)",
-      "specs": "Project context (dynamic)",
+      "specs": "Project context — attached specs (untrusted)",
       "callers": "Callers of changed symbols — repo-intel (dynamic)",
       "user": "User / diff (dynamic)",
       "copy": "Copy",
