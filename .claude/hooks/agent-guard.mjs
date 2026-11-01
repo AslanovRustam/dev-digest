@@ -1,10 +1,14 @@
-// PreToolUse guard for the architecture-reviewer, plan-verifier, test-writer and doc-writer subagents.
+// PreToolUse guard for the researcher, implementation-planner, architecture-reviewer, plan-verifier,
+// test-writer and doc-writer subagents.
 // Wired in each agent's frontmatter as `node "$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.mjs" <profile>`.
 //
-// All profiles share ONE Bash allowlist: read-only inspection plus the package typecheck / test / lint /
-// arch commands. A denylist would leave `node -e`, `bash -c`, `git apply` or a plain `rm` free to change
-// production code. Profiles differ only in which paths Edit/Write may touch:
-//   readonly    — nothing (architecture-reviewer, plan-verifier)
+// All profiles share ONE Bash allowlist: read-only inspection, the package typecheck / test / lint /
+// arch commands and the pipeline's read-only scripts. A denylist would leave `node -e`, `bash -c`,
+// `git apply` or a plain `rm` free to change production code. Profiles differ only in which paths
+// Edit/Write may touch:
+//   readonly    — nothing (researcher)
+//   planner     — its plan file directly under .devdigest/plans/ (git-ignored)
+//   reviewer    — its own report file `<NN-slug>.r<k>.verifier.md | .arch.md` (plan-verifier, architecture-reviewer)
 //   test-writer — test files only, never the architecture gate tests
 //   doc-writer  — documentation only, never specs, agent instructions or DB-backed product copies
 // Keep the tables in sync with `.claude/agents/README.md` → "agent-guard".
@@ -32,8 +36,12 @@ const BASH_ALLOW = [
   GIT_READ,
   /^pnpm\s+(?:run\s+)?(?:typecheck|test|lint|arch(?::strict)?)(?:\s|$)/,
   /^pnpm\s+exec\s+(?:vitest\s+run|tsc\s+--noEmit|depcruise)\b/,
-  /^npm\s+(?:test|run\s+(?:test|typecheck))(?:\s|$)/,
+  /^pnpm\s+exec\s+vitest\s+related\b.*\s--run(?:\s|$)/,
+  /^npm\s+(?:test|run\s+(?:test|typecheck|arch))(?:\s|$)/,
   /^node\s+--test\b/,
+  // the pipeline's own read-only scripts: they print to stdout and never write
+  /^node\s+scripts\/(?:diff-index|plan)\.mjs(?:\s|$)/,
+  /^node\s+scripts\/verify\.mjs\s+--(?:fingerprint|check)(?:\s|$)/,
   /^docker\s+(?:info|ps)\b/,
 ];
 
@@ -82,6 +90,19 @@ export const PROFILES = {
   readonly: {
     handoff: 'This agent is read-only — report what you would run or change instead.',
     edit: () => 'this agent is read-only',
+  },
+  planner: {
+    handoff: 'implementation-planner writes only its plan file — anything else to change becomes a step of the plan.',
+    deny: [],
+    allow: [/^\.devdigest\/plans\/[^/]+\.md$/],
+    outside: 'only a plan file directly under .devdigest/plans/ is writable',
+  },
+  reviewer: {
+    handoff: 'This reviewer changes no code — it writes only its own report file; report what you would change.',
+    deny: [],
+    // `<NN-slug>.r<round>.verifier.md` / `.arch.md`: never the plan, the ledger or another agent's report
+    allow: [/^\.devdigest\/plans\/[^/]+\.r\d+\.(?:verifier|arch)\.md$/],
+    outside: 'only its report file `.devdigest/plans/<NN-slug>.r<k>.verifier.md | .arch.md` is writable',
   },
   'test-writer': {
     handoff:

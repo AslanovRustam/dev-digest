@@ -79,8 +79,16 @@ cd server && pnpm exec vitest run --exclude '**/*.it.test.ts'   # unit, no Docke
 cd server && pnpm exec vitest run .it.test                      # integration, needs Docker
 cd server && pnpm test                                          # both
 
+# every lane of every package the branch touches, once, + the server integration lane
+# (what the agent pipeline runs after the last implementer phase; JSON bound to the tree)
+node scripts/verify.mjs --out .devdigest/plans/<NN-slug>.verify.json
+node scripts/verify.mjs --check .devdigest/plans/<NN-slug>.verify.json   # fresh | stale
+
 # the pre-PR gate's own scripts (no install, no package manager)
 node --test .claude/skills/pr-self-review/scripts/gate.test.mjs
+
+# the agent pipeline's scripts and guards (not in CI)
+node --test scripts/*.test.mjs .claude/hooks/*.test.mjs
 
 # browser e2e (needs the full stack + agent-browser CLI)
 ./scripts/dev.sh

@@ -37,7 +37,8 @@ conversation that led here. The code is the source of truth; everything else is 
 
 ## Inputs
 
-Any of: a plan path (`.devdigest/plans/*.md`), a `specs/` file, a `plan-verifier` report path, other
+Any of: a plan path (`.devdigest/plans/*.md` — read it through `node scripts/plan.mjs slice <plan>`, which
+cuts the summary and the rationale appendix), a `specs/` file, a `plan-verifier` report path, other
 material paths, or a feature name. If none of them lets you find the implemented code, return
 `DOCS: NEEDS_CLARIFICATION` with 2–5 questions, each with a default.
 
@@ -46,8 +47,8 @@ not documented.
 
 ## Step 1 — establish what exists
 
-1. Read root `AGENTS.md` (the "Docs" table) and the `AGENTS.md` of each package involved (their "Docs"
-   tables route design notes / ADRs to `<package>/docs/`).
+1. Root `AGENTS.md` (its "Docs" table) is already in your context — do not Read it again. Read the
+   `AGENTS.md` of each package involved (their "Docs" tables route design notes / ADRs to `<package>/docs/`).
 2. For every behaviour you intend to describe, find it in the code and note `path:line`. Not found →
    it goes under "Not documented", never onto the page.
 3. Code and spec disagree → document the code and list the divergence in the report.

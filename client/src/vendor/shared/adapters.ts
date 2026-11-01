@@ -131,7 +131,7 @@ export interface GitHubClient {
     n: number,
     input: CreateReviewCommentInput,
   ): Promise<PrReviewComment>;
-  openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }>;
+  openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string; number: number }>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
@@ -182,7 +182,48 @@ export interface GitClient {
   log(repo: RepoRef, path?: string): Promise<GitCommit[]>;
   readFile(repo: RepoRef, path: string): Promise<string>;
   clonePathFor(repo: RepoRef): string;
+  /**
+   * Files of the clone's working tree with `extension` (case-insensitive),
+   * paths repo-relative with `/`. Never follows symlinks (files or dirs) and
+   * skips any directory named in `excludeDirs`; hidden directories are walked.
+   * `null` when the repo has no clone.
+   */
+  listWorkingFiles(repo: RepoRef, opts: ListWorkingFilesOptions): Promise<WorkingFile[] | null>;
+  /**
+   * Read one working-tree file as UTF-8 — safe for untrusted paths: rejects
+   * `..`/absolute paths and anything resolving outside the clone, symlinks
+   * anywhere on the path, files over `maxBytes` and invalid UTF-8; `not_cloned`
+   * when the repo has no clone. Failures come back as a `code`, never an
+   * absolute path.
+   */
+  readWorkingFile(repo: RepoRef, path: string, maxBytes: number): Promise<WorkingFileRead>;
 }
+
+export interface ListWorkingFilesOptions {
+  /** e.g. `.md` */
+  extension: string;
+  /** Directory names skipped at any depth, e.g. `.git`, `node_modules`. */
+  excludeDirs: readonly string[];
+}
+
+export interface WorkingFile {
+  /** Repo-relative, `/`-separated. */
+  path: string;
+  size: number;
+  mtimeMs: number;
+}
+
+export type WorkingFileErrorCode =
+  | 'not_cloned'
+  | 'not_found'
+  | 'symlink'
+  | 'outside_clone'
+  | 'too_large'
+  | 'not_utf8';
+
+export type WorkingFileRead =
+  | { ok: true; text: string; size: number; mtimeMs: number }
+  | { ok: false; code: WorkingFileErrorCode };
 
 // ---------- CodeIndex (ripgrep + tree-sitter) ----------
 export interface CodeMatch {

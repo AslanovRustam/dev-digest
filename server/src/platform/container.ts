@@ -33,6 +33,8 @@ import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import type { IntentFacade } from '../modules/intent/types.js';
 import { IntentService } from '../modules/intent/service.js';
+import type { ProjectContextFacade } from '../modules/project-context/types.js';
+import { ProjectContextService } from '../modules/project-context/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
 import { type ArchiveReader, NodeZipReader } from '../adapters/archive/index.js';
@@ -57,6 +59,8 @@ export interface ContainerOverrides {
   repoIntel?: RepoIntel;
   /** intent-layer facade (L03) — tests stub it instead of mocking the LLM / GitHub / git beneath it. */
   intent?: IntentFacade;
+  /** project-context facade (L05) — tests stub it to isolate the review run. */
+  projectContext?: ProjectContextFacade;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
   depgraph?: DepGraph;
   tokenizer?: Tokenizer;
@@ -86,6 +90,7 @@ export class Container {
   private _skillsRepo?: SkillsRepository;
   private _repoIntel?: RepoIntel;
   private _intent?: IntentFacade;
+  private _projectContext?: ProjectContextFacade;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _archive?: ArchiveReader;
@@ -154,6 +159,16 @@ export class Container {
     if (this.overrides.intent) return this.overrides.intent;
     this._intent ??= new IntentService(this);
     return this._intent;
+  }
+
+  /**
+   * The project-context facade (L05). Its routes and the review run share this
+   * one instance (and its token cache); `reviews` never imports the service.
+   */
+  get projectContext(): ProjectContextFacade {
+    if (this.overrides.projectContext) return this.overrides.projectContext;
+    this._projectContext ??= new ProjectContextService(this);
+    return this._projectContext;
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */

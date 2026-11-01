@@ -10,6 +10,11 @@ _None yet._
 ## What Doesn't Work
 
 _None yet._
+- **2026-11-01** · Don't key a "discard and reopen" editor by its content (`key={path}`) and don't reset a parent's
+  copy of the child's dirty flag by hand. Reopening the same path keeps the same key, so React reuses the editor (the
+  "discarded" text stays) while the parent already cleared its flag — the next navigation then drops the draft with no
+  confirm. Give each open its own id in the key, and let only the editor clear the flag (an unmount cleanup)
+  · ref: `src/app/repos/[repoId]/context/_components/ContextView/ContextView.tsx` (`newSeq`, `guard`)
 - **2026-09-25** · Don't mount another `FindingsPanel` to reuse its list (e.g. in the trace drawer). Compose
   `FindingCard` + `visibleFindings` + `useFindingAction` instead, as `RunTraceDrawer/_components/FindingsSection`
   does. why: every panel adds its own `window` keydown listener for j/k and a/d, so each open panel reacts to

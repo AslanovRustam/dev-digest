@@ -1,4 +1,15 @@
-import { pgTable, uuid, text, integer, boolean, jsonb, primaryKey } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  boolean,
+  jsonb,
+  primaryKey,
+  check,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces, users } from './core';
 import { skills } from './skills';
@@ -62,4 +73,23 @@ export const agentSkills = pgTable(
     enabled: boolean('enabled').notNull().default(true),
   },
   (t) => ({ pk: primaryKey({ columns: [t.agentId, t.skillId] }) }),
+);
+
+// Project Context (L05): an agent's attached repo documents — repo-relative
+// paths (`/`), never text, in prompt order. Not versioned with the agent.
+export const agentContextDocs = pgTable(
+  'agent_context_docs',
+  {
+    agentId: uuid('agent_id')
+      .notNull()
+      .references(() => agents.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    position: integer('position').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.agentId, t.path] }),
+    positionUq: uniqueIndex('agent_context_docs_position_uq').on(t.agentId, t.position),
+    pathChk: check('agent_context_docs_path_chk', sql`char_length(${t.path}) between 1 and 1024`),
+    positionChk: check('agent_context_docs_position_chk', sql`${t.position} >= 0`),
+  }),
 );

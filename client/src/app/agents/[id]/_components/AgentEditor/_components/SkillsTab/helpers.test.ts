@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { AgentSkillLink, Skill } from "@devdigest/shared";
-import { filterRows, mergeRows, moveItem, toggleRow, toItems } from "./helpers";
+import { filterRows, mergeRows, toggleRow, toItems } from "./helpers";
 
 const skill = (id: string, name: string, extra: Partial<Skill> = {}): Skill => ({
   id,
@@ -31,12 +31,6 @@ describe("SkillsTab helpers", () => {
       ["b", false, false],
       ["d", false, false],
     ]);
-  });
-
-  it("moveItem moves one element and ignores out-of-range indexes", () => {
-    expect(moveItem(["x", "y", "z"], 0, 2)).toEqual(["y", "z", "x"]);
-    expect(moveItem(["x", "y", "z"], 2, 0)).toEqual(["z", "x", "y"]);
-    expect(moveItem(["x", "y"], 0, 5)).toEqual(["x", "y"]);
   });
 
   it("toItems sends only linked rows in display order; toggleRow keeps or appends positions", () => {

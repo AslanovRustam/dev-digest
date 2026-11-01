@@ -1,7 +1,7 @@
 import { simpleGit, type SimpleGit } from 'simple-git';
-import { join } from 'node:path';
-import { mkdir, readFile, access, rm } from 'node:fs/promises';
-import { constants } from 'node:fs';
+import { join, sep } from 'node:path';
+import { mkdir, readFile, access, rm, readdir, lstat, realpath } from 'node:fs/promises';
+import { constants, type Dirent } from 'node:fs';
 import type {
   GitClient,
   RepoRef,
@@ -9,6 +9,9 @@ import type {
   UnifiedDiff,
   BlameLine,
   GitCommit,
+  ListWorkingFilesOptions,
+  WorkingFile,
+  WorkingFileRead,
 } from '@devdigest/shared';
 import { parseUnifiedDiff } from './diff-parser.js';
 
@@ -128,6 +131,105 @@ export class SimpleGitClient implements GitClient {
 
   async readFile(repo: RepoRef, path: string): Promise<string> {
     return readFile(join(this.clonePathFor(repo), path), 'utf8');
+  }
+
+  async listWorkingFiles(
+    repo: RepoRef,
+    opts: ListWorkingFilesOptions,
+  ): Promise<WorkingFile[] | null> {
+    const root = this.clonePathFor(repo);
+    if (!(await this.exists(join(root, '.git')))) return null;
+    const out: WorkingFile[] = [];
+    await walkWorkingTree(root, '', opts.extension.toLowerCase(), new Set(opts.excludeDirs), out);
+    out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    return out;
+  }
+
+  async readWorkingFile(repo: RepoRef, path: string, maxBytes: number): Promise<WorkingFileRead> {
+    const segments = path.split('/');
+    // Untrusted path: relative, `/`-only, no empty / `.` / `..` segment, no NUL.
+    if (
+      path.includes('\\') ||
+      path.includes('\0') ||
+      /^[a-zA-Z]:/.test(path) ||
+      segments.some((s) => s === '' || s === '.' || s === '..')
+    ) {
+      return { ok: false, code: 'outside_clone' };
+    }
+    const root = this.clonePathFor(repo);
+    if (!(await this.exists(join(root, '.git')))) return { ok: false, code: 'not_cloned' };
+    // lstat every component: a symlinked file OR directory anywhere on the
+    // path is refused (a committed `docs/x.md` → ~/.devdigest/secrets.json).
+    let current = root;
+    let size = 0;
+    let mtimeMs = 0;
+    for (let i = 0; i < segments.length; i++) {
+      current = join(current, segments[i]!);
+      let st;
+      try {
+        st = await lstat(current);
+      } catch {
+        return { ok: false, code: 'not_found' };
+      }
+      if (st.isSymbolicLink()) return { ok: false, code: 'symlink' };
+      const last = i === segments.length - 1;
+      if (last ? !st.isFile() : !st.isDirectory()) return { ok: false, code: 'not_found' };
+      if (last) {
+        size = st.size;
+        mtimeMs = st.mtimeMs;
+      }
+    }
+    // Defense in depth (junctions, mount tricks): the real path stays inside.
+    try {
+      const [realRoot, realFile] = await Promise.all([realpath(root), realpath(current)]);
+      if (!realFile.startsWith(realRoot + sep)) return { ok: false, code: 'outside_clone' };
+    } catch {
+      return { ok: false, code: 'not_found' };
+    }
+    if (size > maxBytes) return { ok: false, code: 'too_large' };
+    const buf = await readFile(current);
+    try {
+      const text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+      return { ok: true, text, size, mtimeMs };
+    } catch {
+      return { ok: false, code: 'not_utf8' };
+    }
+  }
+}
+
+/**
+ * Working-tree walk for `listWorkingFiles` — the repo-intel walker's rules
+ * (never follow symlinks, skip excluded dir names, tolerate unreadable dirs),
+ * collecting `{ path, size, mtimeMs }` for files with `ext`.
+ */
+async function walkWorkingTree(
+  root: string,
+  rel: string,
+  ext: string,
+  exclude: Set<string>,
+  out: WorkingFile[],
+): Promise<void> {
+  let entries: Dirent[];
+  try {
+    entries = (await readdir(rel ? join(root, rel) : root, { withFileTypes: true })) as Dirent[];
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.isSymbolicLink()) continue;
+    const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      if (exclude.has(entry.name)) continue;
+      await walkWorkingTree(root, childRel, ext, exclude, out);
+      continue;
+    }
+    if (!entry.isFile() || !entry.name.toLowerCase().endsWith(ext)) continue;
+    try {
+      const st = await lstat(join(root, childRel));
+      out.push({ path: childRel, size: st.size, mtimeMs: st.mtimeMs });
+    } catch {
+      // vanished mid-walk — skip
+    }
   }
 }
 
