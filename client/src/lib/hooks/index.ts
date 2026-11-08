@@ -10,4 +10,5 @@ export * from "./repo-intel";
 export * from "./conventions";
 export * from "./intent";
 export * from "./blast";
+export * from "./brief";
 export * from "./project-context";

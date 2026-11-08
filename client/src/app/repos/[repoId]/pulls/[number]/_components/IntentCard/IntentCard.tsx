@@ -44,7 +44,7 @@ function ScopeList({
   );
 }
 
-export function IntentCard({ prId }: { prId: string }) {
+export function IntentCard({ prId, hideRiskAreas = false }: { prId: string; hideRiskAreas?: boolean }) {
   const t = useTranslations("intent");
   const { data, isLoading, isError } = usePrIntent(prId);
   const derive = useDeriveIntent(prId);
@@ -121,7 +121,7 @@ export function IntentCard({ prId }: { prId: string }) {
         <ScopeList label={t("outOfScope")} items={intent.out_of_scope} none={t("none")} tone="out" />
       </div>
 
-      {intent.risk_areas.length > 0 && (
+      {!hideRiskAreas && intent.risk_areas.length > 0 && (
         <div>
           <div style={s.label}>{t("riskAreas")}</div>
           <div style={s.chips}>

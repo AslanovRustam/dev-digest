@@ -1,6 +1,6 @@
 /* DiffTab — Smart Diff grouping: role headers in order, collapsed groups, order toggle.
    fetch is mocked by URL. */
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, within, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import type { FindingRecord, PrFile, ReviewRecord, SmartDiff } from "@devdigest/
 import prReview from "../../../../../../../../messages/en/prReview.json";
 import shell from "../../../../../../../../messages/en/shell.json";
 import { DiffTab } from "./DiffTab";
+import { parseFocusLine } from "./helpers";
 
 afterEach(() => {
   cleanup();
@@ -37,9 +38,13 @@ const smartDiff: SmartDiff = {
   split_suggestion: { too_big: false, total_lines: 5, proposed_splits: [] },
 };
 
-function mockFetch(reviews: ReviewRecord[] = []) {
+function mockFetch(reviews: ReviewRecord[] = [], opts: { commentsDelayMs?: number; onCommentsServed?: () => void } = {}) {
   const fn = vi.fn(async (url: string, _init?: RequestInit) => {
     const u = String(url);
+    if (opts.commentsDelayMs && u.includes("/comments")) {
+      await new Promise((r) => setTimeout(r, opts.commentsDelayMs));
+      opts.onCommentsServed?.();
+    }
     const body = u.includes("/smart-diff") ? smartDiff : u.includes("/reviews") ? reviews : [];
     return new Response(JSON.stringify(body), {
       status: 200,
@@ -50,12 +55,12 @@ function mockFetch(reviews: ReviewRecord[] = []) {
   return fn;
 }
 
-function renderTab() {
+function renderTab(focus?: { path: string; line: number | null }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <NextIntlClientProvider locale="en" messages={{ prReview, shell }}>
-        <DiffTab prId="p1" filesCount={files.length} files={files} />
+        <DiffTab prId="p1" filesCount={files.length} files={files} focus={focus} />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
@@ -99,6 +104,108 @@ describe("DiffTab smart grouping", () => {
     expect(screen.queryByRole("button", { name: /^Core/ })).not.toBeInTheDocument();
     const group = screen.getByRole("group", { name: "File order" });
     expect(within(group).getByRole("button", { name: "Original order" })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("DiffTab deep link focus", () => {
+  const scroll = vi.fn();
+  beforeEach(() => {
+    scroll.mockReset();
+    Element.prototype.scrollIntoView = scroll;
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+  });
+
+  it("opens the collapsed group holding the file and scrolls to + highlights the line", async () => {
+    mockFetch();
+    renderTab({ path: "README.md", line: 2 });
+
+    await screen.findByRole("button", { name: /^Docs/ });
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+    const row = scroll.mock.contexts.at(-1) as HTMLElement;
+    expect(row.getAttribute("data-new-line")).toBe("2");
+    await waitFor(() => expect(row.firstElementChild).toHaveStyle({ boxShadow: "inset 0 0 0 2px var(--accent)" }));
+  });
+
+  it("scrolls the card when no line is given", async () => {
+    mockFetch();
+    renderTab({ path: "src/core.ts", line: null });
+
+    await screen.findByRole("button", { name: /^Core/ });
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+    expect((scroll.mock.contexts.at(-1) as HTMLElement).hasAttribute("data-new-line")).toBe(false);
+  });
+
+  it("scrolls once, after the role groups are in place; re-expanding the card does not scroll again", async () => {
+    mockFetch();
+    renderTab({ path: "src/core.ts", line: 2 });
+
+    // Waits for smart-diff, so the one scroll lands on the role-group row (never on the flat list first).
+    await screen.findByRole("button", { name: /^Core/ });
+    await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1));
+    const row = scroll.mock.contexts.at(-1) as HTMLElement;
+    expect(row.getAttribute("data-new-line")).toBe("2");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(scroll).toHaveBeenCalledTimes(1);
+
+    const header = screen.getByText("src/core.ts");
+    const open = screen.getAllByText("b").length;
+    fireEvent.click(header);
+    expect(screen.getAllByText("b")).toHaveLength(open - 1);
+    fireEvent.click(header);
+    expect(screen.getAllByText("b")).toHaveLength(open);
+    expect(scroll).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for comments to arrive, then scrolls once", async () => {
+    let served = false;
+    const servedAtScroll: boolean[] = [];
+    scroll.mockImplementation(() => servedAtScroll.push(served));
+    mockFetch([], { commentsDelayMs: 60, onCommentsServed: () => (served = true) });
+    renderTab({ path: "src/core.ts", line: 2 });
+
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 100));
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(servedAtScroll).toEqual([true]);
+  });
+
+  it("a focus change while mounted opens the collapsed group, scrolls to the row and flashes it", async () => {
+    mockFetch();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = (focus: { path: string; line: number | null }) => (
+      <QueryClientProvider client={qc}>
+        <NextIntlClientProvider locale="en" messages={{ prReview, shell }}>
+          <DiffTab prId="p1" filesCount={files.length} files={files} focus={focus} />
+        </NextIntlClientProvider>
+      </QueryClientProvider>
+    );
+    const view = render(tree({ path: "src/core.ts", line: 2 }));
+    await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1));
+
+    view.rerender(tree({ path: "README.md", line: 2 }));
+    await waitFor(() => expect(scroll).toHaveBeenCalledTimes(2));
+    const row = scroll.mock.contexts.at(-1) as HTMLElement;
+    expect(row.getAttribute("data-new-line")).toBe("2");
+    await waitFor(() => expect(row.firstElementChild).toHaveStyle({ boxShadow: "inset 0 0 0 2px var(--accent)" }));
+  });
+
+  it("an unparsable ?line= reaches the viewer as line null: card opens and scrolls, no row is highlighted", async () => {
+    mockFetch();
+    renderTab({ path: "src/core.ts", line: parseFocusLine("abc") });
+
+    await screen.findByRole("button", { name: /^Core/ });
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+    expect((scroll.mock.contexts.at(-1) as HTMLElement).hasAttribute("data-new-line")).toBe(false);
+    expect(screen.getAllByText("b").length).toBeGreaterThan(0);
+    expect(document.querySelector("[style*='inset 0 0 0 2px']")).toBeNull();
+  });
+
+  it("says so when the file is not in this PR's diff", async () => {
+    mockFetch();
+    renderTab({ path: "nope/missing.ts", line: 3 });
+
+    expect(await screen.findByText(/File not in this PR's diff/)).toBeInTheDocument();
+    expect(scroll).not.toHaveBeenCalled();
   });
 });
 

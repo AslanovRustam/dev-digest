@@ -72,6 +72,7 @@
     "wiringHint": "Hooks the core into the app",
     "docsHint": "Explains the change — read for intent",
     "boilerplateHint": "Generated / mechanical — skim",
+    "fileNotInDiff": "File not in this PR's diff",
     "smartOrder": "Smart order",
     "originalOrder": "Original order",
     "orderLabel": "File order",

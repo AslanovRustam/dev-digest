@@ -43,6 +43,11 @@ Intent card: a summary row, an expandable tree (`BlastTree`) and a graph view
 `usePrBlast` (`src/lib/hooks/blast.ts`, `GET /pulls/:id/blast`); strings are in
 `messages/en/blast.json`.
 
+The Overview tab also renders `PrBriefCard` (`_components/PrBrief/`): summary, risks and review
+focus from `usePrBrief` (`src/lib/hooks/brief.ts`, `GET|POST /pulls/:id/brief`; strings in
+`messages/en/brief.json`). Its links open `?tab=diff&file=<path>&line=<n>`; `DiffTab` scrolls to
+the line and flashes it. See [docs/features/10-pr-brief.md](../docs/features/10-pr-brief.md).
+
 Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,
 `g`-then-key shortcuts). Pages are thin; feature logic sits in colocated
 `_components/<Name>/` folders, each with its own `*.test.tsx`.

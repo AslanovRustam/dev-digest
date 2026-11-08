@@ -6,6 +6,7 @@ import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, API_BASE } from "../api";
 import { notify } from "../toast";
+import { prBriefKey } from "./brief";
 import type {
   FindingActionKind,
   PrReviewComment,
@@ -68,6 +69,7 @@ export function useDeleteRun(prId: string | null | undefined) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pr-runs", prId] });
       qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      qc.invalidateQueries({ queryKey: prBriefKey(prId) });
       qc.invalidateQueries({ queryKey: smartDiffKey(prId) });
     },
   });
@@ -87,6 +89,7 @@ export function useDeleteReview(prId: string | null | undefined) {
     mutationFn: (reviewId: string) => api.del<{ ok: boolean }>(`/reviews/${reviewId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      qc.invalidateQueries({ queryKey: prBriefKey(prId) });
       qc.invalidateQueries({ queryKey: smartDiffKey(prId) });
     },
   });
@@ -149,6 +152,7 @@ export function useRunReview() {
       }),
     onSuccess: (_d, { prId }) => {
       qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      qc.invalidateQueries({ queryKey: prBriefKey(prId) });
     },
   });
 }

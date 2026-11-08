@@ -208,6 +208,7 @@ export const IssueMeta = z.object({
   title: z.string(),
   body: z.string().nullish(),
   state: z.string(),
+  is_pull_request: z.boolean().optional(),
 });
 export type IssueMeta = z.infer<typeof IssueMeta>;
 

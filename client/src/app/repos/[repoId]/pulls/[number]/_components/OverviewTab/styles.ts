@@ -11,6 +11,8 @@ export const s = {
     whiteSpace: "pre-wrap",
     lineHeight: 1.55,
   } satisfies CSSProperties,
+  /** Intent card with the brief's Risk areas stacked under it. */
+  column: { display: "flex", flexDirection: "column", gap: 16, minWidth: 0 } satisfies CSSProperties,
   /** Intent | Blast side by side; wraps to one column when narrow (minmax floor, client INSIGHTS). */
   briefGrid: {
     display: "grid",

@@ -258,7 +258,7 @@ export class MockGitHubClient implements GitHubClient {
   }
 
   async getIssue(_repo: RepoRef, n: number): Promise<IssueMeta> {
-    return { number: n, title: `Issue #${n}`, body: 'mock issue', state: 'open' };
+    return { number: n, title: `Issue #${n}`, body: 'mock issue', state: 'open', is_pull_request: false };
   }
 
   async getFileAtRef(

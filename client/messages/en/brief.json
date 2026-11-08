@@ -15,5 +15,76 @@
     "blame": "blame",
     "noHistory": "No history available for this line.",
     "noCommits": "No commits found for this line."
-  }
+  },
+  "title": "PR Brief",
+  "generate": "Generate brief",
+  "regenerate": "Regenerate brief",
+  "retry": "Retry",
+  "loading": "Loading brief…",
+  "generating": "Generating brief…",
+  "empty": {
+    "title": "No brief yet",
+    "body": "Summarise this PR: what it does, where it is risky and what to read first. One model call."
+  },
+  "stale": "Stale",
+  "staleCommit": "Generated for {generated}, PR is at {current}",
+  "staleReview": "A newer review exists",
+  "provenance": "Generated from {sha} · {model} · {cost} · {tokensIn}→{tokensOut} tokens",
+  "verdict": {
+    "requestChanges": "Request changes",
+    "approve": "Approve",
+    "comment": "Comment"
+  },
+  "findingsCount": "{count} findings",
+  "blockersCount": " · {count} blockers",
+  "costKnown": "${amount}",
+  "costUnknown": "—",
+  "focusReason": "— {reason}",
+  "prScore": "PR SCORE",
+  "summaryLabel": "Summary",
+  "generatedWithout": "Generated without: {input} ({reason})",
+  "inputs": {
+    "diff": "diff",
+    "blast": "blast radius",
+    "intent": "intent",
+    "description": "description",
+    "linked_issue": "linked issue",
+    "findings": "review findings",
+    "documents": "documents"
+  },
+  "reasons": {
+    "not_derived": "not derived yet",
+    "stale": "stale",
+    "index_incomplete": "index incomplete",
+    "no_callers": "no callers found",
+    "description_empty": "description empty",
+    "none_linked": "none linked",
+    "github_unavailable": "GitHub unavailable",
+    "no_review": "no review yet",
+    "none_attached": "none attached",
+    "not_cloned": "repository not cloned",
+    "unreadable": "attached documents could not be read",
+    "over_budget": "over budget",
+    "missing": "missing"
+  },
+  "riskAreas": "Risk areas",
+  "severity": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "expandRisk": "Show explanation: {title}",
+  "collapseRisk": "Hide explanation: {title}",
+  "openInDiff": "Open {target} in Files changed",
+  "reviewFocus": "Review focus — read these first",
+  "noFocus": "No focus lines suggested.",
+  "errors": {
+    "load": "Could not load the brief.",
+    "generic": "Could not generate the brief: {message}",
+    "unreachable": "Cannot reach the API.",
+    "config": "No API key for {provider}. Add one in Settings.",
+    "inProgress": "A brief is already being generated — refresh in a moment",
+    "notFound": "Pull request not found"
+  },
+  "openSettings": "Open Settings"
 }

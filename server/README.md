@@ -96,6 +96,15 @@ model call, no re-analysis. Rate limit: 30 requests/minute
 unknown or foreign-workspace PR yields a not-found error. Response contract:
 `BlastRadiusResponse` in `src/vendor/shared/contracts/review-api.ts`.
 
+### PR Brief (`GET|POST /pulls/:id/brief`)
+
+`modules/brief/` — `GET` returns the stored brief plus `stale` / `stale_reasons` and never
+calls a model; `POST` regenerates it with one `completeStructured` call on the `risk_brief`
+feature model (rate limit 10/minute, `modules/brief/constants.ts`). A second `POST` while one
+runs for the same PR returns `409 brief_in_progress`; the 115 s generation deadline returns
+`502 brief_generation_failed`. Response contract: `PrBriefResponse` in
+`src/vendor/shared/contracts/brief.ts`. Design: [docs/features/10-pr-brief.md](../docs/features/10-pr-brief.md).
+
 ### Project context (`/repos/:id/context`, `/(agents|skills)/:id/context`)
 
 `modules/project-context/` (spec: `specs/2026-11-01-project-context.md`) lists the

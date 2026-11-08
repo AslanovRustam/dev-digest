@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
 import type { PrFile } from "@/lib/types";
 import { AUTO_EXPAND_MAX_LINES } from "../constants";
-import { parsePatch, type Line } from "../helpers";
+import { parsePatch, type DiffFocus, type Line } from "../helpers";
 import {
   buildThreads,
   keysForLine,
@@ -49,15 +49,29 @@ export function FileCard({
   file,
   commenting,
   annotations,
+  focus,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
   annotations?: DiffAnnotationApi;
+  /** Set only on the focused file's card (the viewer filters by path). */
+  focus?: DiffFocus;
 }) {
   const t = useTranslations("shell");
+  const focused = !!focus;
+  const focusLine = focus?.line ?? null;
   const [open, setOpen] = React.useState(
-    (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
+    focused || (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
   );
+
+  // Back/forward can move the focus onto an already-mounted, collapsed card.
+  React.useEffect(() => {
+    if (focused) setOpen(true);
+  }, [focused, focusLine]);
+
+  // The owner (DiffTab) scrolls and flashes; the card only opens and exposes itself via `data-file-path`.
+  const flashLine = focus?.flashLine ?? null;
+
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
 
   // Group this file's comments into threads, then split into ones we can anchor
@@ -87,7 +101,7 @@ export function FileCard({
     : 0;
 
   return (
-    <div style={s.fileCard}>
+    <div data-file-path={file.path} style={s.fileCard}>
       <div onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
         <Icon.FileText size={14} style={s.fileIcon} />
@@ -128,6 +142,7 @@ export function FileCard({
                 commenting={commenting}
                 annotations={annotationsForLine(ln, matchedAnnotations)}
                 showAnnotations={showAnnotations}
+                highlighted={flashLine !== null && ln.newNo === flashLine}
               />
             ))
           )}

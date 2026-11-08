@@ -36,3 +36,18 @@ export function parsePatch(patch: string | null | undefined): Line[] {
   }
   return out;
 }
+
+/** Where the viewer should land: a file, and a new-side line inside it when known. */
+export interface DiffFocus {
+  path: string;
+  line: number | null;
+  /** New-side line to highlight right now; set by the owner that scrolls (null = none). */
+  flashLine?: number | null;
+}
+
+/** True when the user asked the OS for less motion. */
+export function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+}

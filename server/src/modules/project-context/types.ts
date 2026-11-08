@@ -28,6 +28,15 @@ export interface ReviewProjectContext {
   reads: ContextDocRead[];
 }
 
+/** What the PR brief gets: every enabled agent's attached documents, merged and unbudgeted. */
+export interface BriefDocuments {
+  documents: { path: string; text: string; tokens: number }[];
+  /** Why `documents` is empty: no attachments, no clone, or none of them could be read. */
+  missing: 'none_attached' | 'not_cloned' | 'unreadable' | null;
+  /** Paths that could not be read while at least one other document was; absent = none. */
+  unreadable?: string[];
+}
+
 export interface ProjectContextFacade {
   list(workspaceId: string, repoId: string): Promise<ContextDocList>;
   document(workspaceId: string, repoId: string, path: string): Promise<ContextDocument>;
@@ -45,4 +54,6 @@ export interface ProjectContextFacade {
   save(workspaceId: string, repoId: string, req: ContextSaveRequest): Promise<ContextSaveResult>;
   /** The agent's merged, budgeted documents for a run on `repo`. Never throws. */
   forReview(agentId: string, repo: RepoRow): Promise<ReviewProjectContext>;
+  /** The union of every enabled agent's attached documents on `repo`, unbudgeted. Never throws. */
+  forBrief(workspaceId: string, repo: RepoRow): Promise<BriefDocuments>;
 }

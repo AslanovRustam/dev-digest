@@ -107,4 +107,8 @@ describe('stripUrlQuery / formatCallLine', () => {
     expect(line).toContain('issue:#12=used');
     expect(line).toContain('latency=1200ms');
   });
+  it('accepts call=brief', () => {
+    const line = formatCallLine(buildLlmCallLog({ ...input, call: 'brief' }));
+    expect(line.startsWith('call=brief model=deepseek/deepseek-v4-flash')).toBe(true);
+  });
 });

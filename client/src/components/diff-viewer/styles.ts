@@ -96,6 +96,15 @@ export function lineRowFor(kind: Line["kind"]): CSSProperties {
   return { display: "flex", alignItems: "stretch", fontSize: 13, lineHeight: "20px", background };
 }
 
+/** The line a deep link landed on: accent tint + ring; it fades only when motion is allowed. */
+export function focusRow(reducedMotion: boolean): CSSProperties {
+  return {
+    background: "var(--accent-bg)",
+    boxShadow: "inset 0 0 0 2px var(--accent)",
+    transition: reducedMotion ? "none" : "background .3s, box-shadow .3s",
+  };
+}
+
 /** Gutter sign colour per line kind. */
 export function lineSignFor(kind: Line["kind"]): CSSProperties {
   return {
