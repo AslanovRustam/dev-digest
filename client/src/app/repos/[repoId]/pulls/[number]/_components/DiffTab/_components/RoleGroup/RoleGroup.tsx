@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
-import { DiffViewer, type DiffAnnotationApi, type DiffCommentApi } from "@/components/diff-viewer";
+import { DiffViewer, type DiffAnnotationApi, type DiffCommentApi, type DiffFocus } from "@/components/diff-viewer";
 import type { PrFile } from "@devdigest/shared";
 import { s, chevronFor, roleSquare } from "./styles";
 
@@ -23,12 +23,19 @@ interface RoleGroupProps {
   annotations?: DiffAnnotationApi;
   /** Findings indicator rendered next to the label. */
   badge?: React.ReactNode;
+  /** A group holding the focused file opens, whatever its default. */
+  focus?: DiffFocus;
 }
 
 /** One role group of the Smart Diff: a sticky, collapsible header over its files. */
-export function RoleGroup({ heading, files, defaultOpen, commenting, annotations, badge }: RoleGroupProps) {
+export function RoleGroup({ heading, files, defaultOpen, commenting, annotations, badge, focus }: RoleGroupProps) {
   const t = useTranslations("prReview");
-  const [open, setOpen] = React.useState(defaultOpen);
+  const holdsFocus = !!focus && files.some((f) => f.path === focus.path);
+  const [open, setOpen] = React.useState(defaultOpen || holdsFocus);
+  // Back/forward can focus a file inside an already-mounted, collapsed group.
+  React.useEffect(() => {
+    if (holdsFocus) setOpen(true);
+  }, [holdsFocus, focus?.path]);
   return (
     <div>
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={s.header}>
@@ -43,7 +50,7 @@ export function RoleGroup({ heading, files, defaultOpen, commenting, annotations
       </button>
       {open && (
         <div style={s.body}>
-          <DiffViewer files={files} commenting={commenting} annotations={annotations} />
+          <DiffViewer files={files} commenting={commenting} annotations={annotations} focus={focus} />
         </div>
       )}
     </div>

@@ -42,6 +42,11 @@ _None yet._
   `specs` is a bare `string[]` · ref: `src/prompt.ts:135`
 
 ## Tool & Library Notes
+- **2026-11-07** · Count attempts, not calls, when a feature promises "one model call" or an input budget:
+  one `completeStructured` bills up to `maxRetries + 1` requests (default `maxRetries` 2 → 3), and every
+  repair re-sends the whole prompt plus the rejected answer and the re-prompt, so request N is larger than
+  request 1. Pass an explicit `maxRetries` and log `attempts` — why: the repair loop appends to `messages`
+  · ref: `src/llm/openrouter.ts:105-158`
 
 _None yet._
 

@@ -86,6 +86,14 @@ _None yet._
   cannot import `FindingCard` itself. Anchoring mirrors comment threads: `lineKey("RIGHT", line)` +
   `partitionAnnotations`; unmatched items render in `UnanchoredAnnotations` · ref:
   `src/components/diff-viewer/annotations.ts`
+- **2026-11-08** · A deep-link scroll to `?tab=diff&file=&line=` belongs in the OWNER above the list (`DiffTab`),
+  never in `FileCard` (the flat list is swapped for smart-diff role groups, which remounts the cards). Wait until
+  every query that inserts content above the target (comments, reviews, smart-diff) has settled; key the
+  scroll-once guard on layout (`groups` | `flat`) + `path:line`; find the card by `[data-file-path]`; retry with a
+  bounded `requestAnimationFrame` loop (`SCROLL_RETRY_FRAMES = 30`), because the card/group opens in a follow-up
+  render that changes none of the effect's deps. Scrolling once before the layout settled landed ~16,000 px off ·
+  ref: `src/app/repos/[repoId]/pulls/[number]/_components/DiffTab/DiffTab.tsx:38,79-83`,
+  `src/components/diff-viewer/FileCard/FileCard.tsx:72`
 
 ## Tool & Library Notes
 
@@ -129,6 +137,10 @@ _None yet._
   (+ `waitFor`), as `IntentCard.test.tsx` and `DiffTab.test.tsx` do; importing `userEvent` fails both
   `pnpm typecheck` (TS2307) and vitest. Do not add the dependency as a side effect of a feature
   · ref: `client/package.json`
+- **2026-11-08** · jsdom implements neither `Element.prototype.scrollIntoView` nor `window.matchMedia`, and the
+  client has no global test setup that stubs them — assign a `vi.fn()` to `Element.prototype.scrollIntoView` and
+  `vi.stubGlobal("matchMedia", …)` in the test file; `scroll.mock.contexts.at(-1)` is the element that was
+  scrolled · ref: `src/app/repos/[repoId]/pulls/[number]/_components/DiffTab/DiffTab.test.tsx:114-124`
 
 ## Recurring Errors & Fixes
 
@@ -155,3 +167,7 @@ _None yet._
 ## Open Questions
 
 _None yet._
+- **2026-11-08** · Unverified code-review findings on the Project Context base (`42d7800`), out of PR Brief's scope
+  (ledger R-13, R-14 in `.devdigest/plans/10-pr-brief.review.md`) — reproduce before fixing: the default commit
+  message in `DocumentEditor.tsx:72` can exceed 200 chars for long paths; overlapping attachment mutations in
+  `src/lib/hooks/project-context.ts:119` roll the cache back

@@ -28,7 +28,7 @@ export interface LlmCallSource {
 }
 
 export interface LlmCallLogInput {
-  call: 'intent' | 'review';
+  call: 'intent' | 'review' | 'brief';
   prId: string;
   runId?: string;
   provider: string;
@@ -45,7 +45,7 @@ export interface LlmCallLogInput {
 }
 
 export interface LlmCallLog {
-  call: 'intent' | 'review';
+  call: 'intent' | 'review' | 'brief';
   prId: string;
   runId?: string;
   provider: string;

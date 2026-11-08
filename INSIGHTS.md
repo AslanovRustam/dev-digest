@@ -57,6 +57,22 @@ _None yet._
   record", but `verify.mjs` and the `verify:` input only arrived on 2026-11-01. Read the docs as of the run start:
   `git show "$(git rev-list -1 --before=<start> HEAD)":<path>`; `workflow-retro` lists the drifted files in its
   facts header · ref: `.claude/skills/workflow-retro/SKILL.md` (step 3)
+- **2026-11-08** · Don't append a `/run-plan` amendment after the `<!-- RATIONALE -->` marker, although the template
+  heading says "appended to the plan file" — `scripts/plan.mjs` (`lint`, `slice`) reads only the body above the
+  marker, so the new phase is invisible and `slice <phase>` fails. Insert it immediately BEFORE the marker (Write
+  the text to a scratch file, then splice it in) · ref: `scripts/plan.mjs:16,32`,
+  `.claude/skills/run-plan/references/templates.md:109`
+- **2026-11-08** · Don't pass the base branch as the target of the `code-review` skill (`/code-review
+  origin/feat/x`): it reviews THAT branch against `main`, not the feature on top of it (8 of 18 round-1 findings
+  were base-branch code). Write the feature diff to a patch file (`git diff <base> > <scratchpad>/feat.patch`) and
+  pass its path · ref: `.devdigest/plans/10-pr-brief.review.md` (R-11…R-18)
+- **2026-11-08** · Don't expect background `implementer` / `architecture-reviewer` runs to write their `out:` report
+  — in the 10-pr-brief run most handed back "not written … my instructions said to hand back via SubagentHandback",
+  so architecture-reviewer deltas lost their `previous:` report from round 3 on. Only `plan-verifier`, whose
+  definition says the report file is "the only file you write", wrote every one. Until the definitions say the same,
+  save each hand-back yourself and check the file exists before passing it as `previous:` · ref:
+  `.claude/agents/implementer.md:54`, `.claude/agents/architecture-reviewer.md:58`,
+  `.devdigest/retros/2026-11-07-e9e4faa5.md`
 
 ## Codebase Patterns
 
@@ -331,6 +347,14 @@ _None yet._
   nothing while it runs (~70 s here). It fingerprints the tree at the start and the end: a README edited mid-run left
   all 10 lanes green but printed "WARNING the tree changed during the run — the record is already stale", so the
   record is unusable for `plan-verifier` / the PR and the whole run must be repeated · ref: `scripts/verify.mjs`
+- **2026-11-08** · The Edit/Write tools can turn a `\u2028` / `\u2029` escape written inside a regex literal into
+  the literal character — a JS line terminator, so the file no longer parses. Match separators by char code
+  (`c === 0x2028`) instead of regex escapes · ref: `server/src/modules/brief/helpers.ts:282-283` (`inertPath`)
+- **2026-11-08** · For a branch stacked on an unmerged one (here `feat/l05-pr-brief` on `feat/l05-project-context`,
+  open PR #14), run `/pr-self-review` with `collect.mjs --base feat/l05-project-context` — the bare branch name;
+  preflight fetches it and prefixes `origin/` itself. The default `base: main` would review the parent PR's files
+  too. Also: `invariants.mjs` still lists an inline-suppressed `INV-SECRET`; the suppression is applied by
+  `checks.mjs` (`blockers: []`) and the report · ref: `.claude/skills/pr-self-review/scripts/preflight.mjs:51-71`
 
 ## Recurring Errors & Fixes
 
