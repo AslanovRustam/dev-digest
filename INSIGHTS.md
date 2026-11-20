@@ -355,6 +355,12 @@ _None yet._
   preflight fetches it and prefixes `origin/` itself. The default `base: main` would review the parent PR's files
   too. Also: `invariants.mjs` still lists an inline-suppressed `INV-SECRET`; the suppression is applied by
   `checks.mjs` (`blockers: []`) and the report · ref: `.claude/skills/pr-self-review/scripts/preflight.mjs:51-71`
+- **2026-11-08** · On a PR page, do not wait for the PR Brief with Playwright `browser_wait_for` text ("Review focus",
+  "Regenerate", "Risk areas"): the rendered PR description often repeats those labels, so the wait returns while
+  the brief is still generating. Poll the card itself in `browser_evaluate` until
+  `[role=region][aria-label="PR Brief"]` has no `[role=status]`. The deep-link line flash starts only after the
+  diff loads (~2.5 s on a 75-file PR) and lasts 2 s; detect it by polling for the `inset 0 0 0 2px` ring, not
+  from a screenshot taken right after the click · ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/PrBrief/PrBriefCard.tsx`
 
 ## Recurring Errors & Fixes
 
