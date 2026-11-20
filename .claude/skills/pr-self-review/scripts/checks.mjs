@@ -27,9 +27,9 @@ const TIMEOUT_MS = 10 * 60 * 1000;
 /**
  * Commands are the `pnpm exec …` / `npm run …` forms CI uses rather than named scripts:
  * the local `server/package.json` diverges from the committed one, so named scripts are not
- * a reliable contract.
+ * a reliable contract. Also used by `scripts/verify.mjs` (the agent pipeline's one test run).
  */
-function planChecks(paths) {
+export function planChecks(paths) {
   const touches = (re) => paths.some((p) => re.test(p));
   const server = touches(/^server\//);
   const core = touches(/^reviewer-core\//);

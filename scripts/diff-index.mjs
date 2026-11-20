@@ -84,13 +84,12 @@ function refExists(ref) {
   }
 }
 
-function main() {
-  const i = process.argv.indexOf('--base');
-  const base = i > 0 ? process.argv[i + 1] : refExists('origin/main') ? 'origin/main' : 'main';
-  const baseSha = git('rev-parse', base);
-  const mergeBase = git('merge-base', 'HEAD', base);
-  const headSha = git('rev-parse', 'HEAD');
+export function defaultBase() {
+  return refExists('origin/main') ? 'origin/main' : 'main';
+}
 
+/** Tracked changes vs `mergeBase` (see `mergeBaseOf`), plus untracked files. Also used by `scripts/verify.mjs`. */
+export function changedFiles(mergeBase) {
   const files = git('diff', '--numstat', '-z', mergeBase)
     .split('\0')
     .filter(Boolean)
@@ -100,7 +99,20 @@ function main() {
     });
   const untracked = git('ls-files', '--others', '--exclude-standard', '-z').split('\0').filter(Boolean);
   for (const path of untracked) files.push({ path, added: null, deleted: null, untracked: true });
-  files.sort((a, b) => a.path.localeCompare(b.path));
+  return files.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+export function mergeBaseOf(base) {
+  return git('merge-base', 'HEAD', base);
+}
+
+function main() {
+  const i = process.argv.indexOf('--base');
+  const base = i > 0 ? process.argv[i + 1] : defaultBase();
+  const baseSha = git('rev-parse', base);
+  const mergeBase = mergeBaseOf(base);
+  const headSha = git('rev-parse', 'HEAD');
+  const files = changedFiles(mergeBase);
 
   process.stdout.write(renderIndex({ base, baseSha, mergeBase, headSha, files }) + '\n');
 }

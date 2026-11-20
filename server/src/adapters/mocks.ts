@@ -23,6 +23,9 @@ import type {
   UnifiedDiff,
   BlameLine,
   GitCommit,
+  ListWorkingFilesOptions,
+  WorkingFile,
+  WorkingFileRead,
   CodeIndex,
   CodeMatch,
   CodeSymbol,
@@ -130,6 +133,10 @@ export interface MockGitHubOptions {
   files?: Record<string, string>;
   /** path → HTTP status getFileAtRef throws (e.g. 403/404). Wins over `files`. */
   fileErrors?: Record<string, number>;
+  /** Branches that already exist — a `createOnly` commit onto one rejects with 409. */
+  existingBranches?: string[];
+  /** HTTP status every commitFiles call throws (e.g. 403 for a read-only token). */
+  commitError?: number;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -222,12 +229,25 @@ export class MockGitHubClient implements GitHubClient {
     };
   }
 
-  async openPullRequest(_repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }> {
+  async openPullRequest(
+    _repo: RepoRef,
+    payload: OpenPrPayload,
+  ): Promise<{ url: string; number: number }> {
     this.openedPrs.push(payload);
-    return { url: 'https://github.com/mock/mock/pull/1' };
+    const number = this.openedPrs.length;
+    return { url: `https://github.com/mock/mock/pull/${number}`, number };
   }
 
   async commitFiles(_repo: RepoRef, payload: CommitFilesPayload): Promise<{ branch: string }> {
+    if (this.opts.commitError) {
+      throw Object.assign(new Error('mock commitFiles refused'), { status: this.opts.commitError });
+    }
+    const exists =
+      (this.opts.existingBranches ?? []).includes(payload.branch) ||
+      this.committed.some((c) => c.branch === payload.branch);
+    if (payload.createOnly && exists) {
+      throw Object.assign(new Error('Branch already exists'), { status: 409, code: 'branch_exists' });
+    }
     this.committed.push(payload);
     return { branch: payload.branch };
   }
@@ -274,6 +294,14 @@ export interface MockGitOptions {
   head?: string;
   /** Head `currentHead()` returns AFTER `sync()` runs — simulates fetch+reset advancing HEAD. */
   syncedHead?: string;
+  /** Working-tree paths that are symlinks: never listed, `readWorkingFile` → `symlink`. */
+  symlinks?: string[];
+  /** `mtimeMs` of every working-tree file (default 0). */
+  mtimeMs?: number;
+  /** No clone: `listWorkingFiles` → null, every read → `not_cloned`. */
+  notCloned?: boolean;
+  /** Working-tree files after `sync()` (replace `files`) — simulates an upstream change. */
+  syncedFiles?: Record<string, string>;
 }
 
 export class MockGitClient implements GitClient {
@@ -295,6 +323,7 @@ export class MockGitClient implements GitClient {
     this.syncs.push({ repo, branch });
     // After a sync, HEAD advances to syncedHead (or stays at head if unset).
     this.syncedHead = this.opts.syncedHead ?? this.opts.head ?? 'a1b2c3d4';
+    if (this.opts.syncedFiles) this.opts.files = this.opts.syncedFiles;
     return { head: this.syncedHead };
   }
   async currentHead(): Promise<string> {
@@ -317,6 +346,40 @@ export class MockGitClient implements GitClient {
   }
   async readFile(_repo: RepoRef, path: string): Promise<string> {
     return this.opts.files?.[path] ?? '';
+  }
+  async listWorkingFiles(
+    _repo: RepoRef,
+    opts: ListWorkingFilesOptions,
+  ): Promise<WorkingFile[] | null> {
+    if (this.opts.notCloned) return null;
+    const symlinks = new Set(this.opts.symlinks ?? []);
+    const exclude = new Set(opts.excludeDirs);
+    const ext = opts.extension.toLowerCase();
+    return Object.entries(this.opts.files ?? {})
+      .filter(
+        ([path]) =>
+          !symlinks.has(path) &&
+          path.toLowerCase().endsWith(ext) &&
+          !path.split('/').slice(0, -1).some((dir) => exclude.has(dir)),
+      )
+      .map(([path, text]) => ({
+        path,
+        size: Buffer.byteLength(text, 'utf8'),
+        mtimeMs: this.opts.mtimeMs ?? 0,
+      }))
+      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  }
+  async readWorkingFile(_repo: RepoRef, path: string, maxBytes: number): Promise<WorkingFileRead> {
+    if (path.includes('\\') || path.split('/').some((s) => s === '' || s === '.' || s === '..')) {
+      return { ok: false, code: 'outside_clone' };
+    }
+    if (this.opts.notCloned) return { ok: false, code: 'not_cloned' };
+    if (this.opts.symlinks?.includes(path)) return { ok: false, code: 'symlink' };
+    const text = this.opts.files?.[path];
+    if (text === undefined) return { ok: false, code: 'not_found' };
+    const size = Buffer.byteLength(text, 'utf8');
+    if (size > maxBytes) return { ok: false, code: 'too_large' };
+    return { ok: true, text, size, mtimeMs: this.opts.mtimeMs ?? 0 };
   }
 }
 

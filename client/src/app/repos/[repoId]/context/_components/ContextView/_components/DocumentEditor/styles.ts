@@ -1,0 +1,51 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for DocumentEditor. */
+export const s = {
+  form: { display: "flex", flexDirection: "column", minHeight: "100%" } satisfies CSSProperties,
+  body: { padding: "18px 24px", display: "flex", flexDirection: "column", gap: 14, flex: 1 } satisfies CSSProperties,
+  field: { display: "flex", flexDirection: "column", gap: 6 } satisfies CSSProperties,
+  label: { fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" } satisfies CSSProperties,
+  input: (invalid: boolean): CSSProperties => ({
+    padding: "8px 10px",
+    borderRadius: 7,
+    border: `1px solid ${invalid ? "var(--crit)" : "var(--border)"}`,
+    background: "var(--bg-surface)",
+    color: "var(--text-primary)",
+    fontSize: 13,
+  }),
+  source: {
+    minHeight: 360,
+    flex: 1,
+    padding: "12px 14px",
+    borderRadius: 8,
+    border: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+    color: "var(--text-primary)",
+    fontSize: 13,
+    lineHeight: 1.55,
+    resize: "vertical",
+  } satisfies CSSProperties,
+  fieldError: { fontSize: 12, color: "var(--crit)" } satisfies CSSProperties,
+  hint: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  banner: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+    padding: "10px 12px",
+    borderRadius: 8,
+    border: "1px solid var(--warn)",
+    background: "var(--warn-bg)",
+    fontSize: 13,
+  } satisfies CSSProperties,
+  link: { color: "var(--accent-text)", fontWeight: 600, textDecoration: "underline" } satisfies CSSProperties,
+  footer: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
+    padding: "14px 24px",
+    borderTop: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+  } satisfies CSSProperties,
+} as const;

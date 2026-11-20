@@ -10,7 +10,8 @@ import { useTranslations } from "next-intl";
 import { Badge, EmptyState, ErrorState, Icon, Skeleton } from "@devdigest/ui";
 import { useAgentSkills, useSetAgentSkills, useSkills } from "@/lib/hooks/skills";
 import { SkillRow, type DragHandlers } from "./_components/SkillRow";
-import { filterRows, linkedCount, mergeRows, moveItem, toggleRow, toItems, type SkillRowModel } from "./helpers";
+import { moveItem } from "@/lib/reorder";
+import { filterRows, linkedCount, mergeRows, toggleRow, toItems, type SkillRowModel } from "./helpers";
 import { s } from "./styles";
 
 export function SkillsTab({ agentId }: { agentId: string }) {

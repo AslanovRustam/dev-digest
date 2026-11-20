@@ -77,6 +77,7 @@ flowchart TB
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
     blast["blast<br/>/pulls/:id/blast"]
+    projectContext["project-context<br/>/repos/:id/context · /context/(document|rescan|documents)<br/>/(agents|skills)/:id/context"]
   end
   subgraph Platform["Platform"]
     settings["settings<br/>/settings · /providers"]
@@ -94,6 +95,20 @@ model call, no re-analysis. Rate limit: 30 requests/minute
 (`modules/blast/constants.ts`), because the fallback path scans the clone. An
 unknown or foreign-workspace PR yields a not-found error. Response contract:
 `BlastRadiusResponse` in `src/vendor/shared/contracts/review-api.ts`.
+
+### Project context (`/repos/:id/context`, `/(agents|skills)/:id/context`)
+
+`modules/project-context/` (spec: `specs/2026-11-01-project-context.md`) lists the
+clone's `.md` files under folders named after the search roots
+(`PROJECT_CONTEXT_ROOTS`, default `specs,docs,insights`; hidden folders walked,
+`.git` / `node_modules` skipped, symlinks never followed or read), reads one, and
+rescans (sync + re-list, 6/min). Agents and skills store ordered **paths only**
+(`agent_context_docs`, `skill_context_docs`); `PUT` replaces the whole list and
+never bumps the version. A save (`POST …/context/documents`, 10/min) commits to a
+NEW branch `devdigest/context/<file>-<time>` off the default branch and opens a PR
+— never the default branch, never an existing branch, never the clone; an update
+409s when GitHub's file no longer matches the `version` it started from.
+Contracts: `src/vendor/shared/contracts/project-context.ts`.
 
 ```mermaid
 sequenceDiagram
@@ -165,6 +180,15 @@ What the reviewer actually sends to the model is assembled in
   demo / test / not for production / do not flag" never descope the review — real
   defects are reported at full severity regardless. We deliberately do **not**
   keyword-scan untrusted text (a denylist only catches one phrasing).
+- **Project context is read per run, never stored as text.** `run-executor` asks
+  `container.projectContext.forReview` for the agent's own documents, then its
+  enabled skill links' (first path wins), read from the clone's working tree
+  (default branch, last sync) regardless of the repo-intel toggle and with no
+  model call. Each document is capped at 8,000 tokens (marker included), the set
+  at 24,000 (whole documents dropped from the end); each becomes its own
+  `<untrusted source="project-context:<path>">` fence under `## Project context`,
+  followed by a trusted rule to cite the path. Skips and drops are traced
+  (`context_documents`); nothing attached → the prompt is byte-identical.
 - **Grounding is mandatory.** Every finding must cite a line that exists in the
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.

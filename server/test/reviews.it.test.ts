@@ -517,6 +517,158 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
+  // ---- L05 — project context ------------------------------------------------
+
+  const CONTEXT_FILES = {
+    'docs/architecture.md': '# Architecture\nModule api/ does not import db/ directly.',
+    'specs/public-api.md': '# Public API\nAll public endpoints MUST be rate-limited.',
+    'insights/incident.md': '# Incident\nCheckout outage.',
+    'docs/link.md': 'symlink to secrets',
+  };
+
+  async function contextRun(opts: { attach?: string[]; skillAttach?: string[]; git?: Record<string, unknown> } = {}) {
+    const llm = new MockLLMProvider('openai', { structured: REVIEW_FIXTURE });
+    const app = await buildApp({
+      config: config(),
+      db: pg.handle.db,
+      overrides: {
+        embedder: new MockEmbedder(),
+        git: new MockGitClient({ diff: DIFF, files: CONTEXT_FILES, symlinks: ['docs/link.md'], ...opts.git }),
+        github: new MockGitHubClient(),
+        llm: {
+          openai: llm,
+          openrouter: new MockLLMProvider('openai', { structuredBySchema: { PrIntentClassification: INTENT_FIXTURE } }),
+        },
+      },
+    });
+    const db = pg.handle.db;
+    const { repo, pr } = await setupRepoAndPr(db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: `Ctx ${repoSeq}`, provider: 'openai', model: 'gpt-4.1', system_prompt: 's' },
+      })
+    ).json();
+    // repo-intel off for this agent: project context must not depend on it (AC-18).
+    await db.update(t.agents).set({ repoIntel: false }).where(eq(t.agents.id, agent.id));
+    if (opts.skillAttach) {
+      const [skill] = await db
+        .insert(t.skills)
+        .values({ workspaceId, name: 'pr-quality-rubric', description: 'd', type: 'rubric', source: 'manual', body: 'b' })
+        .returning();
+      await db.insert(t.agentSkills).values({ agentId: agent.id, skillId: skill!.id, order: 0, enabled: true });
+      await app.inject({ method: 'PUT', url: `/skills/${skill!.id}/context`, payload: { paths: opts.skillAttach } });
+    }
+    if (opts.attach) {
+      await app.inject({ method: 'PUT', url: `/agents/${agent.id}/context`, payload: { paths: opts.attach } });
+    }
+    const body = (
+      await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } })
+    ).json();
+    await waitForPrRuns(db, pr.id, { expected: 1 });
+    // The executor marks the run done BEFORE it saves the trace — poll until it lands.
+    const runId = body.runs[0].run_id;
+    for (let i = 0; i < 200; i++) {
+      const res = await app.inject({ method: 'GET', url: `/runs/${runId}/trace` });
+      if (res.statusCode === 200) return { app, llm, repo, agent, trace: res.json() };
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    throw new Error(`trace of run ${runId} was never saved`);
+  }
+
+  it('project context (L05): own docs then skill docs, deduped, fenced by path; skips traced; repo-intel off', async () => {
+    const { app, repo, agent, trace } = await contextRun({
+      attach: ['docs/architecture.md', 'specs/gone.md', 'docs/link.md'],
+      skillAttach: ['docs/architecture.md', 'specs/public-api.md'],
+    });
+
+    expect(trace.specs_read).toEqual(['docs/architecture.md', 'specs/public-api.md']);
+    expect(
+      trace.context_documents.map((d: { path: string; status: string; reason?: string; via: string | null }) => [
+        d.path,
+        d.status,
+        d.reason ?? null,
+        d.via,
+      ]),
+    ).toEqual([
+      ['docs/architecture.md', 'injected', null, null],
+      ['specs/gone.md', 'skipped', 'not_found', null],
+      ['docs/link.md', 'skipped', 'symlink', null],
+      ['specs/public-api.md', 'injected', null, 'pr-quality-rubric'],
+    ]);
+
+    const user: string = trace.prompt_assembly.user;
+    expect(user.match(/## Project context/g)).toHaveLength(1);
+    const arch = user.indexOf('<untrusted source="project-context:docs/architecture.md">');
+    const api = user.indexOf('<untrusted source="project-context:specs/public-api.md">');
+    expect(arch).toBeGreaterThan(-1);
+    expect(api).toBeGreaterThan(arch);
+    expect(user).not.toContain('symlink to secrets');
+    expect(trace.prompt_assembly.specs).toMatch(/^## Project context\n/);
+    expect(user).toContain(trace.prompt_assembly.specs);
+
+    const msgs: string[] = trace.log.map((l: { msg: string }) => l.msg);
+    expect(msgs.some((m) => m.startsWith('project context "docs/architecture.md" attached (~'))).toBe(true);
+    expect(msgs).toContain('project context "specs/gone.md" skipped: not_found');
+    expect(msgs).toContain('project context "docs/link.md" skipped: symlink');
+
+    // NFR-4 — the tab's total equals the tokens the run injected.
+    const tab = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/context?repo_id=${repo.id}` })).json();
+    const injected = trace.context_documents
+      .filter((d: { status: string }) => d.status === 'injected' || d.status === 'truncated')
+      .reduce((s: number, d: { tokens: number }) => s + d.tokens, 0);
+    expect(tab.total_tokens).toBe(injected);
+    await app.close();
+  });
+
+  it('project context (L05): nothing attached → identical prompt, no specs, one LLM call either way (AC-23, NFR-2)', async () => {
+    const none = await contextRun();
+    expect(none.trace.prompt_assembly.specs ?? null).toBeNull();
+    expect(none.trace.prompt_assembly.user).not.toContain('## Project context');
+    expect(none.trace.specs_read).toEqual([]);
+    expect(none.trace.context_documents).toEqual([]);
+    const withDocs = await contextRun({ attach: ['docs/architecture.md'] });
+    const reviewCalls = (llm: MockLLMProvider) => llm.calls.filter((c) => c.method === 'completeStructured').length;
+    expect(reviewCalls(withDocs.llm)).toBe(reviewCalls(none.llm));
+    await none.app.close();
+    await withDocs.app.close();
+  });
+
+  it('project context (L05): a repo without a clone skips every document and the run still completes (AC-22)', async () => {
+    const { app, trace } = await contextRun({ attach: ['docs/architecture.md'], git: { notCloned: true } });
+    expect(trace.context_documents).toEqual([
+      { path: 'docs/architecture.md', tokens: null, status: 'skipped', reason: 'not_cloned', via: null },
+    ]);
+    expect(trace.specs_read).toEqual([]);
+    expect(trace.stats.findings).toBeGreaterThanOrEqual(0);
+    await app.close();
+  });
+
+  it('project context (L05): reading and counting 24,000 tokens of documents takes under 1 s (NFR-3)', async () => {
+    const doc = (n: number) => `# Doc ${n}\n` + 'Module api/ must not import db/ directly. '.repeat(880);
+    const files = { 'docs/a.md': doc(1), 'docs/b.md': doc(2), 'docs/c.md': doc(3) };
+    const app = await buildApp({
+      config: config(),
+      db: pg.handle.db,
+      overrides: { embedder: new MockEmbedder(), git: new MockGitClient({ files }), github: new MockGitHubClient() },
+    });
+    const { repo } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const [agent] = await pg.handle.db
+      .insert(t.agents)
+      .values({ workspaceId, name: 'Budget', provider: 'openai', model: 'gpt-4.1', systemPrompt: 's' })
+      .returning();
+    await app.inject({ method: 'PUT', url: `/agents/${agent!.id}/context`, payload: { paths: Object.keys(files) } });
+    const start = performance.now();
+    const ctx = await app.container.projectContext.forReview(agent!.id, repo);
+    const ms = performance.now() - start;
+    const injected = ctx.reads.reduce((s, d) => s + (d.tokens ?? 0), 0);
+    expect(injected).toBeGreaterThan(20000);
+    expect(injected).toBeLessThanOrEqual(24000);
+    expect(ms).toBeLessThan(1000);
+    await app.close();
+  });
+
   it('review + findings are atomic: a rejected finding rolls the review back', async () => {
     const db = pg.handle.db;
     const { pr } = await setupRepoAndPr(db, workspaceId);

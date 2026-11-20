@@ -29,6 +29,9 @@ const EnvSchema = z.object({
   API_PORT: z.coerce.number().int().default(3001),
   WEB_PORT: z.coerce.number().int().default(3000),
   DEVDIGEST_CLONE_DIR: z.string().optional(),
+  // Project Context (L05): folder names whose `.md` files are project documents —
+  // the glob `**/{specs,docs,insights}/**/*.md`. Comma-separated; blank → default.
+  PROJECT_CONTEXT_ROOTS: z.string().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   // `.env` (and .env.example) ship `LOG_LEVEL=` empty; an empty string is not a
   // valid enum member, so coerce '' → undefined to fall through to the default.
@@ -59,7 +62,19 @@ export type AppConfig = {
    * EXACTLY like the ripgrep-only baseline.
    */
   repoIntelEnabled: boolean;
+  /** Project Context search roots: folder names matched at any depth (default specs, docs, insights). */
+  projectContextRoots: string[];
 };
+
+const DEFAULT_PROJECT_CONTEXT_ROOTS = ['specs', 'docs', 'insights'];
+
+function parseRoots(raw: string | undefined): string[] {
+  const roots = (raw ?? '')
+    .split(',')
+    .map((r) => r.trim())
+    .filter((r) => r.length > 0 && !r.includes('/') && !r.includes('\\'));
+  return roots.length > 0 ? roots : DEFAULT_PROJECT_CONTEXT_ROOTS;
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = EnvSchema.parse(env);
@@ -77,5 +92,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     webOrigin: `http://localhost:${parsed.WEB_PORT}`,
     embeddingsEnabled: parsed.EMBEDDINGS_ENABLED === 'true',
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
+    projectContextRoots: parseRoots(parsed.PROJECT_CONTEXT_ROOTS),
   };
 }

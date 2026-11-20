@@ -6,7 +6,7 @@ import { buildLlmCallLog, formatCallLine } from '../../platform/llm-call-log.js'
 import type { AgentRow, RepoRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { buildSkillBlocks, reviewPromptSections, taskLine } from './helpers.js';
+import { buildSkillBlocks, contextDocLogLine, reviewPromptSections, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -209,6 +209,13 @@ export class ReviewRunExecutor {
         runLog.info(`skill "${b.name}" v${b.version} attached (~${b.tokens} tokens)`);
       }
 
+      // L05 — project context: the agent's own documents, then its enabled
+      // skills', read from the clone and budgeted — regardless of repo-intel,
+      // with no model call. One Live Log line per document; nothing injected →
+      // the slot is omitted and the prompt is byte-identical to the no-context shape.
+      const projectContext = await this.container.projectContext.forReview(agent.id, repo);
+      for (const doc of projectContext.reads) runLog.info(contextDocLogLine(doc));
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -229,6 +236,8 @@ export class ReviewRunExecutor {
         ...(repoMap ? { repoMap } : {}),
         // L02 — formatted skill blocks, same omit-when-empty contract.
         ...(skillBlocks.length > 0 ? { skills: skillBlocks.map((b) => b.text) } : {}),
+        // L05 — project documents (untrusted, path-labelled), same omit-when-empty contract.
+        ...(projectContext.documents.length > 0 ? { specs: projectContext.documents } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -347,7 +356,8 @@ export class ReviewRunExecutor {
         })),
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        specs_read: projectContext.documents.map((doc) => doc.path),
+        context_documents: projectContext.reads,
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),

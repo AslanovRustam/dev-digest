@@ -57,6 +57,46 @@ test('allows tests, typecheck, generate, read-only git and quoted mentions', () 
   }
 });
 
+test('denies writing files from Bash: redirects, heredocs, tee, in-place edits, inline scripts', () => {
+  for (const cmd of [
+    'echo x > server/src/a.ts',
+    "printf 'x\\r\\n' >> server/test/contracts.test.ts",
+    'cat a.ts &> b.ts',
+    'cd mcp/src && cat >> constants.ts <<\'EOF\'\nexport const A = 1;\nEOF',
+    "cat > \"$TEMP/p.mjs\" <<'EOF'\nconsole.log(1)\nEOF",
+    "python - <<'PY'\nopen('a','w')\nPY",
+    'python3 -c "open(\'a\',\'w\').write(\'b\')"',
+    'node -e "require(\'fs\').writeFileSync(\'a\', \'b\')"',
+    "node - <<'EOF'\nx\nEOF",
+    'git diff | tee out.patch',
+    "sed -i 's/a/b/' src/x.ts",
+    "sed -i.bak -e 's/a/b/' src/x.ts",
+    "perl -pi -e 's/a/b/' src/x.ts",
+  ]) {
+    const r = decide({ tool_name: 'Bash', tool_input: { command: cmd } }, ROOT);
+    assert.equal(r.deny, true, cmd);
+    assert.match(r.reason, /Edit \/ Write tools/, cmd);
+  }
+});
+
+test('allows the reading and testing shapes the write rules must not catch', () => {
+  for (const cmd of [
+    "pnpm exec vitest run test/a.test.ts --reporter=dot 2>&1 | tail -n 30",
+    'pnpm typecheck 2>&1 | tail -15; pnpm arch 2>&1 | tail -5',
+    'docker info >/dev/null 2>&1',
+    "sed -n '1,40p' src/a.ts",
+    "grep -n 'a > b' src/a.ts",
+    'echo "x >> y"',
+    "grep -c x <<< \"$VAR\"",
+    'node --test scripts/plan.test.mjs',
+    'node scripts/plan.mjs slice .devdigest/plans/08-x.md P2',
+    'node --version',
+    'python --version',
+  ]) {
+    assert.equal(bash(cmd), false, cmd);
+  }
+});
+
 test('denies edits to generated, vendored and insights paths', () => {
   for (const p of [
     join(ROOT, 'server', 'src', 'db', 'migrations', '0018_x.sql'),

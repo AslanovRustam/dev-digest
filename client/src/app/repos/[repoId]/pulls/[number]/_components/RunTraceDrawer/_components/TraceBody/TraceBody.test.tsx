@@ -62,3 +62,38 @@ describe("TraceBody — prompt assembly", () => {
     expect(screen.queryByText(/^Skill · /)).not.toBeInTheDocument();
   });
 });
+
+describe("TraceBody — project context (L05)", () => {
+  it("lists every document under Specs read with tokens, truncation and skip reasons", () => {
+    renderBody({
+      ...BASE,
+      specs_read: ["specs/public-api.md", "docs/huge.md"],
+      context_documents: [
+        { path: "specs/public-api.md", tokens: 1240, status: "injected", via: null },
+        { path: "docs/huge.md", tokens: 7998, status: "truncated", via: "rubric" },
+        { path: "docs/late.md", tokens: 900, status: "dropped", reason: "budget", via: null },
+        { path: "specs/gone.md", tokens: null, status: "skipped", reason: "not_found", via: null },
+      ],
+    });
+    expect(screen.getByText("~1,240 tokens")).toBeInTheDocument();
+    expect(screen.getByText("~7,998 tokens · truncated")).toBeInTheDocument();
+    expect(screen.getByText("dropped — over the token budget")).toBeInTheDocument();
+    expect(screen.getByText("skipped: not in the repo")).toBeInTheDocument();
+  });
+
+  it("shows a pre-L05 trace's paths, or none", () => {
+    renderBody({ ...BASE, specs_read: ["specs/old.md"] });
+    expect(screen.getByText("specs/old.md")).toBeInTheDocument();
+    cleanup();
+    renderBody(BASE);
+    expect(screen.getByText("none")).toBeInTheDocument();
+  });
+
+  it("labels the prompt block that holds the full project context text", () => {
+    renderBody({
+      ...BASE,
+      prompt_assembly: { ...BASE.prompt_assembly, specs: "## Project context\n<untrusted source=\"project-context:specs/a.md\">\nA\n</untrusted>" },
+    });
+    expect(screen.getByText("Project context — attached specs (untrusted)")).toBeInTheDocument();
+  });
+});

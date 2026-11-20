@@ -3,7 +3,13 @@
  * their arguments — no DB / network / `this`).
  */
 import { ReviewRunStatus, Verdict } from '@devdigest/shared';
-import type { Finding, PromptAssembly, RunFindingsResponse, SkillBlock } from '@devdigest/shared';
+import type {
+  ContextDocRead,
+  Finding,
+  PromptAssembly,
+  RunFindingsResponse,
+  SkillBlock,
+} from '@devdigest/shared';
 import type { AgentRunRow, FindingRow, PullRow, ReviewRow, SkillRow } from '../../db/rows.js';
 
 // reduceReviews + sliceDiff live in @devdigest/reviewer-core (pure engine logic
@@ -163,6 +169,16 @@ export function buildSkillBlocks(
       text,
     };
   });
+}
+
+/** The Live Log line for one project-context document of a run (L05). */
+export function contextDocLogLine(doc: ContextDocRead): string {
+  const name = `project context "${doc.path}"`;
+  const via = doc.via ? ` via skill "${doc.via}"` : '';
+  if (doc.status === 'injected') return `${name}${via} attached (~${doc.tokens} tokens)`;
+  if (doc.status === 'truncated') return `${name}${via} attached, truncated (~${doc.tokens} tokens)`;
+  if (doc.status === 'dropped') return `${name}${via} dropped — over the run's token budget`;
+  return `${name}${via} skipped: ${doc.reason ?? 'unreadable'}`;
 }
 
 /**

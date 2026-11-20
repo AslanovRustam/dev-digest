@@ -36,6 +36,11 @@ _None yet._
   model's `scope:"out"` tag on the rest is filterable (one CRITICAL kept as a signal). · ref:
   `src/review/scope.ts` (`applyIntentScope`)
 
+- **2026-11-01** · `assemblePrompt` fences each `parts.specs` entry as ``wrapUntrusted(`spec-${i}`, …)`` — the
+  label is the INDEX, not the file path, so the model cannot name which project document a rule came from. A
+  feature that needs findings to cite a specific doc must put the path in the label or the fenced text — why:
+  `specs` is a bare `string[]` · ref: `src/prompt.ts:135`
+
 ## Tool & Library Notes
 
 _None yet._

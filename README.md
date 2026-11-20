@@ -83,7 +83,7 @@ These are intentionally **not** in the starter — each lesson adds one back:
 | L02 | Skills in the product ([spec](specs/03-skills.md) · [skills & runbook](docs/skills/README.md)) · Conventions extractor ([spec](specs/04-conventions-extractor.md)) |
 | L03 | Intent layer · Smart Diff |
 | L04 | `devdigest-mcp` server · Blast Radius (reads `repo-intel`) |
-| L05 | Project Context Folder · Onboarding generator · PR Brief card |
+| L05 | Project Context Folder ([spec](specs/2026-11-01-project-context.md)) · Onboarding generator · PR Brief card |
 | L06 | Eval pipeline · Secret/Phantom gates · Plan Verifier · Export to CI |
 | L07 | Multi-agent review · Run Trace / Live Log · Persistent memory · per-agent stats |
 | L08 | Plugin export/import · Agent performance dashboard · weekly digest |

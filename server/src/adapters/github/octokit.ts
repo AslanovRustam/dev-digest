@@ -257,7 +257,10 @@ export class OctokitGitHubClient implements GitHubClient {
     );
   }
 
-  async openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }> {
+  async openPullRequest(
+    repo: RepoRef,
+    payload: OpenPrPayload,
+  ): Promise<{ url: string; number: number }> {
     return withRetry(() =>
       withTimeout(
         (async () => {
@@ -269,7 +272,7 @@ export class OctokitGitHubClient implements GitHubClient {
             base: payload.base,
             body: payload.body,
           });
-          return { url: res.data.html_url };
+          return { url: res.data.html_url, number: res.data.number };
         })(),
         TIMEOUT,
       ),
@@ -294,9 +297,18 @@ export class OctokitGitHubClient implements GitHubClient {
             const ref = await g.getRef({ owner, repo: name, ref: `heads/${payload.branch}` });
             parentSha = ref.data.object.sha;
             branchExists = true;
-          } catch {
+          } catch (err) {
+            // create-only: only a 404 means "free to create" — any other failure
+            // (auth, rate limit) must not be mistaken for a missing branch.
+            if (payload.createOnly && (err as { status?: number }).status !== 404) throw err;
             const baseRef = await g.getRef({ owner, repo: name, ref: `heads/${payload.base}` });
             parentSha = baseRef.data.object.sha;
+          }
+          if (branchExists && payload.createOnly) {
+            throw Object.assign(new Error(`Branch ${payload.branch} already exists`), {
+              status: 409,
+              code: 'branch_exists',
+            });
           }
 
           // New tree layered on the parent's tree (so unrelated files are kept).

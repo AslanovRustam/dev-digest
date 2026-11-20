@@ -97,6 +97,10 @@ export const s = {
   specsWrap: { display: "flex", gap: 6, flexWrap: "wrap" } satisfies CSSProperties,
   specsNone: { color: "var(--text-muted)" } satisfies CSSProperties,
   spec: { fontSize: 12, color: "var(--text-secondary)" } satisfies CSSProperties,
+  specOff: { fontSize: 12, color: "var(--text-muted)", textDecoration: "line-through" } satisfies CSSProperties,
+  specsList: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 } satisfies CSSProperties,
+  specItem: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" } satisfies CSSProperties,
+  specNote: { fontSize: 11.5, color: "var(--text-muted)" } satisfies CSSProperties,
   statsRow: { display: "flex", gap: 10 } satisfies CSSProperties,
   rawPre: {
     margin: 0,

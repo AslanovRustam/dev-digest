@@ -27,5 +27,8 @@ test-results/
 # pr-self-review run artefacts (report, diff snapshot, findings cache)
 .devdigest/pr-self-review/
 
-# planner → implementer hand-off: Development Plans saved by the main session
+# implementation-planner → implementer hand-off: Implementation Plans saved by the main session
 .devdigest/plans/
+
+# workflow-retro output: per-session facts, reports and trend.jsonl (session data, local only)
+.devdigest/retros/

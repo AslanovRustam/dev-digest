@@ -50,17 +50,7 @@ export function TraceBody({
             <span>{t("trace.config.items", { count: trace.memory_pulled.length })}</span>
           </Row>
           <Row label={t("trace.config.specsRead")}>
-            <div style={s.specsWrap}>
-              {trace.specs_read.length === 0 ? (
-                <span style={s.specsNone}>{t("trace.config.none")}</span>
-              ) : (
-                trace.specs_read.map((sp, i) => (
-                  <span key={i} className="mono" style={s.spec}>
-                    {sp}
-                  </span>
-                ))
-              )}
-            </div>
+            <SpecsRead trace={trace} />
           </Row>
         </div>
       </TraceSection>
@@ -135,5 +125,56 @@ export function TraceBody({
         </pre>
       </TraceSection>
     </>
+  );
+}
+
+const SPEC_REASONS = new Set(["not_found", "symlink", "outside_clone", "too_large", "not_utf8", "not_cloned"]);
+
+/**
+ * "Specs read" (L05): each project-context document with its tokens, or why it
+ * was dropped / skipped. Traces before L05 carry only `specs_read` paths.
+ */
+function SpecsRead({ trace }: { trace: RunTrace }) {
+  const t = useTranslations("runs");
+  const docs = trace.context_documents ?? [];
+  if (docs.length === 0 && trace.specs_read.length === 0) {
+    return <span style={s.specsNone}>{t("trace.config.none")}</span>;
+  }
+  if (docs.length === 0) {
+    return (
+      <div style={s.specsWrap}>
+        {trace.specs_read.map((path) => (
+          <span key={path} className="mono" style={s.spec}>
+            {path}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <ul style={s.specsList}>
+      {docs.map((doc) => {
+        let note: string;
+        if (doc.status === "dropped") note = t("trace.config.specDropped");
+        else if (doc.status === "skipped") {
+          const reason = doc.reason ?? "";
+          note = t("trace.config.specSkipped", {
+            reason: SPEC_REASONS.has(reason) ? t(`trace.config.specReason.${reason}`) : reason,
+          });
+        } else {
+          note = t("trace.config.specTokens", { tokens: doc.tokens ?? 0 });
+          if (doc.status === "truncated") note += ` · ${t("trace.config.specTruncated")}`;
+        }
+        const read = doc.status === "injected" || doc.status === "truncated";
+        return (
+          <li key={doc.path} style={s.specItem}>
+            <span className="mono" style={read ? s.spec : s.specOff}>
+              {doc.path}
+            </span>
+            <span style={s.specNote}>{note}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

@@ -1,4 +1,15 @@
-import { pgTable, uuid, text, integer, boolean, jsonb, primaryKey } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  boolean,
+  jsonb,
+  primaryKey,
+  check,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces } from './core';
 
@@ -37,4 +48,23 @@ export const skillVersions = pgTable(
     createdAt: now(),
   },
   (t) => ({ pk: primaryKey({ columns: [t.skillId, t.version] }) }),
+);
+
+// Project Context (L05): a skill's attached repo documents, inherited by every
+// agent with an enabled link to it. Paths only, in order; not versioned.
+export const skillContextDocs = pgTable(
+  'skill_context_docs',
+  {
+    skillId: uuid('skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    position: integer('position').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.skillId, t.path] }),
+    positionUq: uniqueIndex('skill_context_docs_position_uq').on(t.skillId, t.position),
+    pathChk: check('skill_context_docs_path_chk', sql`char_length(${t.path}) between 1 and 1024`),
+    positionChk: check('skill_context_docs_position_chk', sql`${t.position} >= 0`),
+  }),
 );

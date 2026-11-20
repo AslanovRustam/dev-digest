@@ -1,5 +1,5 @@
 /* SkillDetail — right pane of /skills/[id]: header (type tile, mono name, type
-   badge, vN) and the Config · Preview · Stats · Versions tabs. Loads the skill
+   badge, vN) and the Config · Context · Preview · Stats · Versions tabs. Loads the skill
    itself so the page stays a thin route entry. */
 "use client";
 
@@ -12,6 +12,7 @@ import { ApiError } from "@/lib/api";
 import { SkillIconTile } from "../../../_components/SkillIconTile";
 import { VersionBadge } from "../../../_components/VersionBadge";
 import { ConfigTab } from "../../../_components/ConfigTab";
+import { ContextTab } from "./_components/ContextTab";
 import { PreviewTab } from "./_components/PreviewTab";
 import { StatsTab } from "./_components/StatsTab";
 import { VersionsTab } from "./_components/VersionsTab";
@@ -60,6 +61,7 @@ export function SkillDetail({ id, tab, onTab }: { id: string; tab: SkillTab; onT
       </div>
       <div style={s.body}>
         {tab === "config" && <ConfigTab key={skill.id} skill={skill} />}
+        {tab === "context" && <ContextTab skillId={skill.id} />}
         {tab === "preview" && <PreviewTab body={skill.body} />}
         {tab === "stats" && <StatsTab skillId={skill.id} />}
         {tab === "versions" && <VersionsTab skill={skill} />}

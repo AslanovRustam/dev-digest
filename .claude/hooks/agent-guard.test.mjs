@@ -15,7 +15,7 @@ const bash = (command, profile = 'readonly') => decide({ tool_name: 'Bash', tool
 const edit = (file_path, profile, tool_name = 'Edit') =>
   decide({ tool_name, tool_input: { file_path } }, ROOT, profile).deny;
 
-const PROFILES = ['readonly', 'test-writer', 'doc-writer'];
+const PROFILES = ['readonly', 'planner', 'reviewer', 'test-writer', 'doc-writer'];
 
 test('Bash allowlist: read-only inspection and package checks pass for every profile', () => {
   for (const cmd of [
@@ -40,6 +40,13 @@ test('Bash allowlist: read-only inspection and package checks pass for every pro
     'grep -rn "x" server/src | sort -u | wc -l',
     'echo "git commit > out.txt"',
     "grep -n '$(' server/src/app.ts",
+    'cd mcp && npm run arch',
+    'cd server && pnpm exec vitest related src/modules/blast/helpers.ts --run 2>&1 | tail -20',
+    'node scripts/diff-index.mjs',
+    'node scripts/plan.mjs lint .devdigest/plans/09-x.md',
+    'node scripts/plan.mjs files .devdigest/plans/09-x.md .devdigest/plans/09-x.diff-index.md',
+    'node scripts/verify.mjs --check .devdigest/plans/09-x.verify.json',
+    'node scripts/verify.mjs --fingerprint',
   ]) {
     for (const p of PROFILES) assert.equal(bash(cmd, p), false, `${p}: ${cmd}`);
   }
@@ -75,6 +82,11 @@ test('Bash: state changes, writes, installs, generators and unknown commands are
     'mv a b',
     "sed -i 's/a/b/' f",
     'node scripts/x.mjs',
+    'node scripts/verify.mjs',
+    'node scripts/verify.mjs --out .devdigest/plans/x.verify.json',
+    'node scripts/diff-index.mjs > .devdigest/plans/x.diff-index.md',
+    'pnpm exec vitest related src/a.ts',
+    'npm run build',
     'node -e "require(\'fs\').writeFileSync(\'a\', \'b\')"',
     'bash -c "rm x"',
     'find . -delete',
@@ -100,6 +112,44 @@ test('readonly: Edit and Write are denied on every path', () => {
   ]) {
     assert.equal(edit(p, 'readonly'), true, p);
     assert.equal(edit(p, 'readonly', 'Write'), true, p);
+  }
+});
+
+test('planner: only a plan file directly under .devdigest/plans/ is writable', () => {
+  for (const p of ['.devdigest/plans/09-review-memory.md', '.devdigest/plans/09-review-memory.P2.report.md']) {
+    assert.equal(edit(join(ROOT, p), 'planner'), false, p);
+    assert.equal(edit(join(ROOT, p), 'planner', 'Write'), false, p);
+  }
+  for (const p of [
+    '.devdigest/plans/research/x.md',
+    '.devdigest/plans/09-x.verify.json',
+    '.devdigest/pr-self-review/report.json',
+    'specs/2026-11-01-x.md',
+    'server/specs/2026-11-01-x.md',
+    'server/src/modules/blast/service.ts',
+    'AGENTS.md',
+    'INSIGHTS.md',
+    '.claude/agents/implementer.md',
+  ]) {
+    assert.equal(edit(join(ROOT, p), 'planner'), true, p);
+    assert.equal(edit(join(ROOT, p), 'planner', 'Write'), true, p);
+  }
+});
+
+test('reviewer: only its own round report is writable — never the plan, the ledger or code', () => {
+  for (const p of ['.devdigest/plans/09-x.r1.verifier.md', '.devdigest/plans/09-x.r12.arch.md']) {
+    assert.equal(edit(join(ROOT, p), 'reviewer', 'Write'), false, p);
+  }
+  for (const p of [
+    '.devdigest/plans/09-x.md',
+    '.devdigest/plans/09-x.review.md',
+    '.devdigest/plans/09-x.impl.json',
+    '.devdigest/plans/09-x.P1.report.md',
+    '.devdigest/plans/09-x.r1.verifier.md.bak',
+    'server/src/modules/blast/service.ts',
+    'specs/2026-11-01-x.md',
+  ]) {
+    assert.equal(edit(join(ROOT, p), 'reviewer', 'Write'), true, p);
   }
 });
 
@@ -255,10 +305,10 @@ test('wiring: every agent that uses agent-guard names a real profile and matches
     }
   }
   assert.deepEqual(wired, {
-    'architecture-reviewer': 'readonly',
+    'architecture-reviewer': 'reviewer',
     'doc-writer': 'doc-writer',
-    'plan-verifier': 'readonly',
-    planner: 'readonly',
+    'implementation-planner': 'planner',
+    'plan-verifier': 'reviewer',
     researcher: 'readonly',
     'test-writer': 'test-writer',
   });
