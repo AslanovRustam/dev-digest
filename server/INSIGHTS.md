@@ -62,6 +62,17 @@ _None yet._
   `waitForPrRuns` polls) BEFORE it builds and saves the trace. **Fix:** in the test, poll the trace route until 200
   (see `contextRun` in `test/reviews.it.test.ts`) · ref: `src/modules/reviews/run-executor.ts` (`completeAgentRun`
   → `saveRunTrace`), `test/helpers/runs.ts`
+- **2026-11-08** · Don't treat a `withTimeout` race around `completeStructured` as cancellation — the LLM port has
+  no abort signal (`StructuredRequest` carries only `timeoutMs`), so after the deadline the request keeps running
+  and billing, and resolves later. Hold the per-PR lock until the underlying promise settles, flag the run
+  `abandoned` so a late result is never persisted, and set `committed` right before the final DB write so the
+  deadline cannot answer 502 for a row that is stored · ref: `src/vendor/shared/adapters.ts:55`,
+  `src/modules/brief/service.ts:125-136,235`
+- **2026-11-08** · A "worst case" token-budget test can pass without the final shrink guard ever running: with the
+  real `brief.system.md` the per-section caps alone fit 8,000 tokens. To prove the guard, force it (an oversized
+  `system` of ≈ 2,000 tokens) and assert what ONLY the guard produces — the listed document paths are gone,
+  diff-stats has no `[… truncated]` — not `truncated` flags the section's own cap already set (they pass with the
+  guard deleted) · ref: `test/brief-helpers.test.ts` ("D-2 guard fires")
 
 ## Codebase Patterns
 
@@ -133,6 +144,22 @@ _None yet._
   on BOTH sides of `config`. Keep it that way — e2e flow `05-pr-diff` clicks `src/config.ts` and relies on the
   core group being expanded by default (docs/boilerplate start collapsed) · ref: `src/modules/reviews/constants.ts`
   (`SMART_DIFF_RULES`), `test/reviews-smart-diff.test.ts`
+- **2026-11-07** · Do not rely on `PrDetail.linked_issue` outside the live GitHub path: only
+  `resolveLinkedIssue` fills it, from the FIRST `#N` anywhere in the body (the closing keyword is optional, so
+  "see #12" counts); the persisted-detail fallback in `pulls/service.ts` never sets it. A feature that feeds
+  the linked issue to a model must report it as missing, not empty, when there is no token — why: the regex is
+  `(?:closes|fixes|resolves)?\s*#(\d+)` · ref: `src/adapters/github/octokit.ts:142-150`,
+  `src/modules/pulls/service.ts:220-251`
+- **2026-11-08** · Enforce a hard input budget with a final measure-and-shrink guard over the RENDERED request, not
+  with per-part caps alone — the caps can sum past the budget once no optional part (documents) is left to drop.
+  Shrink in a fixed order (listed paths → "+N more", then the largest block) and re-cut each block with ITS OWN cap
+  function (`diffSection` keeps whole lines + "… +N files"; `capSection` elsewhere), then update `sections` /
+  `inputs` · ref: `src/modules/brief/helpers.ts` (`buildBriefInput`, `addBlock`)
+- **2026-11-08** · `domain-files-are-pure` forbids a `helpers.ts` / `constants.ts` from importing ANOTHER module's
+  `types.ts` — its allow-list is `@devdigest/shared`, zod, reviewer-core, `platform/errors` and sibling domain files;
+  the "other modules' `types.ts` are importable" exception of `no-cross-module-imports` helps services only. For a
+  shape pure code needs, use the `@devdigest/shared` contract or keep a local type — why: two de-duplications of
+  brief/project-context types (ledger R-84/R-85) failed `pnpm arch` · ref: `.dependency-cruiser.cjs:173-182`
 
 ## Tool & Library Notes
 
@@ -174,6 +201,25 @@ _None yet._
 - **2026-10-07** · `*.it.test.ts` files guard themselves with `dockerAvailable() ? describe : describe.skip`, so with
   Docker Desktop stopped `pnpm exec vitest run .it.test` still EXITS 0 — the only sign is `N skipped` in the summary.
   Read the skipped count (or `docker info`) before calling the integration lane green. · ref: `test/helpers/pg.ts`, `test/conventions.it.test.ts`
+- **2026-11-08** · GitHub's issues endpoint also answers for pull-request numbers — check `IssueMeta.is_pull_request`
+  (set by `octokit.getIssue` from the `pull_request` field) before treating `#N` as a linked issue · ref:
+  `src/adapters/github/octokit.ts` (`getIssue`), `src/modules/brief/service.ts` (`loadIssue`)
+- **2026-11-08** · Size a per-attempt LLM timeout from the remaining deadline as
+  `remaining / ((maxRetries + 1) × TRANSPORT_ATTEMPTS)` with `TRANSPORT_ATTEMPTS = 2`: `withRetry` never retries a
+  `TimeoutError` (only 429 / 5xx / ECONNRESET / ETIMEDOUT / ENOTFOUND), while the OpenRouter provider repeats a
+  stalled request once (`STALL_RETRIES = 1`). Dividing by 4 HTTP tries instead cut each attempt to ~14 s (ledger
+  R-62) · ref: `src/platform/resilience.ts:40-43`, `src/modules/brief/constants.ts:44`,
+  `reviewer-core/src/llm/openrouter.ts:44`
+- **2026-11-08** · `@fastify/rate-limit` is registered only when `config.nodeEnv !== 'test'`, so a route's own
+  `config.rateLimit` does nothing in tests — a test that expects 429 must build the app with a non-test `nodeEnv`
+  from `loadConfig` · ref: `src/app.ts:94-96`
+- **2026-11-08** · Provider keys come from `~/.devdigest/secrets.json`, else `process.env` under fixed names
+  (`OPENAI_API_KEY`, `OPENROUTER_API_KEY`); `process.env` is filled by `dotenv/config` from `server/.env` (the cwd of
+  `pnpm dev`), never the repo-root `.env`. `tsx watch` does not restart on a `.env` edit — touch `src/server.ts` ·
+  ref: `src/platform/config.ts:1`, `src/modules/settings/constants.ts:9-11`, `src/adapters/secrets/local.ts`
+- **2026-11-08** · Keep whole-generation deadline tests at ≥ 1.5 s: under 1 s, `collect` (real Postgres in
+  testcontainers) can outlast the deadline, so the stall lands outside the model call or the write the test
+  targets and the assertion flakes · ref: `test/brief.it.test.ts:291`
 
 ## Recurring Errors & Fixes
 
@@ -250,6 +296,11 @@ call). Placement and the `config.ts` → core decision recorded under Codebase P
 Drafted `specs/2026-11-01-project-context.md`. Two traps for reading repo docs into prompts and committing
 edits back are recorded under What Doesn't Work (symlink-following `readFile`, force `updateRef`).
 
+### 2026-11-08 — PR Brief (L05, /run-plan)
+New `modules/brief` (one `completeStructured` on `risk_brief`, 8,000-token budget, SHA-bound cache, per-PR lock).
+Deadline/abort, budget-guard and test-design lessons recorded under What Doesn't Work, Codebase Patterns and Tool &
+Library Notes; unverified base-branch findings under Open Questions.
+
 ## Open Questions
 
 - **2026-10-09** · `test/reviews.it.test.ts` › "skills (L02): an agent with no skills gets no skills section and
@@ -260,3 +311,10 @@ edits back are recorded under What Doesn't Work (symlink-following `readFile`, f
   ("a review with no stored intent derives it ONCE…", `TypeError: … reading 'map'` on `first.log`), then passed
   alone and on rerun. Not file-specific — look at shared timing (SSE/run-log completion vs. assertion) under load
   · ref: `test/intent.it.test.ts:277`
+- **2026-11-08** · Unverified code-review findings on the Project Context base (`42d7800`), left out of PR Brief's
+  scope (ledger R-11…R-18 in `.devdigest/plans/10-pr-brief.review.md`) — reproduce each before fixing:
+  concurrent PUT delete-then-insert → 23505 (`src/modules/project-context/repository.ts:58`); a retried
+  `createOnly` commit → `branch_exists` plus an orphan branch (`src/adapters/github/octokit.ts:307`);
+  `setAttachments` skips the roots / `node_modules` check (`project-context/service.ts:156`); the `'unreadable'`
+  sentinel can match a client `base_version` (`:322`); rescan duplicates `resyncRepo`, races clone jobs and walks
+  the clone twice (`:116-120`)

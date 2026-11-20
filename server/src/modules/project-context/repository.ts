@@ -36,6 +36,15 @@ export class ProjectContextRepository {
     return !!row;
   }
 
+  /** Enabled agents of the workspace, by name — the brief's document sources. */
+  async enabledAgents(workspaceId: string): Promise<{ id: string; name: string }[]> {
+    return this.db
+      .select({ id: t.agents.id, name: t.agents.name })
+      .from(t.agents)
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.enabled, true)))
+      .orderBy(asc(t.agents.name));
+  }
+
   async agentPaths(agentId: string): Promise<string[]> {
     const rows = await this.db
       .select({ path: t.agentContextDocs.path })
@@ -97,6 +106,42 @@ export class ProjectContextRepository {
       .where(
         and(
           eq(t.agentSkills.agentId, agentId),
+          eq(t.agentSkills.enabled, true),
+          eq(t.skills.enabled, true),
+        ),
+      )
+      .orderBy(asc(t.agentSkills.order), asc(t.skillContextDocs.position));
+  }
+
+  /** Own attachments of every enabled agent of the workspace, in each agent's order — one query. */
+  async ownPathsOfEnabledAgents(workspaceId: string): Promise<{ agentId: string; path: string }[]> {
+    return this.db
+      .select({ agentId: t.agentContextDocs.agentId, path: t.agentContextDocs.path })
+      .from(t.agentContextDocs)
+      .innerJoin(t.agents, eq(t.agentContextDocs.agentId, t.agents.id))
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.enabled, true)))
+      .orderBy(asc(t.agentContextDocs.position));
+  }
+
+  /** `skillPathsForAgent` for every enabled agent of the workspace — one query. */
+  async skillPathsOfEnabledAgents(
+    workspaceId: string,
+  ): Promise<{ agentId: string; skillId: string; skillName: string; path: string }[]> {
+    return this.db
+      .select({
+        agentId: t.agentSkills.agentId,
+        skillId: t.skills.id,
+        skillName: t.skills.name,
+        path: t.skillContextDocs.path,
+      })
+      .from(t.agentSkills)
+      .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
+      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .innerJoin(t.skillContextDocs, eq(t.skillContextDocs.skillId, t.skills.id))
+      .where(
+        and(
+          eq(t.agents.workspaceId, workspaceId),
+          eq(t.agents.enabled, true),
           eq(t.agentSkills.enabled, true),
           eq(t.skills.enabled, true),
         ),

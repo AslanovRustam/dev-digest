@@ -10,6 +10,7 @@ import {
   docPathProblem,
   attachmentPathsProblem,
   mergeAttachments,
+  mergeAgentDocuments,
   groupSkillLists,
   budgetDocuments,
   toAttachmentsView,
@@ -105,6 +106,19 @@ describe('mergeAttachments', () => {
       { name: 'one', paths: ['a.md', 'b.md'] },
       { name: 'two', paths: ['c.md'] },
     ]);
+  });
+});
+
+describe('mergeAgentDocuments', () => {
+  it('keeps agent order and the first occurrence of a path', () => {
+    const item = (path: string) => ({ path, via: null });
+    expect(
+      mergeAgentDocuments([
+        { name: 'a', items: [item('x.md'), item('y.md')] },
+        { name: 'b', items: [item('y.md'), item('z.md')] },
+      ]),
+    ).toEqual(['x.md', 'y.md', 'z.md']);
+    expect(mergeAgentDocuments([])).toEqual([]);
   });
 });
 

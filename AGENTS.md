@@ -155,6 +155,7 @@ Local-first AI pull-request review. Course starter: exactly one flow works end t
 | `README.md` | need the architecture diagram, review flow end to end, or the lesson roadmap |
 | `TESTING.md` | choosing which suite a test belongs in, or why CI ran / didn't run |
 | `docs/agent-prompts/` | writing or tuning a reviewer agent's system prompt or model choice |
+| `docs/README.md` | need how a cross-package feature works end to end (index of `docs/features/`, e.g. PR Brief) |
 | `specs/README.md` | writing or reading a spec: which folder (root `specs/` = cross-package only, `<package>/specs/` = one package), naming, statuses |
 | `INSIGHTS.md` | something fails in a way that "shouldn't happen"; entries are added via the `engineering-insights` skill |
 | `<package>/AGENTS.md` | before any edit inside that package |

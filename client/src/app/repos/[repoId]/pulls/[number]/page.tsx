@@ -14,6 +14,7 @@ import { PrDetailHeader } from "./_components/PrDetailHeader";
 import { OverviewTab } from "./_components/OverviewTab";
 import { FindingsTab } from "./_components/FindingsTab";
 import { DiffTab } from "./_components/DiffTab";
+import { diffFocusHref, parseFocusLine } from "./_components/DiffTab/helpers";
 import { IntentCard } from "./_components/IntentCard";
 import RunTraceDrawer from "./_components/RunTraceDrawer";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
@@ -81,7 +82,19 @@ export default function PRDetailPage() {
     else sp.set(key, val);
     router.replace(`/repos/${repoId}/pulls/${number}${sp.toString() ? `?${sp.toString()}` : ""}`);
   };
-  const setTab = (t: string) => setParam("tab", t);
+  const prPath = `/repos/${repoId}/pulls/${number}`;
+  // Leaving Files changed drops its focus so a later visit starts clean.
+  const setTab = (t: string) => {
+    const sp = new URLSearchParams(search.toString());
+    sp.set("tab", t);
+    sp.delete("file");
+    sp.delete("line");
+    router.replace(`${prPath}?${sp.toString()}`);
+  };
+  // A brief click is a navigation: a new history entry, so Back returns to Overview.
+  const openInDiff = (file: string, line: number | null) => router.push(diffFocusHref(prPath, file, line));
+  const focusFile = search.get("file");
+  const focus = focusFile ? { path: focusFile, line: parseFocusLine(search.get("line")) } : undefined;
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
   const runs = reviews ?? [];
@@ -154,7 +167,7 @@ export default function PRDetailPage() {
 
       <div style={{ padding: "24px 32px 44px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 1080, margin: "0 auto" }}>
         {tab === "overview" && (
-          <OverviewTab prBody={pr.body} prId={prId} repoFullName={repoFullName} headSha={pr.head_sha} />
+          <OverviewTab prBody={pr.body} prId={prId} repoFullName={repoFullName} headSha={pr.head_sha} onOpenInDiff={openInDiff} />
         )}
 
         {/* Overview renders IntentCard inside OverviewTab (next to the blast radius). Findings: before the review results. */}
@@ -197,6 +210,7 @@ export default function PRDetailPage() {
             canComment={pr.status === "open"}
             repoFullName={repoFullName}
             headSha={pr.head_sha}
+            focus={focus}
           />
         )}
       </div>

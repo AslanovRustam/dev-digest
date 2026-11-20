@@ -57,12 +57,12 @@ function mockFetch(handler: (method: string) => PrIntentResponse) {
   return fn;
 }
 
-function renderCard() {
+function renderCard(props: { hideRiskAreas?: boolean } = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <NextIntlClientProvider locale="en" messages={{ intent: messages }}>
-        <IntentCard prId="p1" />
+        <IntentCard prId="p1" {...props} />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
@@ -97,6 +97,14 @@ describe("IntentCard", () => {
     renderCard();
     expect(await screen.findByText(/Stale/)).toBeInTheDocument();
     expect(screen.queryByText("Risk areas")).not.toBeInTheDocument();
+  });
+
+  it("omits the risk chip row with hideRiskAreas", async () => {
+    mockFetch(() => ({ intent: record, pr_head_sha: "abc1234def", stale: false }));
+    renderCard({ hideRiskAreas: true });
+    expect(await screen.findByText("Adds Redis-backed rate limiting.")).toBeInTheDocument();
+    expect(screen.queryByText("Risk areas")).not.toBeInTheDocument();
+    expect(screen.queryByText("New dependency: ioredis")).not.toBeInTheDocument();
   });
 
   it("Re-derive POSTs and re-renders with the new intent", async () => {
