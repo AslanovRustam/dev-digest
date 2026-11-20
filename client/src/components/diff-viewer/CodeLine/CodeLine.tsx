@@ -4,9 +4,9 @@
 
 import React from "react";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
-import { type Line } from "../helpers";
+import { type Line, prefersReducedMotion } from "../helpers";
 import { type DiffAnnotation } from "../annotations";
-import { s, lineRowFor, lineSignFor } from "../styles";
+import { s, lineRowFor, lineSignFor, focusRow } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
 import { InlineComposer } from "../InlineComposer";
 
@@ -17,6 +17,7 @@ export function CodeLine({
   commenting,
   annotations,
   showAnnotations,
+  highlighted = false,
 }: {
   ln: Line;
   path: string;
@@ -24,6 +25,8 @@ export function CodeLine({
   commenting?: DiffCommentApi;
   annotations: DiffAnnotation[];
   showAnnotations: boolean;
+  /** Briefly marks the line a deep link landed on. */
+  highlighted?: boolean;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -44,10 +47,17 @@ export function CodeLine({
   return (
     <div
       style={cs.rowWrap}
+      data-new-line={ln.newNo ?? undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={top ? { ...lineRowFor(ln.kind), boxShadow: `inset 3px 0 0 ${top.color}` } : lineRowFor(ln.kind)}>
+      <div
+        style={{
+          ...lineRowFor(ln.kind),
+          ...(top ? { boxShadow: `inset 3px 0 0 ${top.color}` } : null),
+          ...(highlighted ? focusRow(prefersReducedMotion()) : null),
+        }}
+      >
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (
             <button

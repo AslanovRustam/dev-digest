@@ -124,6 +124,22 @@ export function mergeAttachments(
   return out;
 }
 
+/** Paths across several agents, in agent order then each agent's own order; a path's first occurrence wins. */
+export function mergeAgentDocuments(
+  perAgent: readonly { name: string; items: readonly MergedAttachment[] }[],
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const agent of perAgent) {
+    for (const item of agent.items) {
+      if (seen.has(item.path)) continue;
+      seen.add(item.path);
+      out.push(item.path);
+    }
+  }
+  return out;
+}
+
 /** Group ordered `(skill, path)` rows into ordered per-skill lists. */
 export function groupSkillLists(
   rows: readonly { skillId: string; skillName: string; path: string }[],

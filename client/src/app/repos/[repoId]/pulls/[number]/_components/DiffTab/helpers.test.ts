@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import type { FindingRecord, PrFile, SmartDiff, SmartDiffRole } from "@devdigest/shared";
 import {
   countFilesWithFindings,
+  diffFocusHref,
+  parseFocusLine,
   latestReview,
   openFindingsByPath,
   orderFilesByRole,
@@ -88,5 +90,18 @@ describe("findings helpers", () => {
       finding("c", "a", "CRITICAL"),
     ]);
     expect(out.map((f) => f.id)).toEqual(["c", "s", "d"]);
+  });
+});
+
+describe("diffFocusHref / parseFocusLine", () => {
+  it("builds an encoded Files changed URL, with or without a line", () => {
+    expect(diffFocusHref("/repos/r/pulls/3", "src/a b.ts", 12)).toBe("/repos/r/pulls/3?tab=diff&file=src%2Fa+b.ts&line=12");
+    expect(diffFocusHref("/repos/r/pulls/3", "a.ts", null)).toBe("/repos/r/pulls/3?tab=diff&file=a.ts");
+  });
+
+  it("accepts only positive integers as a line", () => {
+    expect(parseFocusLine("61")).toBe(61);
+    for (const bad of ["abc", "0", "-3", "1.5", "", "07"]) expect(parseFocusLine(bad)).toBeNull();
+    expect(parseFocusLine(null)).toBeNull();
   });
 });

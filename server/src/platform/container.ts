@@ -33,6 +33,8 @@ import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import type { IntentFacade } from '../modules/intent/types.js';
 import { IntentService } from '../modules/intent/service.js';
+import type { BlastFacade } from '../modules/blast/types.js';
+import { BlastService } from '../modules/blast/service.js';
 import type { ProjectContextFacade } from '../modules/project-context/types.js';
 import { ProjectContextService } from '../modules/project-context/service.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
@@ -59,6 +61,8 @@ export interface ContainerOverrides {
   repoIntel?: RepoIntel;
   /** intent-layer facade (L03) — tests stub it instead of mocking the LLM / GitHub / git beneath it. */
   intent?: IntentFacade;
+  /** blast-radius facade (L05 brief) — tests stub it instead of mocking repo-intel beneath it. */
+  blast?: BlastFacade;
   /** project-context facade (L05) — tests stub it to isolate the review run. */
   projectContext?: ProjectContextFacade;
   /** repo-intel T3 adapters — only the indexer pipeline reads these. */
@@ -90,6 +94,7 @@ export class Container {
   private _skillsRepo?: SkillsRepository;
   private _repoIntel?: RepoIntel;
   private _intent?: IntentFacade;
+  private _blast?: BlastFacade;
   private _projectContext?: ProjectContextFacade;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -159,6 +164,17 @@ export class Container {
     if (this.overrides.intent) return this.overrides.intent;
     this._intent ??= new IntentService(this);
     return this._intent;
+  }
+
+  /**
+   * The blast-radius facade. The PR brief reads a PR's blast radius through this
+   * interface, never by importing the blast service.
+   * Tests inject a stub via `ContainerOverrides.blast`.
+   */
+  get blast(): BlastFacade {
+    if (this.overrides.blast) return this.overrides.blast;
+    this._blast ??= new BlastService(this);
+    return this._blast;
   }
 
   /**

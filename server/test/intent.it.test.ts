@@ -258,8 +258,20 @@ d('L03 intent layer (Testcontainers pg)', () => {
     const res = (
       await app.inject({ method: 'POST', url: `/pulls/${prId}/review`, payload: { agentId: agent.id } })
     ).json();
-    await waitForPrRuns(pg.handle.db, prId, { expected: before + 1 });
-    const trace = (await app.inject({ method: 'GET', url: `/runs/${res.runs[0].run_id}/trace` })).json();
+    const runs = await waitForPrRuns(pg.handle.db, prId, { expected: before + 1, timeoutMs: 30_000 });
+    const mine = runs.find((r) => r.id === res.runs[0].run_id);
+    if (!mine || !['done', 'failed', 'cancelled'].includes(mine.status ?? '')) {
+      throw new Error(`run ${res.runs[0].run_id} not terminal after 30s (status: ${mine?.status ?? 'missing'})`);
+    }
+    // the trace row can land just after the run row turns terminal: poll it too
+    let trace = (await app.inject({ method: 'GET', url: `/runs/${res.runs[0].run_id}/trace` })).json();
+    for (const start = Date.now(); !Array.isArray(trace.log) && Date.now() - start < 30_000; ) {
+      await new Promise((r) => setTimeout(r, 50));
+      trace = (await app.inject({ method: 'GET', url: `/runs/${res.runs[0].run_id}/trace` })).json();
+    }
+    if (!Array.isArray(trace.log)) {
+      throw new Error(`run ${mine.id} (${mine.status}) has no trace log: ${JSON.stringify(trace).slice(0, 300)}`);
+    }
     return trace as {
       log: { kind: string; msg: string }[];
       prompt_assembly: { intent?: string | null; user: string };

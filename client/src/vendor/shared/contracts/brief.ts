@@ -163,10 +163,80 @@ export const SmartDiff = z.object({
 export type SmartDiff = z.infer<typeof SmartDiff>;
 
 // ---- Composed PR Brief (pr_brief.json) ----
+export const BriefFocusItem = z.object({
+  file: z.string(),
+  line: z.number().int().min(1),
+  reason: z.string(),
+});
+export type BriefFocusItem = z.infer<typeof BriefFocusItem>;
+
+export const BriefInputSource = z.enum([
+  'diff',
+  'blast',
+  'intent',
+  'description',
+  'linked_issue',
+  'findings',
+  'documents',
+]);
+export type BriefInputSource = z.infer<typeof BriefInputSource>;
+
+export const BriefInputStatus = z.enum(['used', 'truncated', 'missing']);
+export type BriefInputStatus = z.infer<typeof BriefInputStatus>;
+
+export const BriefInputReason = z.enum([
+  'not_derived',
+  'stale',
+  'index_incomplete',
+  'no_callers',
+  'description_empty',
+  'none_linked',
+  'github_unavailable',
+  'no_review',
+  'none_attached',
+  'not_cloned',
+  'unreadable',
+  'over_budget',
+]);
+export type BriefInputReason = z.infer<typeof BriefInputReason>;
+
+/** One input the brief saw (or could not see) — recorded by code, never by the model. */
+export const BriefInput = z.object({
+  source: BriefInputSource,
+  ref: z.string().optional(),
+  status: BriefInputStatus,
+  tokens: z.number().int().min(0),
+  reason: BriefInputReason.optional(),
+});
+export type BriefInput = z.infer<typeof BriefInput>;
+
 export const PrBrief = z.object({
-  intent: Intent,
-  blast: BlastRadius,
-  risks: Risks,
-  history: PrHistory,
+  summary: z.string(),
+  risks: z.array(Risk),
+  review_focus: z.array(BriefFocusItem),
+  intent: Intent.optional(),
+  blast: BlastRadius.optional(),
+  review_id: z.string().nullable().optional(),
+  cost_usd: z.number().nullable().optional(),
+  history: z.array(PrHistoryItem),
+  head_sha: z.string(),
+  generated_at: z.string().datetime(),
+  provider: z.string(),
+  model: z.string(),
+  tokens_in: z.number().int().min(0),
+  tokens_out: z.number().int().min(0),
+  attempts: z.number().int().min(1),
+  inputs: z.array(BriefInput),
 });
 export type PrBrief = z.infer<typeof PrBrief>;
+
+export const BriefStaleReason = z.enum(['new_commit', 'new_review']);
+export type BriefStaleReason = z.infer<typeof BriefStaleReason>;
+
+export const PrBriefResponse = z.object({
+  brief: PrBrief.nullable(),
+  pr_head_sha: z.string(),
+  stale: z.boolean(),
+  stale_reasons: z.array(BriefStaleReason),
+});
+export type PrBriefResponse = z.infer<typeof PrBriefResponse>;

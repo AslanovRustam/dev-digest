@@ -31,6 +31,7 @@ import {
   docTypeFor,
   groupSkillLists,
   isTooLarge,
+  mergeAgentDocuments,
   mergeAttachments,
   notClonedList,
   pathProblemText,
@@ -41,7 +42,12 @@ import {
   type DocRead,
   type MergedAttachment,
 } from './helpers.js';
-import type { AttachmentOwner, ProjectContextFacade, ReviewProjectContext } from './types.js';
+import type {
+  AttachmentOwner,
+  BriefDocuments,
+  ProjectContextFacade,
+  ReviewProjectContext,
+} from './types.js';
 
 const LIST_OPTS = { extension: CONTEXT_EXTENSION, excludeDirs: CONTEXT_EXCLUDED_DIRS };
 
@@ -226,6 +232,45 @@ export class ProjectContextService implements ProjectContextFacade {
     } catch {
       // A context failure never fails the review — the run proceeds without it.
       return { documents: [], reads: [] };
+    }
+  }
+
+  async forBrief(workspaceId: string, repo: RepoRow): Promise<BriefDocuments> {
+    try {
+      // Three queries for all enabled agents, not two per agent.
+      const [agents, ownRows, skillRows] = await Promise.all([
+        this.repo.enabledAgents(workspaceId),
+        this.repo.ownPathsOfEnabledAgents(workspaceId),
+        this.repo.skillPathsOfEnabledAgents(workspaceId),
+      ]);
+      const perAgent = agents.map((a) => ({
+        name: a.name,
+        items: mergeAttachments(
+          ownRows.filter((r) => r.agentId === a.id).map((r) => r.path),
+          groupSkillLists(skillRows.filter((r) => r.agentId === a.id)),
+        ),
+      }));
+      const paths = mergeAgentDocuments(perAgent);
+      if (paths.length === 0) return { documents: [], missing: 'none_attached' };
+      const reads = await this.readAll(repo, paths);
+      if ([...reads.values()].some((r) => !r.ok && r.reason === 'not_cloned')) {
+        return { documents: [], missing: 'not_cloned' };
+      }
+      const documents: BriefDocuments['documents'] = [];
+      const unreadable: string[] = [];
+      for (const path of paths) {
+        const read = reads.get(path);
+        if (read?.ok) {
+          documents.push({ path, text: read.text, tokens: read.tokens ?? this.container.tokenizer.count(read.text) });
+        } else {
+          unreadable.push(path);
+        }
+      }
+      if (documents.length === 0) return { documents, missing: 'unreadable' };
+      return { documents, missing: null, ...(unreadable.length > 0 ? { unreadable } : {}) };
+    } catch {
+      // A context failure never fails the brief — it is generated without documents.
+      return { documents: [], missing: 'unreadable' };
     }
   }
 

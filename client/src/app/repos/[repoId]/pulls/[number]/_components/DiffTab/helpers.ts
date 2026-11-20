@@ -62,3 +62,15 @@ export function sortForDiff(findings: FindingRecord[]): FindingRecord[] {
   const sorted = sortForPreview(findings);
   return [...sorted.filter((f) => !f.dismissed_at), ...sorted.filter((f) => f.dismissed_at)];
 }
+
+/** URL of Files changed focused on `file` (and `line` when known). `base` is the PR path, no query. */
+export function diffFocusHref(base: string, file: string, line: number | null): string {
+  const sp = new URLSearchParams({ tab: "diff", file });
+  if (line != null) sp.set("line", String(line));
+  return `${base}?${sp.toString()}`;
+}
+
+/** A `?line=` value as a positive integer, or null for anything else. */
+export function parseFocusLine(raw: string | null): number | null {
+  return raw !== null && /^[1-9]\d*$/.test(raw) ? Number(raw) : null;
+}

@@ -3,13 +3,14 @@ import type { Container } from '../../platform/container.js';
 import { NotFoundError } from '../../platform/errors.js';
 import { BlastRepository } from './repository.js';
 import { toBlastRadiusResponse } from './helpers.js';
+import type { BlastFacade } from './types.js';
 
 /**
  * Blast radius for a PR: the changed files' symbols, their callers and the
  * endpoints / crons behind them. Reads the precomputed repo-intel index through
  * `container.repoIntel` — no model call, no re-analysis.
  */
-export class BlastService {
+export class BlastService implements BlastFacade {
   private repo: BlastRepository;
 
   constructor(private container: Container) {

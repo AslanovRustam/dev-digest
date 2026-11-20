@@ -76,6 +76,27 @@ describe('Intent layer contracts', () => {
     expect(PrBrief.shape.intent.parse(old)).toEqual(old);
   });
 
+  it('parses a full PrBrief and rejects a focus line of 0', () => {
+    const brief = {
+      summary: 's',
+      risks: [{ kind: 'auth', title: 't', explanation: 'e', severity: 'high', file_refs: ['a.ts'] }],
+      review_focus: [{ file: 'a.ts', line: 3, reason: 'r' }],
+      history: [],
+      head_sha: 'abc1234',
+      generated_at: '2026-01-01T00:00:00.000Z',
+      provider: 'openrouter',
+      model: 'm',
+      tokens_in: 10,
+      tokens_out: 5,
+      attempts: 1,
+      inputs: [{ source: 'diff', status: 'used', tokens: 100 }],
+    };
+    expect(PrBrief.parse(brief).summary).toBe('s');
+    expect(() =>
+      PrBrief.parse({ ...brief, review_focus: [{ file: 'a.ts', line: 0, reason: 'r' }] }),
+    ).toThrow();
+  });
+
   it('Finding.scope is optional and limited to in/out', () => {
     const base = {
       id: 'f',

@@ -3,7 +3,15 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { SectionLabel, Button, SEV } from "@devdigest/ui";
-import { DiffViewer, type DiffAnnotation, type DiffAnnotationApi, type DiffCommentApi } from "@/components/diff-viewer";
+import {
+  DiffViewer,
+  FOCUS_FLASH_MS,
+  prefersReducedMotion,
+  type DiffAnnotation,
+  type DiffAnnotationApi,
+  type DiffCommentApi,
+  type DiffFocus,
+} from "@/components/diff-viewer";
 import {
   usePrComments,
   usePrReviews,
@@ -27,6 +35,8 @@ import {
 } from "./helpers";
 import { s } from "./styles";
 
+const SCROLL_RETRY_FRAMES = 30;
+
 interface DiffTabProps {
   prId: string | null;
   filesCount: number;
@@ -35,16 +45,65 @@ interface DiffTabProps {
   canComment?: boolean;
   repoFullName?: string | null;
   headSha?: string | null;
+  /** Deep link from the PR brief: open this file and scroll to the line. */
+  focus?: DiffFocus;
 }
 
-export function DiffTab({ prId, filesCount, files, canComment, repoFullName, headSha }: DiffTabProps) {
+export function DiffTab({ prId, filesCount, files, canComment, repoFullName, headSha, focus: focusProp }: DiffTabProps) {
   const t = useTranslations("prReview");
-  const { data: comments } = usePrComments(prId);
-  const { data: smartDiff } = useSmartDiff(prId);
-  const create = useCreatePrComment(prId);
-  const { data: reviews } = usePrReviews(prId);
-  const action = useFindingAction();
+  const focusPath = focusProp?.path;
+  const focusLine = focusProp?.line ?? null;
+  const { data: comments, isLoading: commentsLoading } = usePrComments(prId);
+  const { data: smartDiff, isLoading: smartDiffLoading } = useSmartDiff(prId);
   const [order, setOrder] = React.useState<FileOrder>("smart");
+  const create = useCreatePrComment(prId);
+  const { data: reviews, isLoading: reviewsLoading } = usePrReviews(prId);
+  const action = useFindingAction();
+
+  // The single scroll-once owner. It waits until the layout (role groups) and the threads / annotations
+  // above the target have loaded, then scrolls + flashes once per (focus, layout). A manual collapse /
+  // re-expand changes neither, so it never re-scrolls.
+  const sectionRef = React.useRef<HTMLElement>(null);
+  const scrolledKey = React.useRef<string | null>(null);
+  const [flashLine, setFlashLine] = React.useState<number | null>(null);
+  const settled = !commentsLoading && !reviewsLoading && !smartDiffLoading;
+  const groups = order === "smart" && smartDiff ? orderFilesByRole(files, smartDiff) : null;
+  const scrollKey = focusPath ? `${groups ? "groups" : "flat"}|${focusPath}:${focusLine ?? ""}` : null;
+  React.useEffect(() => {
+    if (!scrollKey || !focusPath || !settled || scrolledKey.current === scrollKey) return;
+    let frame = 0;
+    let flashTimer: ReturnType<typeof setTimeout> | undefined;
+    let tries = 0;
+    // The card (collapsed group) or row (card opening) may render after this effect: retry per frame, bounded.
+    const attempt = () => {
+      const cards = sectionRef.current?.querySelectorAll<HTMLElement>("[data-file-path]") ?? [];
+      const card = Array.from(cards).find((el) => el.dataset.filePath === focusPath);
+      const row = focusLine != null ? card?.querySelector(`[data-new-line="${focusLine}"]`) ?? null : null;
+      if (!card || (focusLine != null && !row && tries < SCROLL_RETRY_FRAMES)) {
+        if (tries++ < SCROLL_RETRY_FRAMES) frame = requestAnimationFrame(attempt);
+        return;
+      }
+      (row ?? card).scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      // Deferred so a dev-mode effect re-run right after mount still scrolls.
+      queueMicrotask(() => {
+        scrolledKey.current = scrollKey;
+      });
+      if (!row) return;
+      setFlashLine(focusLine);
+      flashTimer = setTimeout(() => setFlashLine(null), FOCUS_FLASH_MS);
+    };
+    attempt();
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(flashTimer);
+      setFlashLine(null);
+    };
+  }, [scrollKey, focusPath, focusLine, settled]);
+
+  const focus = React.useMemo<DiffFocus | undefined>(
+    () => (focusPath ? { path: focusPath, line: focusLine, flashLine } : undefined),
+    [focusPath, focusLine, flashLine],
+  );
 
   const review = latestReview(reviews);
   const findings = review?.findings;
@@ -102,10 +161,8 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
     },
   };
 
-  const groups = order === "smart" && smartDiff ? orderFilesByRole(files, smartDiff) : null;
-
   return (
-    <section>
+    <section ref={sectionRef}>
       <SectionLabel
         icon="Code"
         right={
@@ -147,6 +204,11 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
       >
         {t("smartDiff.filesChanged", { count: filesCount })}
       </SectionLabel>
+      {focus && !files.some((f) => f.path === focus.path) && (
+        <p role="status" style={s.notRun}>
+          {t("smartDiff.fileNotInDiff")} <span className="mono">{focus.path}</span>
+        </p>
+      )}
       {!review && <p style={s.notRun}>{t("smartDiff.reviewNotRun")}</p>}
       {groups ? (
         <div style={s.groups}>
@@ -163,6 +225,7 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
                   color: meta.color,
                 }}
                 files={g.files}
+                focus={focus}
                 defaultOpen={!COLLAPSED_ROLES.has(g.role)}
                 commenting={commenting}
                 annotations={annotations}
@@ -176,7 +239,7 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
           })}
         </div>
       ) : (
-        <DiffViewer files={files} commenting={commenting} annotations={annotations} />
+        <DiffViewer files={files} commenting={commenting} annotations={annotations} focus={focus} />
       )}
     </section>
   );
