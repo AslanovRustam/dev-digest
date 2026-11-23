@@ -32,13 +32,31 @@ function parseVerdict(text: string): Verdict["results"] {
   return obj.results;
 }
 
+/**
+ * Map the judge's results back onto the CASE's practice list — by text first, then by position — and
+ * count a practice the judge skipped as FAIL. The judge echoes each practice and sometimes rewords it
+ * (a dropped ")" or "the finding" → "it"); stats keyed by the echo then split one practice into two
+ * rows, and a dropped/added item changed the score's denominator. After this the text is always the
+ * case's own and the denominator is always the case's practice count.
+ */
+export function alignResults(practices: string[], results: Verdict["results"]): Verdict["results"] {
+  const norm = (s: unknown) => String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  const byText = new Map(results.map((r) => [norm(r.practice), r]));
+  return practices.map((practice, i) => {
+    const r = byText.get(norm(practice)) ?? results[i];
+    return r
+      ? { practice, passed: r.passed === true, evidence: String(r.evidence ?? "") }
+      : { practice, passed: false, evidence: "(not judged — missing from the judge's reply)" };
+  });
+}
+
 /** Judge an output against a list of practices. Model defaults to the stronger judge family. */
 export async function llmJudge(output: string, practices: string[], model = EVAL_JUDGE_MODEL): Promise<Verdict> {
   const listed = practices.map((p, i) => `${i + 1}. ${p}`).join("\n");
   const prompt = `${JUDGE_RUBRIC}\n\n## PRACTICES\n${listed}\n\n## OUTPUT\n${output}\n\nReturn the JSON now.`;
   const res = await runContent(prompt, { allowedTools: [], maxTurns: 1, model });
-  const results = parseVerdict(res.text);
-  const total = results.length || 1;
+  const results = alignResults(practices, parseVerdict(res.text));
+  const total = practices.length || 1;
   const passed = results.filter((r) => r.passed).length;
   return { results, passed, total, score: passed / total };
 }

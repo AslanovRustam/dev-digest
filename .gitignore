@@ -32,3 +32,9 @@ test-results/
 
 # workflow-retro output: per-session facts, reports and trend.jsonl (session data, local only)
 .devdigest/retros/
+
+# dependency-checker output: per-run facts (.facts.md / .facts.json) and reports
+.devdigest/dependency-reports/
+
+# skill-creator eval workspaces: generated model outputs and grading runs (local only)
+.devdigest/skill-evals/

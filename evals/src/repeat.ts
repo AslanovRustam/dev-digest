@@ -4,7 +4,7 @@
  * only -n/--times and --label are consumed here. Aggregates the records written during the runs
  * into per-test pass rate, a per-practice breakdown, and metric stats (mean ± stddev).
  *
- *   pnpm eval:repeat skills/onion-architecture -n 5 --label baseline
+ *   pnpm eval:repeat skills/onion-architecture --label baseline     (n = MAX_RUNS = 2)
  *
  * --label saves the aggregate to results/repeat-<label>.json so two labeled series can be diffed
  * with `pnpm eval:delta baseline candidate`.
@@ -16,6 +16,7 @@ import { GREEN, RED, DIM, RESET, rateColor } from "./ansi.js";
 import { gitInfo } from "./git.js";
 import { countTests, runVitestOnce } from "./run-vitest.js";
 import { RESULTS_DIR } from "./artifacts/paths.js";
+import { MAX_RUNS } from "./config.js";
 import { aggregate, loadRecords, recordCount, type NodeAggregate, type Stats } from "./records/stats.js";
 
 /**
@@ -70,10 +71,9 @@ function printTest(agg: NodeAggregate, times: number): void {
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
-  // Cap runs at 2 to keep token spend bounded — LLM sessions are expensive, and 2 runs is enough
-  // to catch a blatantly flaky case. Bump MAX_TIMES if you deliberately want a fuller stability run.
-  const MAX_TIMES = 2;
-  let times = MAX_TIMES;
+  // Capped at MAX_RUNS (config.ts) to keep token spend bounded — raise it there, deliberately,
+  // for a fuller stability run.
+  let times = MAX_RUNS;
   let label: string | undefined;
   const vitestArgs: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -83,12 +83,12 @@ async function main(): Promise<void> {
     else vitestArgs.push(a);
   }
   if (vitestArgs.length === 0 || !Number.isFinite(times) || times < 1) {
-    console.error("usage: pnpm eval:repeat <vitest pattern> [-n times<=2] [-t testNamePattern] [--label name]");
+    console.error(`usage: pnpm eval:repeat <vitest pattern> [-n times<=${MAX_RUNS}] [-t testNamePattern] [--label name]`);
     process.exit(1);
   }
-  if (times > MAX_TIMES) {
-    console.error(`  ${DIM}capping -n ${times} → ${MAX_TIMES} (token economy)${RESET}`);
-    times = MAX_TIMES;
+  if (times > MAX_RUNS) {
+    console.error(`  ${DIM}capping -n ${times} → ${MAX_RUNS} (token economy)${RESET}`);
+    times = MAX_RUNS;
   }
   vitestArgs.splice(0, vitestArgs.length, ...resolveEvalPatterns(vitestArgs));
 

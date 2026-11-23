@@ -73,6 +73,33 @@ _None yet._
   save each hand-back yourself and check the file exists before passing it as `previous:` · ref:
   `.claude/agents/implementer.md:54`, `.claude/agents/architecture-reviewer.md:58`,
   `.devdigest/retros/2026-11-07-e9e4faa5.md`
+- **2026-11-22** · Don't trust a content-only skill eval (no `tools` in the case) for rules that live in the skill's
+  `references/` — `skillContent()` inlines every `references/*.md` into the system prompt, while a real Claude Code
+  session loads only the SKILL.md body and reads references on demand. Put must-follow rules in the SKILL.md body, and
+  give such cases `tools` + `cwd` (production-style loading) · ref: `evals/src/artifacts/load.ts` (`skillContent`),
+  `evals/src/tasks.ts` (`skillTask`)
+- **2026-11-22** · Don't read an A/B on `evals/agents/architecture-reviewer` as "the effect of dropping the quoted rule":
+  its cases expect rule ids (`inward-only-dependencies`, `di-discipline`, `reviewer-core-zero-io`,
+  `reviewer-core-ground-findings-gate`) and a `PASS/FAIL` gate that the real agent never emits (it uses `FE-*` / `ON-*` /
+  `X-*` ids and `CLEAN | FINDINGS | INCOMPLETE | BLOCKED`), so those practices fail at baseline (0/2) before any edit;
+  `evals/agents/architecture-reviewer-lite/` also targets an agent that does not exist in `.claude/agents/`. Rewrite the
+  practices against the agent's real vocabulary first · ref: `evals/agents/architecture-reviewer/architecture-reviewer.cases.ts`,
+  `.claude/agents/architecture-reviewer.md:103-148`
+- **2026-11-22** · In a workflow `trace` case, do not `expectFilesRead` a file whose CONTENT root `AGENTS.md` already
+  states (e.g. both `vendor/shared` copies, `mcp/src/contracts.ts`) — the model answers correctly from context without
+  opening it (routing-v1: 0/2 on reads, 2/2 correct answers); assert it with `expectText`. Keep `expectFilesRead` for what
+  only a Read can deliver: package `AGENTS.md` and docs routed from it. Likewise no `expectSkills` when the prompt forbids
+  the action the skill's trigger is conditioned on ("invoke onion-architecture before ADDING code" + "код не пиши")
+  · ref: `evals/workflow/claude-md-routing.cases.ts`, `evals/results/repeat-routing-v1.json`
+- **2026-11-23** · Supersedes 2026-11-22 (only its "lite agent does not exist" part): `.claude/agents/architecture-reviewer-lite.md`
+  now exists — a copy whose frontmatter matches the original except `name`/`description` (so `agentTools()` gives both the
+  same tools), with only the citation relaxed (Step 2 allows findings outside the rule table, Step 3 no longer demands a
+  quoted rule, rule id `—` allowed). The case-vocabulary trap still stands: before reading the A/B, rewrite the checkout
+  practices to the documented ids — `R2 ring2-no-http` for the `fastify` import under `modules/<m>/`, and note that
+  `R4 no-concrete-adapters-outside-composition` lists only adapter client classes, so `new PgCheckoutRepository()` in
+  a service has no exact rule id and even the strict agent may leave it uncited — plus severities CRITICAL/WARNING/
+  SUGGESTION and the status `CLEAN | FINDINGS | INCOMPLETE | BLOCKED` instead of PASS/FAIL · ref:
+  `.claude/skills/onion-architecture/references/rules.md` (R2, R4), `evals/agents/architecture-reviewer/architecture-reviewer.cases.ts`
 
 ## Codebase Patterns
 
@@ -149,6 +176,15 @@ _None yet._
   Then start a NEW session, because the current one keeps offering the old name. A rename plus a body rewrite falls under
   git's 50% similarity (`git diff -M HEAD` shows delete + add), so commit the pure `git mv` first, as in the
   2026-09-29 rename entry. · ref: `.claude/hooks/agent-guard.test.mjs:257`
+
+- **2026-11-21** · Port every `server/src/vendor/shared` contract edit into `client/src/vendor/shared` right away —
+  the client copy has already lost 5 files' worth (`adapters.ts`, `contracts/{eval-ci,knowledge,productionize,trace}.ts`).
+  The one that bites at runtime: `provider` is `'openai' | 'anthropic' | 'openrouter'` in server
+  (`productionize.ts:36`, `adapters.ts:83`) but only `openai | anthropic` in client, so a client Zod parse can reject an
+  `openrouter` value from the API; server also has `AgentManifest`, `CiFailOn`, `sessionId` that client lacks. Found with
+  `diff -rq client/src/vendor/shared server/src/vendor/shared` (the dependency-checker `[copy-diverged]` flag only lists
+  file names, open the diff to see which are contracts vs comments — `trace.ts` is comments only). · ref:
+  `client/src/vendor/shared/contracts/productionize.ts:36`
 
 ## Tool & Library Notes
 
@@ -361,6 +397,50 @@ _None yet._
   `[role=region][aria-label="PR Brief"]` has no `[role=status]`. The deep-link line flash starts only after the
   diff loads (~2.5 s on a 75-file PR) and lasts 2 s; detect it by polling for the `inset 0 0 0 2px` ring, not
   from a screenshot taken right after the click · ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/PrBrief/PrBriefCard.tsx`
+- **2026-11-22** · Claude Agent SDK (0.3.198): `allowedTools` only AUTO-APPROVES tools, it does not restrict them.
+  Under `permissionMode: "bypassPermissions"` an eval with `allowedTools: ["Read","Grep","Glob"]` still ran `Write`
+  and created `dependency-sprint-plan.html` in the repo root. Restrict with `disallowedTools` (removed from the model's
+  context) or `tools` (`[]` = no built-in tools) — evals now do both in `toolOptions()`; never rely on
+  `allowedTools` for safety in any SDK script · ref: `evals/src/runtime/run-claude.ts` (`toolOptions`),
+  `evals/src/runtime/tool-options.test.ts`
+- **2026-11-22** · An eval trace's `N turns` is NOT the SDK turn count: `runClaude` increments `numTurns` per
+  assistant message, and one SDK turn can emit several. `28 turns` with `maxTurns: 16` is normal, not a broken
+  limit — judge truncation by the case's `isError`/`ERROR (max turns)` marker instead · ref:
+  `evals/src/runtime/run-claude.ts` (`numTurns++` on `msg.type === "assistant"`)
+- **2026-11-22** · `pnpm eval:repeat … -n 5` is silently capped to 2 runs (`MAX_TIMES = 2`, printed once as
+  "capping -n 5 → 2 (token economy)"), although `evals/README.md` examples use `-n 5`; `eval:benchmark -n` is NOT
+  capped. A before/after (`eval:delta`) on agents therefore rests on n=2 unless `MAX_TIMES` is raised on purpose. Also:
+  `agentTask` / `skillTask` read the artifact file from disk on every run, so do not edit the agent/skill while a
+  series is running — it mixes both versions into one label · ref: `evals/src/repeat.ts:75`,
+  `evals/src/artifacts/load.ts` (`agentContent`)
+- **2026-11-22** · Supersedes 2026-11-22 (`MAX_TIMES`): the cap is now ONE constant, `MAX_RUNS = 2` in
+  `evals/src/config.ts`, and it is both the default and the upper bound of `eval:repeat` AND `eval:benchmark` (per
+  config, so a benchmark is at most 4 sessions per case); README examples no longer pass `-n 5`. For a deliberate n≥5
+  stability or lift run raise `MAX_RUNS` there, not a local constant · ref: `evals/src/config.ts` (`MAX_RUNS`),
+  `evals/src/repeat.ts`, `evals/src/records/benchmark.ts`
+- **2026-11-23** · Treat a `claude-md-routing` failure on the default `EVAL_MODEL` (Haiku) as indicative, not as a broken
+  `AGENTS.md`: on the same cases Haiku went 1/2 on server / cross-package / PR — it answered from a Docs-table row
+  without opening the doc (invented `service.ts` / `fileRank` instead of `rank.ts` / `file_rank`), skipped
+  `mcp/AGENTS.md`, and called `Skill(pr-self-review)` — while `EVAL_MODEL=claude-sonnet-5-5` passed every rule (its one
+  miss was `maxTurns`). Confirm on Sonnet before editing instructions; Sonnet costs ~2.5× output tokens and ~2× time
+  per case (n=2) · ref: `evals/results/repeat-routing-v3.json`, `evals/results/repeat-sonnet-v1.json`
+- **2026-11-23** · `/pr-self-review` counts untracked files, so an un-ignored eval workspace floods it: 447 generated
+  files under `.devdigest/skill-evals/` turned a ~20-file change into 652 files and added drizzle/zod reviewer routes over
+  model outputs (now git-ignored). Before the fan-out, check `plan.json` routes for generated dirs and ignore them. Also:
+  `routing.md` has no glob for `evals/src/**` or `evals/workflow/**` — eval harness code gets no skill reviewer (only
+  `security` via filename patterns), so review it by hand or add a route · ref: `.gitignore`,
+  `.claude/skills/pr-self-review/references/routing.md`
+- **2026-11-23** · CI eval selection (`evals/scripts/ci-detect.mjs`): watch `AGENTS.md`, not only `CLAUDE.md` — every
+  `CLAUDE.md` here is a one-line `@AGENTS.md` stub, so a detector keyed on `CLAUDE.md` never sees an instruction change
+  (the first version did exactly that). And pass vitest DIRECTORY filters with a trailing `/` (`agents/architecture-reviewer/`):
+  filters are substrings, so the bare path also ran `agents/architecture-reviewer-lite/` — double cost per PR
+  · ref: `evals/scripts/ci-detect.mjs` (`HARNESS_WIDE`, `toMatrix`), `evals/scripts/ci-detect.test.mjs`
+- **2026-11-23** · **Symptom:** `pnpm proxy:up` waits 2 min, then "proxy did not become healthy"; container log: "LiteLLM
+  proxy refused to start: no master key is set". **Cause:** `ghcr.io/berriai/litellm:main-stable` (floating tag) now
+  refuses the old no-auth mode. **Fix (done):** `LITELLM_MASTER_KEY: ${OPENROUTER_API_KEY}` in
+  `evals/proxy/docker-compose.yml` — both eval clients already send that key as bearer, so no new secret; do not use the
+  `dangerously_permit_weak_or_unset_master_key` escape. The tag floats, so the next breaking LiteLLM change lands the same
+  way — read `docker compose -f evals/proxy/docker-compose.yml logs` first · ref: `evals/proxy/docker-compose.yml`
 
 ## Recurring Errors & Fixes
 
@@ -396,6 +476,59 @@ _None yet._
   AGENTS.md gotcha is advice only, and these writes also bypass `implementer-guard.mjs`, whose path rules check only
   the `file_path` of Edit/Write. **Fix:** deny file-writing Bash statements in the guard (redirects to repo paths,
   `tee`, `sed -i`, interpreter heredocs) so edits go through Edit/Write · ref: `.claude/hooks/implementer-guard.mjs:23-42`
+- **2026-11-21** · **Symptom:** `cd evals && pnpm eval:quality` dies with an uncaught `YAMLException: incomplete
+  explicit mapping pair … line 3, column 650` after printing a few skills; no per-skill `FAIL` verdict.
+  **Cause:** second hit of the 2026-10-09 trap, now in a SKILL.md — `frontend-ui-architecture`'s unquoted
+  `description` contained `Architecture only: for …`; `gray-matter` (js-yaml 3) throws and `evaluate()` has no
+  try/catch, so one bad skill aborts the whole run. **Fix:** no `: ` inside an unquoted `description` (use `—` or
+  quote the value); `skill-quality.ts` should wrap `matter(...)` and report FAIL (not done yet)
+  · ref: `.claude/skills/frontend-ui-architecture/SKILL.md:3`, `evals/src/skill-quality.ts:38`
+- **2026-11-21** · **Symptom:** on Windows `cd evals && pnpm eval:benchmark skills/<name> -n 3` prints
+  `? test case(s) × 3 runs × 2 configs = 0 sessions`, then crashes with `Error: spawn pnpm ENOENT`.
+  **Cause:** `pnpm` is `pnpm.cmd`; `execFileSync`/`spawn` without a shell cannot start it (and since Node 20.12
+  `.cmd` needs a shell anyway), and `countTests` swallows the error and returns `null`. **Fix:** `shell: true`
+  on `win32` in both calls (done; Node prints a harmless DEP0190 warning). Plain `pnpm vitest run skills/<name>`
+  was never affected. · ref: `evals/src/run-vitest.ts:15-18`
+- **2026-11-22** · Supersedes 2026-11-21 (`shell: true` for `pnpm.cmd`): **Symptom:** `pnpm eval:repeat … -t "a|b"`
+  prints `run 1/2 no records — run crashed` plus a mojibake cmd.exe "\"b\" is not recognized" line; no session starts.
+  **Cause:** with `shell: true` cmd.exe re-parses the args, so `|` (also `&`, `<`, `>`, `^`) in a `-t` pattern became a
+  pipe. **Fix (done):** `run-vitest.ts` spawns `process.execPath node_modules/vitest/vitest.mjs` — no pnpm, no shell, no
+  quoting, no DEP0190. Note: `vitest list` ignores `-t`, so the "N test case(s)" header counts the whole file
+  · ref: `evals/src/run-vitest.ts` (`VITEST_BIN`)
+- **2026-11-22** · `-t` in `eval:repeat` / `vitest run` is matched against the FULL test name, which starts with the
+  describe label (`workflow:claude-md-routing > …`) — so `-t "rout|…"` selected every case of that file and a 12-session
+  run became 16. Pick a `-t` token that is absent from the describe label (check the label in `describeWorkflow(...)`),
+  e.g. a word only in the case `name`; `vitest list` cannot confirm it because it ignores `-t`
+  · ref: `evals/src/dsl/describe.ts`, `evals/workflow/claude-md-routing.eval.ts`
+- **2026-11-22** · **Symptom:** a workflow eval (`kind: "activation"` / `"dispatch"` / `"trace"`) shows ✓ in vitest but
+  `"outcome": false` in `evals/results/records.jsonl`, so `eval:repeat` / `eval:delta` count it as a failure.
+  **Cause:** `record()` derives `outcome` from `!result.isError` when there is no judge verdict, and a session that
+  hits `maxTurns` is `isError` even after the asserted behavior (skill engaged) already happened. **Fix:** pass the
+  assertion's own result into `record()` for workflow cases (not done yet); until then read workflow pass/fail from
+  vitest, not the records · ref: `evals/src/records/record.ts` (`outcome`), `evals/src/dsl/case.ts` (activation branch)
+- **2026-11-22** · Supersedes 2026-11-22 (workflow `outcome`): fixed — every workflow branch now passes `passed` (its
+  own assertion) to `record()`, decided by `decideOutcome()`; records written before this fix still carry the old
+  value for workflow cases, so do not mix them into `eval:delta` · ref: `evals/src/records/record.ts` (`decideOutcome`),
+  `evals/src/records/outcome.test.ts`
+- **2026-11-22** · **Symptom:** a benchmark's per-practice matrix shows the same practice twice with slightly different
+  wording, one row `n=1`, flagged `missing_data`. **Cause:** `llmJudge` stored the practice text the judge ECHOED (it
+  rewords: dropped ")", "the finding" → "it"), stats key by that text, and `score` divided by the judge's result count.
+  **Fix (done):** `alignResults()` re-keys results to the case's own practices (text, then position; missing = FAIL) and
+  the denominator is the case's practice count · ref: `evals/src/scoring/llm-judge.ts`, `evals/src/scoring/align.test.ts`
+- **2026-11-22** · **Symptom:** `pnpm eval:workflow` fails 3 `trace` cases of `review-workflow` on any model ("filesRead"
+  lacks the expected doc). **Cause:** `evals/workflow/review-workflow.cases.ts` came with the eval package from another
+  repo (commit 221623e) and asserts reads of `server/docs/api-contracts.md`, `reviewer-core/docs/pipeline.md`,
+  `reviewer-core/insights/gotchas.md` and a CLAUDE.md "Read When" table — none exist here (`server/docs/`,
+  `reviewer-core/docs/` hold only `.gitkeep`; root `AGENTS.md` has a "Docs" table). **Fix:** rewrite those cases against
+  files the routing really points to (`<package>/AGENTS.md`, `<package>/INSIGHTS.md`, `TESTING.md`, `specs/README.md`)
+  before reading their failures as harness regressions · ref: `evals/workflow/review-workflow.cases.ts`
+- **2026-11-22** · Supersedes 2026-11-22 (review-workflow fixture drift): those cases are replaced by
+  `evals/workflow/claude-md-routing.cases.ts`. **Symptom:** on Windows a workflow case "did not read" a file the model
+  did read, and `activated()` missed a skill engaged by reading its SKILL.md. **Cause:** the trace keeps the path as the
+  model wrote it — `records.jsonl` holds `D:\…\server\AGENTS.md`, `./server/AGENTS.md`, `/server/AGENTS.md` side by
+  side — and the asserts did a raw `includes("server/AGENTS.md")`. **Fix:** compare only through `wasRead()` /
+  `skillEngaged()` in `evals/src/dsl/trace-check.ts` (backslashes normalised); never `filesRead.includes` directly
+  · ref: `evals/src/dsl/trace-check.ts`, `evals/src/dsl/trace-check.test.ts`
 
 ## Session Notes
 
@@ -492,5 +625,18 @@ Renamed the same day at the user's request: `/implement` → `/run-plan` (`.clau
   (`mcp__claude_ai_Figma__*`) get them, and must it load them through `ToolSearch` first? With another Figma MCP
   server the names differ and the allowlist silently gives none. Smoke-test `spec-creator` with a Figma URL in a
   fresh session. · ref: `.claude/agents/spec-creator.md:5`
+- **2026-11-22** · Unmeasured: does moving computable rubric decisions from SKILL.md prose into the dependency-checker
+  collector's output (per-package `→ propose:` commands, `[drift-linked]` / `[drift-isolated]`, `[unused-dev]`,
+  `[dup-dev-tool]`) fix what haiku got wrong with prose alone (benchmark 2026-11-22: wrong manager 4/5, mcp demotion
+  0/5, unused devDeps ranked P1 0/5)? Check with `cd evals && pnpm eval:benchmark skills/dependency-checker -n 5`
+  · ref: `.claude/skills/dependency-checker/scripts/collect.mjs` (`renderCandidates`),
+  `evals/results/benchmarks/2026-11-22T19-53-32-730Z/benchmark.md`
+- **2026-11-22** · Unresolved: does dropping "quote the rule text" from `architecture-reviewer` hurt recall? Series
+  `baseline` vs `version-B` (n=2, haiku-4.5) confirmed the edit changed behavior (quoted `Rule:` lines 9/10 → 0/18, ~20%
+  fewer tokens, 29% fewer file reads) but is inconclusive on quality: no benign-diff false positives added, one
+  `version-B` run missed `new PgCheckoutRepository()` (baseline 0 of 2 misses) — a misread of R6, not clearly the quote.
+  Needs practices that measure rule-text quoting + recall, written in the agent's real vocabulary, and n≥5 (raise
+  `MAX_TIMES`) · ref: `evals/results/repeat-baseline.json`, `evals/results/repeat-version-B.json`,
+  `.claude/agents/architecture-reviewer.md:101,161`
 
 _None yet._

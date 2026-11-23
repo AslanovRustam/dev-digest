@@ -31,7 +31,30 @@ export interface RecordData {
   verdict?: Verdict;
   grounded?: number;
   threshold?: number;
+  /**
+   * The case's own pass/fail when it is decided by trace assertions, not by a judge (workflow
+   * cases). Without it the record falls back to "did the session end without error" — which marks
+   * a run that already showed the asserted behavior but then hit maxTurns as a failure.
+   */
+  passed?: boolean;
   extra?: Record<string, unknown>;
+}
+
+/**
+ * outcome, in priority order: a failed grounding gate → false; a judge verdict → score ≥ threshold;
+ * an explicit `passed` (trace-asserted case) → that; otherwise "the session ended without error".
+ */
+export function decideOutcome(d: {
+  grounded?: number;
+  verdict?: Pick<Verdict, "score">;
+  threshold?: number;
+  passed?: boolean;
+  isError: boolean;
+}): boolean {
+  if (d.grounded !== undefined && d.grounded < 1) return false;
+  if (d.verdict && d.threshold !== undefined) return d.verdict.score >= d.threshold;
+  if (d.passed !== undefined) return d.passed;
+  return !d.isError;
 }
 
 /**
@@ -40,18 +63,11 @@ export interface RecordData {
  * from being silently empty.
  */
 export function record(label: string, data: RecordData): void {
-  const { result, verdict, grounded, threshold, extra } = data;
+  const { result, verdict, grounded, threshold, passed, extra } = data;
   const state = expect.getState();
   const nodeid = `${state.testPath ?? "?"} > ${state.currentTestName ?? label}`;
 
-  // outcome: grounding gate failure short-circuits to false; else the judge threshold; else
-  // "did the run itself succeed" (workflow tests have neither grounding nor a judge verdict).
-  const outcome =
-    grounded !== undefined && grounded < 1
-      ? false
-      : verdict && threshold !== undefined
-        ? verdict.score >= threshold
-        : !result.isError;
+  const outcome = decideOutcome({ grounded, verdict, threshold, passed, isError: result.isError });
 
   const outDir = join(OUTPUTS, RUN_ID);
   mkdirSync(outDir, { recursive: true });

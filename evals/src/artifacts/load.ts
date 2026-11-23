@@ -6,6 +6,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { SKILLS_DIR, AGENTS_DIR } from "./paths.js";
+import { MUTATING_TOOLS } from "../config.js";
 
 function stripFrontmatter(md: string): string {
   if (md.startsWith("---")) {
@@ -15,11 +16,24 @@ function stripFrontmatter(md: string): string {
   return md;
 }
 
-/** SKILL.md plus every references/*.md — the full payload the harness would assemble. */
-export function skillContent(skillName: string): string {
+/**
+ * The skill as a system prompt.
+ *
+ * Default (content-only case, no tools): SKILL.md plus every references/*.md inlined — the model
+ * cannot open files, so it gets everything up front. That is MORE than production gives it.
+ *
+ * `asLoaded` (a case that has tools): what Claude Code actually loads — the SKILL.md body with its
+ * base directory, references left on disk for the model to Read when the skill tells it to. Use it
+ * whenever the case can read files, so the eval does not credit the skill with context it would
+ * not have in a real session.
+ */
+export function skillContent(skillName: string, opts: { asLoaded?: boolean } = {}): string {
   const dir = join(SKILLS_DIR, skillName);
   const skillMd = join(dir, "SKILL.md");
   if (!existsSync(skillMd)) throw new Error(`SKILL.md not found: ${skillMd}`);
+  if (opts.asLoaded) {
+    return `Base directory for this skill: ${dir}\n\n${stripFrontmatter(readFileSync(skillMd, "utf8"))}`;
+  }
   const parts = [readFileSync(skillMd, "utf8")];
   const refs = join(dir, "references");
   if (existsSync(refs)) {
@@ -40,8 +54,13 @@ export function agentContent(agentName: string): string {
 // Tools the eval refuses to hand a subagent: evals run with bypassPermissions against the LIVE
 // repo, so a mutating tool could take real actions. An agent that declares these still runs — it
 // just runs read-only, which is all an eval ever needs.
-const MUTATING_TOOLS = new Set(["Write", "Edit", "NotebookEdit", "Bash"]);
+const MUTATING = new Set(MUTATING_TOOLS);
 const READONLY_FALLBACK = ["Read", "Grep", "Glob"];
+
+/** The same policy for tools a CASE asks for: mutating ones are dropped, never handed over. */
+export function readOnlyTools(tools: string[]): string[] {
+  return tools.filter((t) => !MUTATING.has(t));
+}
 
 /**
  * The tools an agent DECLARES in its frontmatter (`tools: Read, Glob, Grep`), so the eval can run
@@ -63,5 +82,5 @@ export function agentTools(agentName: string): string[] {
   return raw
     .split(",")
     .map((t) => t.trim())
-    .filter((t) => t.length > 0 && !MUTATING_TOOLS.has(t));
+    .filter((t) => t.length > 0 && !MUTATING.has(t));
 }

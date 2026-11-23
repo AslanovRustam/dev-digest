@@ -17,6 +17,11 @@ services:
       - "4000:4000"
     environment:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in the environment}
+      # LiteLLM (main-stable, 2026-11) refuses to start without a master key. Both eval clients already
+      # send OPENROUTER_API_KEY as their bearer token (the SDK via ANTHROPIC_AUTH_TOKEN, the content tier
+      # via the OpenAI client), so it doubles as the master key: no extra secret, and the proxy rejects
+      # callers that do not hold the key.
+      LITELLM_MASTER_KEY: ${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in the environment}
     volumes:
       - ./litellm.config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]

@@ -10,6 +10,12 @@ export const EVAL_MODEL = process.env.EVAL_MODEL ?? "claude-haiku-4-5";
 export const EVAL_JUDGE_MODEL = process.env.EVAL_JUDGE_MODEL ?? "claude-sonnet-5";
 export const MAX_TURNS = Number(process.env.EVAL_MAX_TURNS ?? "8");
 
+// --- Run-count cap (token economy) -----------------------------------------
+// Upper bound AND default for every multi-run CLI: eval:repeat runs a pattern at most this many
+// times, eval:benchmark at most this many times PER config (candidate + baseline). A larger -n is
+// capped with a notice. Enough to catch a blatantly flaky case; stddev at n=2 is indicative only.
+export const MAX_RUNS = 2;
+
 // --- Configuration tag ------------------------------------------------------
 // "candidate" = artifact injected (normal). "baseline" = no artifact (benchmark lift baseline).
 export const EVAL_CONFIG = process.env.EVAL_CONFIG ?? "candidate";
@@ -26,6 +32,11 @@ export const COST_REGRESSION_RATIO = 1.25; // candidate mean tokens > 125% of ba
 export const SPAWN_TOOLS = new Set(["Task", "Agent"]);
 // workflowTask runs against the LIVE repo with bypassPermissions — keep this read-only.
 export const WORKFLOW_ALLOWED_TOOLS = ["Read", "Grep", "Glob", "Task", "Agent", "Skill"];
+// Tools no eval session may ever use, on any tier: every run is bypassPermissions on a live
+// checkout. NOTE: `allowedTools` only AUTO-APPROVES tools — it does not restrict them (SDK docs:
+// "to restrict which tools are available, use the `tools` option"); runClaude enforces this list
+// through `disallowedTools`.
+export const MUTATING_TOOLS = ["Bash", "Write", "Edit", "MultiEdit", "NotebookEdit"];
 
 // --- Output verbosity -------------------------------------------------------
 // Set EVAL_QUIET to suppress per-run trace/verdict spam during multi-run aggregation.

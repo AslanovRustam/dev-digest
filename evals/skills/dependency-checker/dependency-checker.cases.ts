@@ -1,11 +1,33 @@
+import { fileURLToPath } from "node:url";
 import type { SkillCase } from "../../src/index.js";
 
-// This skill's job is to analyze real files (package.json, tsconfig.json, node_modules sizes),
-// but "quality" cases run with no tools (skillTask measures the SKILL.md content in isolation —
-// see tasks.ts). So each prompt inlines a small synthetic dataset the skill can reason over
-// directly, standing in for what the skill would normally gather itself with Read/Bash/Grep.
+// Two tiers of cases for this skill:
+//
+// 1. TOOL cases (`tools` + `cwd`) — the model works inside fixtures/repo the way a real session
+//    does: the skill is loaded as Claude Code loads it (SKILL.md body + base directory, references
+//    read on demand), it reads `dependency-facts.md` and checks claims in the code with
+//    Read/Grep/Glob. Bash is never handed to an eval (bypassPermissions on a live checkout), so the
+//    facts are the frozen output of the REAL collector — regenerate with fixtures/make-facts.mjs
+//    after changing the fixture or the collector. The collector itself is covered by
+//    `node --test .claude/skills/dependency-checker/scripts/collect.test.mjs`.
+// 2. A CONTENT case (no tools) — inline data, the skill's text in isolation. Cheap, and the only
+//    tier that also runs on EVAL_BACKEND=openrouter.
+//
+// Practices judge reasoning (ranking, scoping, verification), not the skill's own vocabulary,
+// except where the prompt asks for the format. Nothing in the fixture's code comments hints at
+// the findings.
+
+const FIXTURE_REPO = fileURLToPath(new URL("./fixtures/repo", import.meta.url));
+const READ_ONLY = ["Read", "Grep", "Glob"];
+
+const NO_SHELL =
+  "Shell commands are not available in this session. The dependency facts were already collected " +
+  "for you into `dependency-facts.md` at the repository root (your working directory). Use Read, " +
+  "Grep and Glob for anything you want to check in the code.";
 
 const REPO_DATA = `Here is the data you'd normally gather yourself — treat it as already collected, and produce the report directly from it (do not ask for tool access or more data).
+
+Package managers: server and client use pnpm (pnpm-lock.yaml); reviewer-core and e2e use npm (package-lock.json).
 
 server/package.json dependencies: fastify@5.1.0, drizzle-orm@0.36.0, zod@3.23.8, pg@8.13.0, moment@2.30.1
 server/package.json devDependencies: vitest@2.1.4, typescript@5.6.3, tsx@4.19.0
@@ -29,7 +51,7 @@ client/node_modules/zod: 1.9M
 reviewer-core/node_modules/zod: 2.1M
 e2e/node_modules/playwright: 210M
 
-server/package.json also declares zod@3.23.8, client/package.json declares zod@3.22.4, reviewer-core/package.json declares zod@3.23.8 — three different resolved zod versions across packages.
+zod is declared at two different versions across three packages: 3.23.8 in server and reviewer-core, 3.22.4 in client.
 
 grep for imports crossing package boundaries:
 - server/src/routes/reviews.ts imports types from "@shared/review-types" (alias to server/src/vendor/shared)
@@ -38,46 +60,64 @@ grep for imports crossing package boundaries:
 - grep found no import of "moment" anywhere under server/src — only present in package.json`;
 
 export const cases: SkillCase[] = [
+  // --- tool tier --------------------------------------------------------------------------------
   {
-    name: "full report follows the required 5-section structure with a Mermaid graph",
+    name: "full report from the collected facts, with verification and correct ranking",
     kind: "quality",
-    prompt: `Run a dependency check on this repo. I want the full report: graph, sizes, prioritized findings, recommendations.\n\n${REPO_DATA}`,
+    tools: READ_ONLY,
+    cwd: FIXTURE_REPO,
+    prompt:
+      "Run a dependency check on this repository and give me the full report: scope, a Mermaid " +
+      "dependency graph, sizes, prioritized findings and a short summary.\n\n" + NO_SHELL,
     grounding: ["```mermaid", "flowchart"],
     practices: [
-      "the report has a section named 'Scope' listing which packages (client, server, reviewer-core, e2e) were analyzed",
-      "the report includes a Mermaid diagram (a fenced ```mermaid code block using flowchart) showing dependency relationships between packages",
-      "the report has a section with a size breakdown table showing dependencies and their installed size, not just a vague size statement",
-      "the report has a 'Findings & Priorities' section (or equivalently named) that groups findings under explicit severity tiers such as P0, P1, P2, or Info — not an unranked bullet list",
-      "the report ends with a Summary section giving 3-5 concrete, actionable takeaways ordered by priority",
-      "every finding names a specific package, dependency, or file rather than giving generic advice like 'consider optimizing dependencies'",
+      "the report has these sections in this order: Scope, Dependency graph, Size breakdown, Findings & Priorities, Summary",
+      "the Mermaid graph draws links between the repository's own packages (server, client, reviewer-core) differently from external npm packages, and marks server's relative import into reviewer-core as a problem edge",
+      "sizes in the report match dependency-facts.md (for example next 132.0 MB in client and moment 4.2 MB in server) rather than rounded or re-estimated values",
+      "server/src/services/review-service.ts importing ../../../reviewer-core/src/pipeline.js is ranked in the highest priority tier (P0 or equivalent)",
+      "the relative import in reviewer-core/test/pipeline.test.ts is ranked lower than the one in server's production code, because it is in test code",
+      "moment in server is reported as unused, and the report says the code was searched to confirm it (or marks the finding unverified)",
+      "every removal or change is a proposal for the user to confirm, with a command in the package's own manager (pnpm for server and client, npm for reviewer-core, mcp and e2e) and without --workspace or --filter flags",
+      "the report does not recommend migrating to a workspace or monorepo and does not call the repository a monorepo",
     ],
     threshold: 0.7,
-    maxTurns: 10,
+    maxTurns: 24,
   },
   {
-    name: "distinguishes internal (path-alias) dependencies from external npm dependencies",
+    name: "prioritizes a cleanup sprint: judgment over the raw candidate list",
     kind: "quality",
-    prompt: `This repo isn't a monorepo — server, client, reviewer-core, and e2e share code via TypeScript path aliases, not workspace:* packages. Analyze our dependencies, including how these packages depend on each other internally.\n\n${REPO_DATA}`,
+    tools: READ_ONLY,
+    cwd: FIXTURE_REPO,
+    prompt:
+      "We have one sprint for dependency cleanup across these packages. What do we fix first and what " +
+      "can wait?\n\n" + NO_SHELL,
     practices: [
-      "the answer explicitly distinguishes internal cross-package dependencies (the @shared/review-types alias and the direct relative import into reviewer-core/src/pipeline.js) from external npm package dependencies, rather than treating them as the same kind of dependency",
-      "the answer flags server/src/services/review-service.ts importing reviewer-core/src/pipeline.js by relative path instead of through reviewer-core's public entry point as a P0-tier or otherwise explicitly called-out issue",
-      "the answer does not claim these packages are linked via workspace:* or pnpm workspaces, since the project explicitly is not a monorepo",
+      "findings carry explicit priority labels from one consistent scheme, highest priority first",
+      "server's relative import of reviewer-core/src/pipeline.js is in the fix-first group",
+      "the zod versions are called out as drift: client 3.22.4 versus 3.23.8 in server and reviewer-core, and the 4.x major in mcp",
+      "the zod 4.x in mcp gets a lower priority than the drift between server, client and reviewer-core, with a reason based on mcp not sharing code with the other packages (no internal links / talks over HTTP)",
+      "the two copies of the @shared types diverging (review-types.ts differs between client and server) are reported",
+      "the unused devDependencies (typescript in e2e, tsx in reviewer-core) are ranked below the production-code issues (server's relative import into reviewer-core, the zod drift, the unused moment)",
+      "no workspace or monorepo migration is recommended",
     ],
-    threshold: 0.6,
-    maxTurns: 10,
+    threshold: 0.7,
+    maxTurns: 24,
   },
+
+  // --- content tier (no tools) ------------------------------------------------------------------
   {
-    name: "severity tiers are used consistently and recommendations are specific, not vague",
+    name: "content only: ranks, names files and proposes commands from inline data",
     kind: "quality",
     prompt: `We suspect some npm dependencies in server/ and client/ are unused or duplicated across packages with different versions. Check our dependencies and tell me what to prioritize fixing first.\n\n${REPO_DATA}`,
     practices: [
-      "findings are explicitly labeled with one of the defined severity tiers (P0, P1, P2, or Info) rather than left unranked",
-      "the three different zod versions across server, client, and reviewer-core are called out explicitly as version drift",
-      "moment being declared in server/package.json but never imported anywhere under server/src is called out explicitly as an unused dependency",
-      "each recommendation names a specific package name and package.json/file location (e.g. server/package.json, moment, zod) rather than a generic suggestion",
-      "removing a dependency (e.g. moment) is presented as a recommendation for the user to confirm, not something already executed",
+      "findings carry explicit priority labels from one consistent scheme (for example P0/P1/P2/Info), not an unranked list",
+      "client's zod@3.22.4 versus zod@3.23.8 in server and reviewer-core is called out as version drift",
+      "moment being declared in server/package.json but never imported anywhere under server/src is called out as an unused dependency",
+      "server/src/services/review-service.ts importing reviewer-core/src/pipeline.js by relative path is ranked as a top-priority issue",
+      "each recommendation names a specific package and file (e.g. server/package.json, moment, zod) rather than a generic suggestion",
+      "removing moment is a proposal for the user to confirm, using server's own manager (pnpm) and no --workspace flag",
     ],
-    threshold: 0.6,
+    threshold: 0.8,
     maxTurns: 10,
   },
 ];

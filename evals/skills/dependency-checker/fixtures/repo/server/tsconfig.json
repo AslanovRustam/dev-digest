@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["./src/vendor/shared/*"],
+      "@reviewer-core": ["../reviewer-core/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

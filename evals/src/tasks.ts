@@ -17,10 +17,16 @@ import { skillContent, agentContent, agentTools } from "./artifacts/load.js";
  * Run a prompt with a skill's content injected (the 'candidate' condition). Under
  * EVAL_CONFIG=baseline the artifact is NOT injected — that is the benchmark's without-skill
  * baseline, i.e. the raw model, used to measure the skill's lift.
+ *
+ * With `opts.allowedTools` (a case that declares `tools`) the skill is loaded the way Claude Code
+ * loads it — SKILL.md body + base directory, references read on demand — and the run goes through
+ * the Agent SDK, since the content-only OpenRouter runner has no tools. Both configs get the same
+ * tools, so the lift stays fair.
  */
 export function skillTask(prompt: string, skillName: string, opts: RunOptions = {}) {
-  const systemPrompt = IS_BASELINE ? undefined : skillContent(skillName);
-  return runContent(prompt, { ...opts, systemPrompt });
+  const withTools = (opts.allowedTools?.length ?? 0) > 0;
+  const systemPrompt = IS_BASELINE ? undefined : skillContent(skillName, { asLoaded: withTools });
+  return withTools ? runClaude(prompt, { ...opts, systemPrompt }) : runContent(prompt, { ...opts, systemPrompt });
 }
 
 /**

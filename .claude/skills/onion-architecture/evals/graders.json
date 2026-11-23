@@ -1,0 +1,74 @@
+{
+  "6": [
+    {
+      "find": [
+        "routes\\.ts",
+        "container\\.github|github\\(\\)|postReview"
+      ]
+    },
+    {
+      "find": [
+        "repositor|getById|export|delete",
+        "not scoped|unscoped|without workspace|workspace(Id)?[ _-]?(scop|filter)|scope[ds]? by workspace|cross-tenant|tenan|drops? `?workspaceId"
+      ]
+    },
+    {
+      "find": [
+        "reviewer-core",
+        "deep|public entry|R11|index\\.ts|bypass"
+      ]
+    },
+    {
+      "find": [
+        "report-cache",
+        "R8|platform-no-modules|modules/reports|import"
+      ]
+    },
+    {
+      "find": [
+        "deleteForPull|delete.{0,60}insert",
+        "transaction|atomic"
+      ]
+    },
+    {
+      "find": [
+        "toReportDto|ReportDto",
+        "repositor|ring 3|infrastructure|persistence",
+        "DTO"
+      ]
+    },
+    {
+      "find": [
+        "scoring\\.ts",
+        "process\\.env|Date\\.now|impure|not pure|hidden input"
+      ]
+    },
+    {
+      "find": [
+        "report-access",
+        "RepoService|R9|cross-module|launder|back door"
+      ]
+    },
+    {
+      "absent": [
+        "parseUnifiedDiff|diff-parser",
+        "violat|illegal|must not|should not|wrong|breaks?\b|forbidden"
+      ],
+      "unless": "allowed|legal|sanctioned|fine|\bok\b|not a (finding|violation|concrete)|pure function|permitted"
+    },
+    {
+      "absent": [
+        "reviewRepo",
+        "violat|illegal|must not|should not|wrong|breaks?\b|forbidden"
+      ],
+      "unless": "allowed|legal|sanctioned|fine|\bok\b|not a (finding|violation|concrete)|pure function|permitted|scoped|unscoped"
+    },
+    {
+      "absent": [
+        "(type-only|import type|re-export|db/rows).{0,80}ComposedReviewRow|ComposedReviewRow.{0,80}(type-only|re-export|db/rows)",
+        "violat|illegal|must not|should not|wrong|breaks?\\b|forbidden"
+      ],
+      "unless": "allowed|legal|sanctioned|fine|\\bok\\b|not a (finding|violation|concrete)|pure function|permitted"
+    }
+  ]
+}

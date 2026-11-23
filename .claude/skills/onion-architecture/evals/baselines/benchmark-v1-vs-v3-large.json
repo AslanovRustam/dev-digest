@@ -1,0 +1,793 @@
+{
+  "metadata": {
+    "skill_name": "onion-architecture",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-11-21T19:03:48Z",
+    "evals_run": [
+      6
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 6,
+      "configuration": "new_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1,
+        "passed": 11,
+        "failed": 0,
+        "total": 11,
+        "time_seconds": 90.9,
+        "tokens": 113116,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...test.ts` (pure, no Docker). ### 5. `reports/service.ts:45-50` two repository writes in a row (delete, then insert) `await this.reports.deleteForPull(prId); cons..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ...ansport leaking an internal detail into the DTO. Fix: move the post into `ReportService.compose` (after the insert): `const github = await this.container.github..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: ...gile: it builds a `RepoService` (and a `RepoRepository`) per call, loads every repo of the workspace, then does `.find()` in memory. `RepoRepository.getById(wor..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": true,
+          "evidence": "matched: ...0 in practice. R12 lists only `helpers.ts`, `constants.ts` and `pulls/{cost,findings,status}.ts`, so no tool opens it. The result depends on the environment and..."
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ...fter a successful post. The persisted state lies. - `ComposedReport` carries `owner`, `repo`, `pr_number` only so the route can post; this is transport leaking ..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "configuration": "new_skill",
+      "run_number": 2,
+      "result": {
+        "pass_rate": 1,
+        "passed": 11,
+        "failed": 0,
+        "total": 11,
+        "time_seconds": 88.4,
+        "tokens": 117389,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...nd `SecretsProvider` path) and `Date.now()` (hidden clock input). The result is non-deterministic and cannot be unit-tested without stubbing the environment and..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ..., the pull request loses every report and gets nothing back. SKILL \u0412\u00a71 and \u0412\u00a75 red flag: \"a service making two repository writes in a row where a failure between ..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: ...digest/shared`. - Putting Zod request schemas in `constants.ts` mixes transport schemas into a ring-0 literals file. It is legal for R12 (zod is allowed), but t..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": true,
+          "evidence": "matched: ...ve routes get a per-route rate limit\". Neither compose nor GitHub posting has one. Fix: move the posting into `ReportService.compose` (or a `post(workspaceId, r..."
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ... writes in a row (`deleteForPull`, then `insert`) If `insert` fails after `deleteForPull`, the pull request loses every report and gets nothing back. SKILL \u0412\u00a71 a..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ...r `reports`. A single-feature helper does not belong in `_shared`, which is for request context and param schemas. Fix: delete `_shared/report-access.ts`. Resol..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: ...t allowed, because the ledger only shrinks. Fix, pick one: - Make the cache generic and domain-free: `export function cachedRender(key: string, render: () => st..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "configuration": "new_skill",
+      "run_number": 3,
+      "result": {
+        "pass_rate": 1,
+        "passed": 11,
+        "failed": 0,
+        "total": 11,
+        "time_seconds": 89.5,
+        "tokens": 118427,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...`Date.now()` used as a hidden input in `freshness` (line 20), so the same findings score differently depending on when you call it. It is untestable without fak..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ...ompose(workspaceId, prId, input)` after the insert: `if (input.post_to_github) { const gh = await this.container.github(); const { id: reviewId } = await gh.pos..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: ... through the composition root: add a `repoRepo` getter to `platform/container.ts` (same pattern as `agentsRepo` / `reviewRepo`) returning `RepoRepository`, whic..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": true,
+          "evidence": "matched: ...ompose(workspaceId, prId, input)` after the insert: `if (input.post_to_github) { const gh = await this.container.github(); const { id: reviewId } = await gh.pos..."
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ...ry.markPosted` (`repository.ts:54`) is never called, so after posting, `posted_at` / `github_review_id` stay null, and the `postReview` result (`{ id }`) is dis..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ...ic entry. A deep path is also brittle (four `..` hops out of the package). Fix: `import { countBlockers } from '@devdigest/reviewer-core';`. If `countBlockers` ..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "configuration": "new_skill",
+      "run_number": 4,
+      "result": {
+        "pass_rate": 1,
+        "passed": 11,
+        "failed": 0,
+        "total": 11,
+        "time_seconds": 94.9,
+        "tokens": 115723,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...orts for the PR, then inserts the new one as two independent statements. If the insert fails (or the process dies) between them, the PR loses its previous repor..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ...t: null` in its response (service.ts:57-58). Failure ordering is also unspecified (report persisted, GitHub call fails, caller gets a 500 for a stored report). ..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: ...tiates a whole service (and its repository) per call. Fix: go through the composition root. Add a `repoRepo` getter to `platform/container.ts` next to `reviewRe..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module change set Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, route..."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": true,
+          "evidence": "matched: ...r from `helpers.ts` and declares `Promise<ReportDto[]>`, so API shaping (snake_case, ISO dates) leaked into ring 3. The other methods in the same class return `..."
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ...N.parse` of an env blob with a silent fallback to defaults also hides misconfiguration. Fix: make it a pure function of its arguments: `scoreFindings(findings, ..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ...he export there (do not add anything to reviewer-core's `dependencies`). ## 4. `modules/reports/service.ts:5` \u0432\u0402\u201d ring 2 service imports a ring 4 file ```ts impor..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: ...e (and deleting or moving that slice breaks `platform`). `pnpm arch` fires here (new violation, not in the baseline). Also: nothing in the module calls `cachedM..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "configuration": "new_skill",
+      "run_number": 5,
+      "result": {
+        "pass_rate": 1,
+        "passed": 11,
+        "failed": 0,
+        "total": 11,
+        "time_seconds": 92.5,
+        "tokens": 117400,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...viewer-core/src/review/` bypasses the engine's public API. It also depends on the directory depth of the checkout. Fix: `import { countBlockers } from '@devdige..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ...e } from '../repos/service.js'` and `new RepoService(container).list(workspaceId)`. R9 `no-cross-module-imports` exempts `_shared/**` because it holds request c..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: ...ently across calls and across deployments. It cannot be unit-tested without stubbing `process.env` and fake timers. Fix: make it a real pure function. ```ts exp..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*`, `server/src/modules/_shared/report-access.ts`, `server/src/platform/report-cache...."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": true,
+          "evidence": "matched: ...ries `owner`, `repo` and `pr_number` only so that the route can reach GitHub. That is API shape leaking from a transport concern. Fix: move it into `ReportServi..."
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ...ays `posted_at: null, github_review_id: null` after a successful post, and the stored row never records the review id. - If `postReview` throws, the report is a..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ... id. Fix: - Delete `_shared/report-access.ts`. A single-consumer helper does not belong in `_shared`. - Expose repo lookup through the container, like `agentsRe..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: .... That makes it a module concern placed in the platform folder. It has no caller in this change set either (grep finds none outside its own file). Fix, in order..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "configuration": "old_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.91,
+        "passed": 10,
+        "failed": 1,
+        "total": 11,
+        "time_seconds": 107.7,
+        "tokens": 117546,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...e workspace and then does `.find` in memory, instead of one keyed lookup. - **Fix.** 1. Delete `_shared/report-access.ts`. 2. Follow the existing pattern for cr..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ...cause `container` access in routes is allowed. - **Fix.** - Move it into `ReportService.compose` (or a `post(workspaceId, reportId)` method). - Call `await this..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: ...learReportCache`. - Nothing imports `cachedMarkdown` or `clearReportCache`, so it is dead code. Neither `compose` nor `remove` invalidates it. - The key is docu..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*`, `server/src/modules/_shared/report-access.ts`, `server/src/platform/report-cache...."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": false,
+          "evidence": "no finding matches"
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ...missing predicates. - **Fix.** - The table has no `workspace_id`, so scope through the join to `pull_requests`, as `listForPull` does. - Change the signatures t..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ...Dto[]> { ... rows.map((r) => toReportDto(r.report)) } ``` - **What is wrong.** Skill: a repository \"Returns rows, not DTOs\". Every other method here returns `Co..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: ...'s `countBlockers` decide this separately. `verdictFor` uses the local rule and `blockers` uses the engine's. The two can disagree, so a report could say `Block..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "configuration": "old_skill",
+      "run_number": 2,
+      "result": {
+        "pass_rate": 0.91,
+        "passed": 10,
+        "failed": 1,
+        "total": 11,
+        "time_seconds": 91.8,
+        "tokens": 115175,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...atches a relative escape. A green `pnpm arch` should not be trusted for this line, so verify it. The module also already has a second implementation of the same..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ...po` or a `@devdigest/shared` contract, never `OtherService`. - R9 (`no-cross-module-imports`) exempts `_shared/**` as a *target*. It also has no `modules/<a>` t..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: .... - It also loads every repo of the workspace and then calls `.find()` to fetch one. **Fix.** 1. Delete `_shared/report-access.ts`. 2. Expose a repo lookup thro..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": false,
+          "evidence": "no finding matches"
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ...in file. - Per AGENTS.md, config is not read ad hoc from the environment. **Fix.** 1. Make `scoreFindings(findings, { weights = SEVERITY_WEIGHT, now = Date.now(..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ...ot to `platform/`. - `cachedMarkdown` has no importer anywhere in the change set. It is unused code, and it adds a hidden module-level `Map` that bypasses the `..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "configuration": "old_skill",
+      "run_number": 3,
+      "result": {
+        "pass_rate": 1,
+        "passed": 11,
+        "failed": 0,
+        "total": 11,
+        "time_seconds": 100.7,
+        "tokens": 116597,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ...sport helpers (`context.ts`, `schemas.ts`), not for a place to hide a sibling-module service import. The file is named for one consumer (`report-access`), which..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: ...he route can call the adapter. They leak into the 201 response body too. Fix: - Move the whole `post_to_github` branch into `ReportService.compose`: after inser..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": true,
+          "evidence": "matched: ...o states \"Never read `process.env`\" for configuration in this codebase; config comes from `container.config`. As written the score is non-deterministic (time) a..."
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ...sed_reviews` has no workspace column (eval.ts:47-56), but the module already shows how to do it correctly in `listForPull` (repository.ts:27-28): join `pull_req..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ...Id, id)`, and make `inputFor` use the scoped `reviewRepo` calls. ## 6. `repository.ts:23-32` - repository returns a DTO, not rows - NOT caught `listForPull` map..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: ... the composition root). The direction is also inverted: the file is a reports-only concern sitting in the shared infrastructure folder, and it depends on the mo..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "configuration": "old_skill",
+      "run_number": 4,
+      "result": {
+        "pass_rate": 0.91,
+        "passed": 10,
+        "failed": 1,
+        "total": 11,
+        "time_seconds": 106.2,
+        "tokens": 121216,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ...row.id, result.id)` and return the updated DTO. The handler then reads `getContext` -> `service.compose(...)` -> `reply.status(201)`. ## 2. Ring 2 service impor..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: ... on a feature. - `cachedMarkdown` is not used anywhere in the excerpt. `service.ts` calls `renderMarkdown` directly. - The cache key is \"pull request and head s..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": false,
+          "evidence": "no finding matches"
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ...m '../../../../reviewer-core/src/review/blockers.js'; ``` What is wrong: `server/src/**` may import `reviewer-core/src/index.ts` and nothing deeper (R11). This ..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ...report)); } ``` What is wrong: a ring 3 repository \"returns rows, not DTOs\". `listForPull` returns `ReportDto[]` while `getById` and `insert` return `ComposedRe..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: ...rch` cannot see this: `routes.ts` is ring 4 and may import everything, and `container.github()` is a legal call. Fix: move the posting into `ReportService.compo..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 6,
+      "configuration": "old_skill",
+      "run_number": 5,
+      "result": {
+        "pass_rate": 0.91,
+        "passed": 10,
+        "failed": 1,
+        "total": 11,
+        "time_seconds": 99.1,
+        "tokens": 119477,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+          "passed": true,
+          "evidence": "matched: ...s every repo in the workspace and then does `.find()` in memory just to fetch one row. It builds a second `RepoService` per call, and that service is the one th..."
+        },
+        {
+          "text": "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+          "passed": true,
+          "evidence": "matched: ...d by another module\"), routed through `_shared/` so that `no-cross-module-imports` does not see it. R9 exempts `_shared/**` as a *target*, but `_shared` is ring..."
+        },
+        {
+          "text": "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+          "passed": true,
+          "evidence": "matched: ...ws about reports is also not \"platform\". Nothing in the repo imports `cachedMarkdown` or `clearReportCache`, so the file is also dead code. The cache key (\"pull..."
+        },
+        {
+          "text": "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+          "passed": true,
+          "evidence": "matched: ...# Architecture review: `reports` module Scope: `server/src/modules/reports/*` (constants, types, helpers, format, scoring, repository, service, routes), `server..."
+        },
+        {
+          "text": "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+          "passed": false,
+          "evidence": "no finding matches"
+        },
+        {
+          "text": "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+          "passed": true,
+          "evidence": "matched: ...hat is a data-consistency bug that follows from the misplaced orchestration. - A GitHub failure after the insert leaves a stored report that is not posted, with..."
+        },
+        {
+          "text": "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+          "passed": true,
+          "evidence": "matched: ...s id. - `inputFor(prId)` (`service.ts:80-82`) uses `reviewRepo.getPullById` and `findingsForPullById` \u0432\u0402\u201d by their names, the unscoped variants \u0432\u0402\u201d while `compose` ..."
+        },
+        {
+          "text": "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+          "passed": true,
+          "evidence": "matched: ...line. ### 2. `modules/reports/service.ts:4` \u0432\u0402\u201d deep import into reviewer-core (R11 `reviewer-core-via-public-entry`) `import { countBlockers } from '../../../../..."
+        },
+        {
+          "text": "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report container.reviewRepo usage in service.ts as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        },
+        {
+          "text": "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation",
+          "passed": true,
+          "evidence": "not reported as a violation"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "new_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1,
+        "max": 1
+      },
+      "time_seconds": {
+        "mean": 91.24,
+        "stddev": 2.5589,
+        "min": 88.4,
+        "max": 94.9
+      },
+      "tokens": {
+        "mean": 116411.0,
+        "stddev": 2081.4196,
+        "min": 113116,
+        "max": 118427
+      }
+    },
+    "old_skill": {
+      "pass_rate": {
+        "mean": 0.928,
+        "stddev": 0.0402,
+        "min": 0.91,
+        "max": 1
+      },
+      "time_seconds": {
+        "mean": 101.1,
+        "stddev": 6.3289,
+        "min": 91.8,
+        "max": 107.7
+      },
+      "tokens": {
+        "mean": 118002.2,
+        "stddev": 2381.14,
+        "min": 115175,
+        "max": 121216
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.07",
+      "time_seconds": "-9.9",
+      "tokens": "-1591"
+    }
+  },
+  "notes": []
+}

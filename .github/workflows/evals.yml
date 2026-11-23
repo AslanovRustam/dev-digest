@@ -1,0 +1,179 @@
+# Harness evals — skills, agents and the workflow tier (CLAUDE.md / AGENTS.md routing), on OpenRouter.
+#
+# Jobs:
+#  - detect: maps the PR's changed files to eval suites (evals/scripts/ci-detect.mjs). An artifact
+#    with no evals is printed as `SKIP <tier> <name>` in this job's log and nothing runs for it.
+#  - unit:   typecheck + the model-free unit tests of the eval engine and the detector. Blocking.
+#  - evals:  one matrix entry per tier that has something to run (skills / agents / workflow), each
+#    case run ONCE. Brings up the LiteLLM proxy (evals/proxy) so the Claude Agent SDK can drive a
+#    non-Anthropic OpenRouter model. NON-BLOCKING (continue-on-error) until the chosen model has a
+#    track record — cheap models flake on subagent dispatch / skill activation (evals/README.md).
+#
+# Model switch, highest priority first (no UI — job parameters only):
+#  1. manual run (Actions → evals → Run workflow): `model` / `judge_model` inputs
+#  2. repository variables EVAL_MODEL / EVAL_JUDGE_MODEL (Settings → Secrets and variables → Variables)
+#  3. the default below: deepseek/deepseek-v4.1-flash ($0.05 / $0.20 per 1M in/out, 2026-11-23) —
+#     chosen for cost; subagent dispatch on it is NOT yet verified. Fallback if dispatch cases fail:
+#     google/gemini-2.5-flash, verified in this repo on every tier ($0.30 / $2.50).
+#     Pin a versioned slug, never a `~…-latest` alias: an alias drifts and runs stop being comparable.
+#
+# Needs the Actions secret OPENROUTER_API_KEY. Without it (e.g. a PR from a fork) the evals job is
+# skipped with a log line; detect + unit still run.
+name: evals
+
+on:
+  pull_request:
+    paths:
+      - '.claude/**'
+      - '**/AGENTS.md'
+      - '**/CLAUDE.md'
+      - 'evals/**'
+      - '.github/workflows/evals.yml'
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'OpenRouter slug of the model under test (empty = repo variable or default)'
+        required: false
+        default: ''
+      judge_model:
+        description: 'OpenRouter slug of the LLM judge for quality cases (empty = repo variable or default)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EVAL_MODEL: ${{ inputs.model || vars.EVAL_MODEL || 'deepseek/deepseek-v4.1-flash' }}
+  EVAL_JUDGE_MODEL: ${{ inputs.judge_model || vars.EVAL_JUDGE_MODEL || 'deepseek/deepseek-v4.1-flash' }}
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      has_work: ${{ steps.detect.outputs.has_work }}
+      has_key: ${{ steps.key.outputs.has_key }}
+    steps:
+      # On pull_request the checkout is the merge commit; HEAD^1 is the base, so `HEAD^1 HEAD` is
+      # exactly what this PR changes. Depth 2 is enough for that diff.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Changed files → eval suites
+        id: detect
+        env:
+          EVAL_ALL: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+        run: |
+          if [ "$EVAL_ALL" = "1" ]; then
+            CHANGED_FILES=""
+          else
+            CHANGED_FILES="$(git diff --name-only HEAD^1 HEAD)"
+          fi
+          export CHANGED_FILES
+          node evals/scripts/ci-detect.mjs
+
+      - name: OpenRouter key available?
+        id: key
+        env:
+          KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "SKIP model evals — OPENROUTER_API_KEY is not available to this run (fork PR or secret not set)"
+          fi
+
+      - name: Model
+        run: echo "model under test=$EVAL_MODEL · judge=$EVAL_JUDGE_MODEL"
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: evals
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      # src/**/*.test.ts only — never the model-backed *.eval.ts files.
+      - run: pnpm exec vitest run src/
+      - run: node --test scripts/ci-detect.test.mjs
+
+  evals:
+    needs: [detect, unit]
+    if: needs.detect.outputs.has_work == 'true' && needs.detect.outputs.has_key == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Non-blocking for now: results show on the PR, they do not hold the merge.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      # One tier at a time — parallel tiers get rate-limited by OpenRouter and degrade to 1-turn runs.
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix) }}
+    name: evals (${{ matrix.tier }})
+    defaults:
+      run:
+        working-directory: evals
+    env:
+      EVAL_BACKEND: openrouter
+      OPENROUTER_BASE_URL: http://localhost:4000
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: evals/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # LiteLLM translating proxy on :4000 (reads OPENROUTER_API_KEY from the job env); `up` waits
+      # until it answers.
+      - run: pnpm proxy:up
+
+      - name: Run ${{ matrix.tier }} evals once
+        # Sequential files: same rate-limit reason as max-parallel above. Paths go through env, never
+        # `${{ }}` inside `run:` (expression injection); ci-detect.mjs also allowlists the names.
+        # $EVAL_PATHS is unquoted on purpose: it is a space-separated list of safe path tokens.
+        env:
+          EVAL_PATHS: ${{ matrix.paths }}
+        run: |
+          echo "running: $EVAL_PATHS"
+          pnpm exec vitest run --no-file-parallelism $EVAL_PATHS
+
+      - if: failure()
+        run: docker compose -f proxy/docker-compose.yml logs --tail 100
+
+      - if: always()
+        run: pnpm proxy:down

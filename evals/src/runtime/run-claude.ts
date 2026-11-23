@@ -4,7 +4,7 @@
  */
 
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
-import { EVAL_MODEL, MAX_TURNS, SPAWN_TOOLS } from "../config.js";
+import { EVAL_MODEL, MAX_TURNS, MUTATING_TOOLS, SPAWN_TOOLS } from "../config.js";
 import { REPO_ROOT } from "../artifacts/paths.js";
 import { subscriptionEnv } from "./env.js";
 
@@ -45,6 +45,21 @@ export interface RunOptions {
   stopWhen?: (partial: Pick<Result, "subagents" | "filesRead" | "skillsInvoked" | "toolsUsed">) => boolean;
 }
 
+/**
+ * The SDK tool options for an eval run. `allowedTools` alone does NOT restrict anything — it only
+ * auto-approves; under bypassPermissions every other tool stays usable (a 2026-11-22 run wrote a
+ * file into the repo root with only Read/Grep/Glob "allowed"). So:
+ * - mutating tools are always removed from the model's context (`disallowedTools`);
+ * - a run that asked for no tools gets no built-in tools at all (`tools: []`).
+ */
+export function toolOptions(allowedTools: string[]): Pick<Options, "allowedTools" | "disallowedTools" | "tools"> {
+  return {
+    allowedTools,
+    disallowedTools: [...MUTATING_TOOLS],
+    ...(allowedTools.length === 0 ? { tools: [] } : {}),
+  };
+}
+
 /** Run one headless Claude turn-loop and extract what it ACTUALLY did (not its prose). */
 export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<Result> {
   const allowedTools = opts.allowedTools ?? [];
@@ -62,9 +77,9 @@ export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<
   const options: Options = {
     model: opts.model ?? EVAL_MODEL,
     maxTurns: opts.maxTurns ?? MAX_TURNS,
-    permissionMode: "bypassPermissions", // safe: evals only read/plan and tools are allow-listed
+    permissionMode: "bypassPermissions", // safe only because toolOptions() removes mutating tools
     systemPrompt,
-    allowedTools,
+    ...toolOptions(allowedTools),
     cwd: opts.cwd ?? REPO_ROOT,
     // Default: do NOT load on-disk config — isolates the injected artifact. workflowTask overrides.
     settingSources: opts.settingSources ?? [],

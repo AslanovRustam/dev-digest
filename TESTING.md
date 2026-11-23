@@ -33,6 +33,7 @@ If a test wouldn't catch a class of regression we care about, we don't write it.
 | mcp | `mcp/` | unit (mocked HTTP) | vitest | `mcp.yml` | no |
 | e2e web | `e2e/` | browser e2e (deterministic) | agent-browser + `run.ts` | `e2e-web.yml` | yes (stack) |
 | pr-self-review | `.claude/skills/pr-self-review/` | unit (agent tooling) | `node --test` | `skills.yml` | no |
+| harness evals | `evals/` | LLM evals of skills / agents / CLAUDE.md routing (model-backed, non-blocking) + engine unit tests | vitest + `node --test` | `evals.yml` | yes (LiteLLM proxy) |
 
 ## What each suite covers
 
