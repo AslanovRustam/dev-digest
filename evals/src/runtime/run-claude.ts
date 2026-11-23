@@ -159,8 +159,12 @@ export async function runClaude(prompt: string, opts: RunOptions = {}): Promise<
     }
   } catch (err) {
     isError = true;
-    if (!resultText && textParts.length === 0) {
-      throw err; // nothing usable collected — surface the failure
+    // Rethrow only when the session did NOTHING. A tool call counts as collected evidence: models
+    // like DeepSeek call tools without any text block, and a max-turns hit then threw the whole
+    // trace away — an activation case whose Skill call was already in failed on the SDK error
+    // (CI run 2026-11-24).
+    if (!resultText && textParts.length === 0 && toolCallCount === 0) {
+      throw err;
     }
   }
 

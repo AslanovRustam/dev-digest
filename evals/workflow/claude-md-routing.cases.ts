@@ -79,7 +79,9 @@ export const cases: WorkflowCase[] = [
       /mcp\/src\/contracts\.ts/,
       /(^|[\s`(])specs\//m, // root specs/, not <package>/specs/
     ],
-    maxTurns: 12,
+    // 16, not 12: deepseek-v4.1-flash explores wider than Sonnet and hit 12 before answering
+    // (CI run 2026-11-24); same budget as the client case.
+    maxTurns: 16,
   },
 
   // --- 4. root ops: Docs table → TESTING.md + the docker-volume gotcha --------------------------

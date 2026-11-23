@@ -534,6 +534,14 @@ _None yet._
   side — and the asserts did a raw `includes("server/AGENTS.md")`. **Fix:** compare only through `wasRead()` /
   `skillEngaged()` in `evals/src/dsl/trace-check.ts` (backslashes normalised); never `filesRead.includes` directly
   · ref: `evals/src/dsl/trace-check.ts`, `evals/src/dsl/trace-check.test.ts`
+- **2026-11-24** · **Symptom:** on CI (`deepseek/deepseek-v4.1-flash`) workflow cases failed with
+  `Claude Code returned an error result: Reached maximum number of turns (N)` and printed no trace at all, while the
+  same cases on Sonnet failed (if ever) with a readable miss list. **Cause:** `runClaude()` rethrew the SDK max-turns
+  error whenever no TEXT block had been collected; Sonnet writes a sentence before each tool call, DeepSeek calls
+  tools silently, so its whole Skill/Read trace was discarded. **Fix:** rethrow only when the session did nothing
+  (no text AND `toolCallCount === 0`); a positive `activation` case now early-stops via `stopWhen` once
+  `skillEngaged()` holds. Also: SDK `maxTurns` counts round trips, not assistant messages — DeepSeek's parallel tool
+  calls log 29 "turns" inside `maxTurns: 12` · ref: `evals/src/runtime/run-claude.ts:160`, `evals/src/dsl/case.ts:148`
 
 ## Session Notes
 

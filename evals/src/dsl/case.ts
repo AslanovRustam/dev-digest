@@ -146,7 +146,13 @@ export function runWorkflowCases(cases: WorkflowCase[]): void {
           record(c.name, { result, passed });
         }
       } else if (c.kind === "activation") {
-        const result = await workflowTask(c.prompt, { maxTurns: c.maxTurns });
+        // Positive case: stop the moment the skill is engaged — the rest of the session cannot
+        // change the verdict. A negative case must run to the end (or maxTurns) to prove a miss.
+        const skill = c.skill;
+        const result = await workflowTask(c.prompt, {
+          maxTurns: c.maxTurns,
+          stopWhen: c.shouldActivate ? (p) => skillEngaged(p, skill) : undefined,
+        });
         logTrace(c.name, result);
         const passed = activated(result, c.skill) === c.shouldActivate;
         try {
