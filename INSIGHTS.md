@@ -441,6 +441,11 @@ _None yet._
   `evals/proxy/docker-compose.yml` — both eval clients already send that key as bearer, so no new secret; do not use the
   `dangerously_permit_weak_or_unset_master_key` escape. The tag floats, so the next breaking LiteLLM change lands the same
   way — read `docker compose -f evals/proxy/docker-compose.yml logs` first · ref: `evals/proxy/docker-compose.yml`
+- **2026-11-23** · The pr-self-review gate is a `PreToolUse` hook on the Bash command `gh pr create` / `gh pr merge` only.
+  On a machine without `gh` (this Windows box: not in Git Bash or PowerShell PATH) a PR opened through the GitHub MCP
+  connector (`create_pull_request`) is never gated — so before using it, check by hand that `report.json` is fresh and
+  PASS and paste `.devdigest/pr-self-review/pr-body-section.md` (with its `<!-- pr-self-review:<hash> -->` marker) into the
+  body, as done for PR #17 · ref: `.claude/settings.json` (PreToolUse), `.claude/skills/pr-self-review/SKILL.md` §7
 
 ## Recurring Errors & Fixes
 
