@@ -1,0 +1,105 @@
+{
+  "skill_name": "onion-architecture",
+  "setup": "README.md",
+  "fixtures_root": "fixtures",
+  "evals": [
+    {
+      "id": 1,
+      "name": "memory-module-review",
+      "fixture": "memory",
+      "prompt": "Review the newly added `memory` module (every file in server/src/modules/memory/) of the fixture server excerpt. Find architecture / layering problems: code in the wrong layer, imports that cross a boundary they should not. For each finding: file:line, what is wrong, why, and the concrete fix. Things that look suspicious but are fine go to 'Checked and OK'. Write review.md.",
+      "expected_output": "3 planted violations found, legal type-only db/rows import not flagged",
+      "files": [],
+      "assertions": [
+        "Flags the Drizzle query / db imports inside the GET /memory/:id handler in routes.ts",
+        "Flags MemoryItem.parse(req.body) in the handler instead of route schema.body",
+        "Flags service.ts importing/instantiating RepoService from the sibling repos module",
+        "Does NOT report the type-only MemoryRow import from db/rows.js (helpers.ts) as a violation",
+        "Primary fix for the cross-module call goes through the container (container.<x>Repo) or a shared contract, not through another call to the repos module's service"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "digests-module-review",
+      "fixture": "digests",
+      "prompt": "Review the newly added `digests` module (every file in server/src/modules/digests/) of the fixture server excerpt. Find architecture / layering problems: code in the wrong layer, imports that cross a boundary they should not. For each finding: file:line, what is wrong, why, and the concrete fix. Things that look suspicious but are fine go to 'Checked and OK'. Write review.md.",
+      "expected_output": "3 planted violations found, legal constants import + enqueue not flagged",
+      "files": [],
+      "assertions": [
+        "Flags `new OctokitGitHubClient(process.env.GITHUB_TOKEN)` constructed inside service.ts",
+        "Flags the FastifyBaseLogger (fastify) dependency in service.ts",
+        "Flags the SQL update / drizzle imports in service.ts markDelivered",
+        "Does NOT report the REFRESH_JOB_KIND import from repo-intel/constants.js (or the enqueue) as a violation",
+        "Fix for the GitHub client is `await container.github()`"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "plugins-module-review",
+      "fixture": "plugins",
+      "prompt": "Review the newly added `plugins` module (every file in server/src/modules/plugins/) of the fixture server excerpt. Find architecture / layering problems: code in the wrong layer, imports that cross a boundary they should not. For each finding: file:line, what is wrong, why, and the concrete fix. Things that look suspicious but are fine go to 'Checked and OK'. Write review.md.",
+      "expected_output": "3 planted violations found, legal container.agentsRepo access not flagged",
+      "files": [],
+      "assertions": [
+        "Flags PluginRepository taking Container instead of Db",
+        "Flags getById / setEnabled not scoped by workspaceId",
+        "Flags helpers.ts value-importing db/schema.js for the row type",
+        "Does NOT report container.agentsRepo.listEnabled() in service.ts as a violation",
+        "Fix for the helpers import is a type-only import of the row alias from db/rows.js"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "evals-module-review",
+      "fixture": "evals",
+      "prompt": "Review the change set that adds the `evals` module: every file in server/src/modules/evals/ plus server/src/platform/eval-scoring.ts. Find architecture / layering problems: code in the wrong layer, imports that cross a boundary they should not. For each finding: file:line, what is wrong, why, and the concrete fix. Things that look suspicious but are fine go to 'Checked and OK'. Write review.md.",
+      "expected_output": "3 planted violations found, legal pure-adapter import and container accessor not flagged",
+      "files": [],
+      "assertions": [
+        "Flags the import of reviewer-core/src/grounding.js in service.ts as a deep import that bypasses reviewer-core's public entry (index.ts)",
+        "Flags platform/eval-scoring.ts importing from modules/evals/helpers.js (platform must not import modules)",
+        "Flags replace() in service.ts doing deleteRunsForCase then updateCase as two separate writes with no transaction, and proposes a single repository method using db.transaction",
+        "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js in service.ts as a violation",
+        "Does NOT report container.agentsRepo.getById in service.ts as a violation",
+        "Fix for the deep import is to import from '@devdigest/reviewer-core' (its index.ts), not to keep the deep path"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "ci-module-review",
+      "fixture": "ci",
+      "prompt": "Review the change set that adds CI support: every file in server/src/modules/ci/ plus server/src/db/seed-ci.ts, server/src/adapters/github/ci-workflow.ts, server/src/vendor/shared/contracts/ci-badge.ts and the added export line in server/src/vendor/shared/index.ts. Find architecture / layering problems: code in the wrong layer, imports that cross a boundary they should not. For each finding: file:line, what is wrong, why, and the concrete fix. Things that look suspicious but are fine go to 'Checked and OK'. Write review.md.",
+      "expected_output": "3 planted reverse-direction imports found, legal container accessor and type-only row import not flagged",
+      "files": [],
+      "assertions": [
+        "Flags db/seed-ci.ts importing from modules/ci/constants.js (db must not import modules)",
+        "Flags adapters/github/ci-workflow.ts importing from modules/ci (adapters must not import modules)",
+        "Flags vendor/shared/contracts/ci-badge.ts importing from modules/ci/constants.js (shared contracts may import only zod)",
+        "Does NOT report container.agentsRepo.getById in modules/ci/service.ts as a violation",
+        "Does NOT report the type-only CiInstallationRow import from db/rows.js as a violation",
+        "Fix direction is to move the literals down to the inner file (contract, db or adapter owns them) and have the module import from there, not to keep the outward import"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "reports-module-review-large",
+      "fixture": "reports",
+      "prompt": "Review the change set that adds the `reports` module: every file in server/src/modules/reports/, plus server/src/modules/_shared/report-access.ts and server/src/platform/report-cache.ts. Find architecture / layering problems: code in the wrong layer, imports that cross a boundary they should not, rules that the import checker would not catch. For each finding: file:line, what is wrong, why, and the concrete fix. Things that look suspicious but are fine go to 'Checked and OK'. Write review.md.",
+      "expected_output": "8 planted violations (easy, medium and tool-invisible) found; 3 legal look-alikes not flagged",
+      "files": [],
+      "assertions": [
+        "Flags the route handler in routes.ts that calls container.github().postReview itself (orchestration and payload building belong in the service)",
+        "Flags repository getById/remove (and the export/delete paths that drop workspaceId) as not scoped by workspace",
+        "Flags the deep import reviewer-core/src/review/blockers.js in service.ts (bypasses reviewer-core's public entry)",
+        "Flags platform/report-cache.ts importing from modules/reports (platform must not import modules)",
+        "Flags compose() doing deleteForPull then insert as two writes with no transaction",
+        "Flags repository.ts listForPull returning DTOs through toReportDto imported from helpers.ts (ring 3 shaping API output)",
+        "Flags scoring.ts reading process.env and Date.now() while the service treats it as a pure business rule",
+        "Flags _shared/report-access.ts importing RepoService from modules/repos as a cross-module back door",
+        "Does NOT report the parseUnifiedDiff import from adapters/git/diff-parser.js as a violation",
+        "Does NOT report container.reviewRepo usage in service.ts as a violation",
+        "Does NOT report the type-only ComposedReviewRow import from db/rows.js as a violation"
+      ]
+    }
+  ]
+}

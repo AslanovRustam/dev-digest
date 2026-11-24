@@ -1,0 +1,323 @@
+{
+  "metadata": {
+    "skill_name": "onion-architecture",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-11-21T17:32:43Z",
+    "evals_run": [
+      1,
+      2,
+      3
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 48.1,
+        "tokens": 97681,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the Drizzle query / db imports inside the GET /memory/:id handler in routes.ts",
+          "passed": true,
+          "evidence": "Finding 1: routes.ts:30-35, R1/R6"
+        },
+        {
+          "text": "Flags MemoryItem.parse(req.body) in the handler instead of route schema.body",
+          "passed": true,
+          "evidence": "Finding 2: routes.ts:38-40"
+        },
+        {
+          "text": "Flags service.ts importing/instantiating RepoService from the sibling repos module",
+          "passed": true,
+          "evidence": "Finding 3: service.ts:4,14,18, R9"
+        },
+        {
+          "text": "Does NOT report the type-only MemoryRow import from db/rows.js (helpers.ts) as a violation",
+          "passed": true,
+          "evidence": "helpers.ts listed under Checked and OK"
+        },
+        {
+          "text": "Primary fix for the cross-module call goes through the container (container.<x>Repo) or a shared contract, not through another call to the repos module's service",
+          "passed": true,
+          "evidence": "Proposes a `container.reposRepo` lazy getter and `this.container.reposRepo.getById(...)`"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 47.1,
+        "tokens": 90368,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags `new OctokitGitHubClient(process.env.GITHUB_TOKEN)` constructed inside service.ts",
+          "passed": true,
+          "evidence": "Finding 2: service.ts:8,47, R4 + secrets rule"
+        },
+        {
+          "text": "Flags the FastifyBaseLogger (fastify) dependency in service.ts",
+          "passed": true,
+          "evidence": "Finding 3: service.ts:1,27 and routes.ts:16, R2; fix: pass a log callback"
+        },
+        {
+          "text": "Flags the SQL update / drizzle imports in service.ts markDelivered",
+          "passed": true,
+          "evidence": "Finding 1: service.ts:2,6,73-77, R6"
+        },
+        {
+          "text": "Does NOT report the REFRESH_JOB_KIND import from repo-intel/constants.js (or the enqueue) as a violation",
+          "passed": true,
+          "evidence": "Listed under Checked and OK, R9 exception cited"
+        },
+        {
+          "text": "Fix for the GitHub client is `await container.github()`",
+          "passed": true,
+          "evidence": "`const github = await this.container.github();`"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 42.2,
+        "tokens": 89640,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags PluginRepository taking Container instead of Db",
+          "passed": true,
+          "evidence": "Finding 2: repository.ts:2,16"
+        },
+        {
+          "text": "Flags getById / setEnabled not scoped by workspaceId",
+          "passed": true,
+          "evidence": "Finding 3: repository.ts:26-32, 57-64"
+        },
+        {
+          "text": "Flags helpers.ts value-importing db/schema.js for the row type",
+          "passed": true,
+          "evidence": "Finding 1: helpers.ts:2,4, R6/R12"
+        },
+        {
+          "text": "Does NOT report container.agentsRepo.listEnabled() in service.ts as a violation",
+          "passed": true,
+          "evidence": "service.ts:26 listed under Checked and OK"
+        },
+        {
+          "text": "Fix for the helpers import is a type-only import of the row alias from db/rows.js",
+          "passed": true,
+          "evidence": "`import type { InstalledPluginRow } from '../../db/rows.js'`"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 44.4,
+        "tokens": 85461,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags the Drizzle query / db imports inside the GET /memory/:id handler in routes.ts",
+          "passed": true,
+          "evidence": "Finding 1: routes.ts:3,5,30-33"
+        },
+        {
+          "text": "Flags MemoryItem.parse(req.body) in the handler instead of route schema.body",
+          "passed": true,
+          "evidence": "Finding 2: routes.ts:38,40"
+        },
+        {
+          "text": "Flags service.ts importing/instantiating RepoService from the sibling repos module",
+          "passed": true,
+          "evidence": "Finding 3: service.ts:4,14,18,56-59"
+        },
+        {
+          "text": "Does NOT report the type-only MemoryRow import from db/rows.js (helpers.ts) as a violation",
+          "passed": true,
+          "evidence": "helpers.ts listed under Checked and OK"
+        },
+        {
+          "text": "Primary fix for the cross-module call goes through the container (container.<x>Repo) or a shared contract, not through another call to the repos module's service",
+          "passed": false,
+          "evidence": "Primary fix is `RepoService.get(workspaceId, id)` 'and call that' \u0432\u0402\u201d keeps the cross-module service import; the container is only mentioned as an alternative"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 47.9,
+        "tokens": 91745,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags `new OctokitGitHubClient(process.env.GITHUB_TOKEN)` constructed inside service.ts",
+          "passed": true,
+          "evidence": "Finding 2: service.ts:47-48"
+        },
+        {
+          "text": "Flags the FastifyBaseLogger (fastify) dependency in service.ts",
+          "passed": false,
+          "evidence": "FastifyBaseLogger is not mentioned anywhere in the review; the 3rd finding is a missing rate limit instead"
+        },
+        {
+          "text": "Flags the SQL update / drizzle imports in service.ts markDelivered",
+          "passed": true,
+          "evidence": "Finding 1: service.ts:73-77"
+        },
+        {
+          "text": "Does NOT report the REFRESH_JOB_KIND import from repo-intel/constants.js (or the enqueue) as a violation",
+          "passed": true,
+          "evidence": "Listed under Checked and OK"
+        },
+        {
+          "text": "Fix for the GitHub client is `await container.github()`",
+          "passed": true,
+          "evidence": "`const github = await this.container.github();`"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 57.9,
+        "tokens": 100622,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Flags PluginRepository taking Container instead of Db",
+          "passed": true,
+          "evidence": "Finding 1: repository.ts:15-16"
+        },
+        {
+          "text": "Flags getById / setEnabled not scoped by workspaceId",
+          "passed": true,
+          "evidence": "Finding 3: routes/service/repository get + setEnabled"
+        },
+        {
+          "text": "Flags helpers.ts value-importing db/schema.js for the row type",
+          "passed": true,
+          "evidence": "Finding 5: helpers.ts:2,4"
+        },
+        {
+          "text": "Does NOT report container.agentsRepo.listEnabled() in service.ts as a violation",
+          "passed": true,
+          "evidence": "service.ts:26 listed under Checked and OK"
+        },
+        {
+          "text": "Fix for the helpers import is a type-only import of the row alias from db/rows.js",
+          "passed": true,
+          "evidence": "`import type { InstalledPluginRow } from '../../db/rows.js'`"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 45.8,
+        "stddev": 3.1575,
+        "min": 42.2,
+        "max": 48.1
+      },
+      "tokens": {
+        "mean": 92563.0,
+        "stddev": 4447.2395,
+        "min": 89640,
+        "max": 97681
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.8667,
+        "stddev": 0.1155,
+        "min": 0.8,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 50.0667,
+        "stddev": 7.0059,
+        "min": 44.4,
+        "max": 57.9
+      },
+      "tokens": {
+        "mean": 92609.3333,
+        "stddev": 7617.3673,
+        "min": 85461,
+        "max": 100622
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.13",
+      "time_seconds": "-4.3",
+      "tokens": "-46"
+    }
+  },
+  "notes": []
+}
