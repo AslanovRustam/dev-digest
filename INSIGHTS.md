@@ -446,6 +446,11 @@ _None yet._
   connector (`create_pull_request`) is never gated — so before using it, check by hand that `report.json` is fresh and
   PASS and paste `.devdigest/pr-self-review/pr-body-section.md` (with its `<!-- pr-self-review:<hash> -->` marker) into the
   body, as done for PR #17 · ref: `.claude/settings.json` (PreToolUse), `.claude/skills/pr-self-review/SKILL.md` §7
+- **2026-11-24** · `tools: Bash` in a workflow-eval trace does NOT mean Bash ran: `runClaude()` logs every `tool_use`
+  block, including calls to tools removed via `disallowedTools` (`MUTATING_TOOLS`), which the SDK rejects. Non-Claude
+  models (`deepseek/deepseek-v4.1-flash`) keep emitting such calls (git/gh checks) and each rejection burns a turn —
+  budget `maxTurns` ~1.5× the Sonnet value for them instead of reading it as a sandbox leak · ref:
+  `evals/src/runtime/run-claude.ts:119`, `evals/src/config.ts:39`
 
 ## Recurring Errors & Fixes
 

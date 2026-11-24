@@ -39,7 +39,9 @@ export const cases: WorkflowCase[] = [
     // name — routing-v2 answered "what should I read" by naming the README without opening it.
     expectFilesRead: ["server/AGENTS.md", "server/src/modules/repo-intel/README.md"],
     expectText: [/--exclude\s+['"]?\*\*\/\*\.it\.test/, /db:generate/, /rank\.ts/, /hotness/i, /file_rank/],
-    maxTurns: 12,
+    // 16, not 12: deepseek-v4.1-flash read 30 files (39 tool calls, incl. denied Bash attempts) and hit
+    // 12 before answering (CI run 2026-11-24); same budget as the client and cross-package cases.
+    maxTurns: 16,
   },
 
   // --- 2. client: root → client/AGENTS.md → frontend-ui-architecture + design-system README ----
@@ -121,7 +123,9 @@ export const cases: WorkflowCase[] = [
     expectText: [/\/pr-self-review/],
     // 8, not 4: Sonnet first checks an existing .devdigest/pr-self-review/report.json for staleness
     // (head_sha vs HEAD) — correct behaviour that used up 4 turns before the answer (sonnet-v1 run 1).
-    maxTurns: 8,
+    // 12, not 8: deepseek-v4.1-flash read SKILL.md, AGENTS.md, settings.json and retried the denied
+    // Bash/git checks, hitting 8 mid-sentence before the handoff (CI run 2026-11-24).
+    maxTurns: 12,
   },
 
   // --- 7–8. activation pair (2 sessions): positive + near-miss negative -------------------------
